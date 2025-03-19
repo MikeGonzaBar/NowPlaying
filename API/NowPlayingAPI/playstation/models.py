@@ -13,15 +13,11 @@ class PSN(models.Model):
 
     @staticmethod
     def timedelta_to_str(td):
-        if isinstance(td, timedelta):
-            return str(td)
-        return td
+        return str(td) if isinstance(td, timedelta) else td
 
     @staticmethod
     def datetime_to_str(dt):
-        if isinstance(dt, datetime):
-            return dt.isoformat()
-        return dt
+        return dt.isoformat() if isinstance(dt, datetime) else dt
 
     @classmethod
     def fetch_achievements(cls, client: Client, title_id, title_category):
@@ -40,37 +36,36 @@ class PSN(models.Model):
                     include_progress=True,
                 )
             )
-            if trophies:
-                achievements = []
-                trophy_counts = {"platinum": 0, "gold": 0, "silver": 0, "bronze": 0}
-                unlocked_counts = {"platinum": 0, "gold": 0, "silver": 0, "bronze": 0}
-                for trophy in trophies:
-                    trophy_type = trophy.trophy_type.name.lower()
-                    trophy_counts[trophy_type] += 1
-                    unlocked = trophy.earned
-                    if unlocked:
-                        unlocked_counts[trophy_type] += 1
-                    achievements.append(
-                        {
-                            "name": trophy.trophy_name,
-                            "description": trophy.trophy_detail,
-                            "image": trophy.trophy_icon_url,
-                            "unlocked": unlocked,
-                            "unlock_time": (
-                                cls.datetime_to_str(trophy.earned_date_time)
-                                if unlocked and trophy.earned_date_time
-                                else None
-                            ),
-                            "type": trophy_type,
-                        }
-                    )
-                return {
-                    "achievements": achievements,
-                    "total": trophy_counts,
-                    "unlocked": unlocked_counts,
-                }
-            else:
+            if not trophies:
                 return {"achievements": [], "total": 0, "unlocked": 0}
+            achievements = []
+            trophy_counts = {"platinum": 0, "gold": 0, "silver": 0, "bronze": 0}
+            unlocked_counts = {"platinum": 0, "gold": 0, "silver": 0, "bronze": 0}
+            for trophy in trophies:
+                trophy_type = trophy.trophy_type.name.lower()
+                trophy_counts[trophy_type] += 1
+                unlocked = trophy.earned
+                if unlocked:
+                    unlocked_counts[trophy_type] += 1
+                achievements.append(
+                    {
+                        "name": trophy.trophy_name,
+                        "description": trophy.trophy_detail,
+                        "image": trophy.trophy_icon_url,
+                        "unlocked": unlocked,
+                        "unlock_time": (
+                            cls.datetime_to_str(trophy.earned_date_time)
+                            if unlocked and trophy.earned_date_time
+                            else None
+                        ),
+                        "type": trophy_type,
+                    }
+                )
+            return {
+                "achievements": achievements,
+                "total": trophy_counts,
+                "unlocked": unlocked_counts,
+            }
         except Exception as e:
             print(f"Error fetching trophies for {title_id}: {e}")
             return {"achievements": [], "total": 0, "unlocked": 0}
@@ -125,6 +120,4 @@ class PSN(models.Model):
     @classmethod
     def get_games_stored(cls):
         psn_instance = cls.objects.first()
-        if psn_instance:
-            return psn_instance.games_data
-        return {}
+        return psn_instance.games_data if psn_instance else {}
