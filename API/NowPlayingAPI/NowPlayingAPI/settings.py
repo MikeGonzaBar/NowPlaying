@@ -22,6 +22,10 @@ STEAM_API_KEY = os.environ["STEAM_API_KEY"]
 STEAM_ID = os.environ["STEAM_ID"]
 PLAY_STATION_NPSSO = os.environ["PLAY_STATION_NPSSO"]
 PLAY_STATION_ID = os.environ["PLAY_STATION_ID"]
+TRAKT_CLIENT_ID = os.environ["TRAKT_CLIENT_ID"]
+TRAKT_CLIENT_SECRET = os.environ["TRAKT_CLIENT_SECRET"]
+TRAKT_REDIRECT_URI = os.environ["TRAKT_REDIRECT_URI"]
+TRAKT_AUTH_CODE = os.environ["TRAKT_AUTH_CODE"]
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -47,6 +51,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "steam",
     "playstation",
+    "trakt",
 ]
 
 MIDDLEWARE = [

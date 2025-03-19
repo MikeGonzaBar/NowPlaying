@@ -21,6 +21,7 @@ from rest_framework import routers
 
 from steam import views as steam_views
 from playstation import views as psn_views
+from trakt import views as trakt_views
 
 
 admin.autodiscover()
@@ -28,6 +29,7 @@ admin.autodiscover()
 router = routers.DefaultRouter()
 router.register(r"steam", steam_views.SteamViewSet, basename="steam")
 router.register(r"psn", psn_views.PSNViewSet, basename="psn")
+router.register(r"trakt", trakt_views.TraktViewSet, basename="trakt")
 
 
 # Wire up our API using automatic URL routing.
