@@ -26,6 +26,7 @@ TRAKT_CLIENT_ID = os.environ["TRAKT_CLIENT_ID"]
 TRAKT_CLIENT_SECRET = os.environ["TRAKT_CLIENT_SECRET"]
 TRAKT_REDIRECT_URI = os.environ["TRAKT_REDIRECT_URI"]
 TRAKT_AUTH_CODE = os.environ["TRAKT_AUTH_CODE"]
+SPOTIFY_ACCESS_TOKEN = os.environ["SPOTIFY_ACCESS_TOKEN"]
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -52,6 +53,7 @@ INSTALLED_APPS = [
     "steam",
     "playstation",
     "trakt",
+    "spotify",
 ]
 
 MIDDLEWARE = [
