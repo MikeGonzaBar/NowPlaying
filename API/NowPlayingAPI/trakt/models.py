@@ -3,8 +3,15 @@ from django.utils import timezone
 from django.conf import settings
 import requests
 from datetime import timedelta
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Create your models here.
+
+session = requests.Session()
+retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
+adapter = HTTPAdapter(max_retries=retries)
+session.mount("https://", adapter)
 
 
 class TraktToken(models.Model):
@@ -25,17 +32,23 @@ class TraktToken(models.Model):
 
 
 class Movie(models.Model):
-    """
-    Stores movie details fetched from Trakt.
-    """
-
-    trakt_id = models.CharField(max_length=100, unique=True)
+    trakt_id = models.CharField(max_length=255, unique=True)
     title = models.CharField(max_length=255)
     year = models.IntegerField(null=True, blank=True)
     image_url = models.URLField(null=True, blank=True)
+    plays = models.IntegerField(default=0)  # Number of plays
+    last_watched_at = models.DateTimeField(
+        null=True, blank=True
+    )  # Last watched timestamp
+    last_updated_at = models.DateTimeField(
+        null=True, blank=True
+    )  # Last updated timestamp
+    imdb_id = models.CharField(max_length=255, null=True, blank=True)  # IMDb ID
+    tmdb_id = models.CharField(max_length=255, null=True, blank=True)  # TMDb ID
+    slug = models.CharField(max_length=255, null=True, blank=True)  # Trakt slug
 
     def __str__(self):
-        return f"{self.title} ({self.year})"
+        return self.title
 
 
 class MovieWatch(models.Model):
@@ -62,6 +75,10 @@ class Show(models.Model):
     title = models.CharField(max_length=255)
     year = models.IntegerField(null=True, blank=True)
     image_url = models.URLField(null=True, blank=True)
+    slug = models.CharField(max_length=255, null=True, blank=True)  # Trakt slug
+    last_watched_at = models.DateTimeField(
+        null=True, blank=True
+    )  # Last watched timestamp
 
     def __str__(self):
         return self.title
@@ -75,6 +92,8 @@ class Season(models.Model):
     show = models.ForeignKey(Show, on_delete=models.CASCADE, related_name="seasons")
     season_number = models.IntegerField()
     image_url = models.URLField(null=True, blank=True)
+    title = models.CharField(max_length=255, null=True, blank=True)  # Optional title
+    air_date = models.DateField(null=True, blank=True)  # Optional air date
 
     class Meta:
         unique_together = ("show", "season_number")
@@ -96,6 +115,11 @@ class Episode(models.Model):
     title = models.CharField(max_length=255, null=True, blank=True)
     image_url = models.URLField(null=True, blank=True)
     air_date = models.DateField(null=True, blank=True)
+    plays = models.IntegerField(default=0)  # Number of times the episode was watched
+    watched_at = models.DateTimeField(null=True, blank=True)  # Last watched timestamp
+    last_updated_at = models.DateTimeField(
+        null=True, blank=True
+    )  # Last updated timestamp
 
     class Meta:
         unique_together = ("show", "season", "episode_number")
@@ -173,25 +197,43 @@ def fetch_latest_watched_movies():
     response = requests.get(url, headers=headers)
     data = response.json()
     sorted_data = sorted(data, key=lambda x: x.get("last_watched_at"), reverse=True)
+
     for item in sorted_data:
         movie_data = item.get("movie", {})
         watched_at = item.get("last_watched_at")
-        progress = 100.0  # Trakt returns finished movies; adjust if partial progress is provided
+        last_updated_at = item.get("last_updated_at")
+        plays = item.get("plays", 0)  # Number of times the movie was watched
 
         trakt_id = str(movie_data.get("ids", {}).get("trakt"))
         title = movie_data.get("title")
         year = movie_data.get("year")
+        slug = movie_data.get("ids", {}).get("slug")
+        imdb_id = movie_data.get("ids", {}).get("imdb")
+        tmdb_id = movie_data.get("ids", {}).get("tmdb")
         images = movie_data.get("images", {})
         poster = images.get("poster", {}).get("full")
 
+        # Update or create the movie record
         movie_obj, _ = Movie.objects.update_or_create(
             trakt_id=trakt_id,
-            defaults={"title": title, "year": year, "image_url": poster},
+            defaults={
+                "title": title,
+                "year": year,
+                "image_url": poster,
+                "plays": plays,
+                "last_watched_at": watched_at,
+                "last_updated_at": last_updated_at,
+                "slug": slug,
+                "imdb_id": imdb_id,
+                "tmdb_id": tmdb_id,
+            },
         )
+
         # Create a watch record for this movie
         MovieWatch.objects.create(
-            movie=movie_obj, watched_at=watched_at, progress=progress
+            movie=movie_obj, watched_at=watched_at, progress=100.0
         )
+
     return sorted_data
 
 
@@ -211,35 +253,86 @@ def fetch_latest_watched_shows():
         trakt_id = str(show_data.get("ids", {}).get("trakt"))
         title = show_data.get("title")
         year = show_data.get("year")
+        slug = show_data.get("ids", {}).get("slug")
         images = show_data.get("images", {})
         poster = images.get("poster", {}).get("full")
 
+        # Update or create the show record
         show_obj, _ = Show.objects.update_or_create(
             trakt_id=trakt_id,
-            defaults={"title": title, "year": year, "image_url": poster},
+            defaults={"title": title, "year": year, "image_url": poster, "slug": slug},
         )
 
-        # Process the last watched episode for the show (if available)
-        last_episode = item.get("last_episode")
-        if last_episode:
-            season_number = last_episode.get("season")
-            episode_number = last_episode.get("number")
-            episode_title = last_episode.get("title")
-            episode_images = last_episode.get("images", {})
-            episode_poster = episode_images.get("screenshot", {}).get("full")
+        # Initialize the latest watched timestamp for the show
+        latest_watched_at = None
 
+        # Loop through each season in the result
+        seasons = item.get("seasons", [])
+        for season in seasons:
+            season_number = season.get("number")
             season_obj, _ = Season.objects.get_or_create(
                 show=show_obj, season_number=season_number
             )
-            episode_obj, _ = Episode.objects.update_or_create(
-                show=show_obj,
-                season=season_obj,
-                episode_number=episode_number,
-                defaults={"title": episode_title, "image_url": episode_poster},
-            )
-            watched_at = item.get("last_watched_at")
-            progress = 100.0  # Adjust if partial progress is provided
-            EpisodeWatch.objects.create(
-                episode=episode_obj, watched_at=watched_at, progress=progress
-            )
+
+            # Loop through each episode in the season
+            episodes = season.get("episodes", [])
+            for episode in episodes:
+                episode_number = episode.get("number")
+                watched_at = episode.get("last_watched_at")
+                plays = episode.get("plays", 0)
+                print(f"Processing Showc{title} S{season_number}E{episode_number}")
+
+                # Make an extra API call to fetch detailed info for the episode
+                ep_url = f"https://api.trakt.tv/shows/{trakt_id}/seasons/{season_number}/episodes/{episode_number}?extended=images"
+                ep_response = session.get(ep_url, headers=headers)
+                if ep_response.status_code == 200:
+                    ep_details = ep_response.json()
+                    episode_title = ep_details.get("title")
+                    ep_images = ep_details.get("images", {})
+                    screenshot_list = ep_images.get("screenshot", {})
+                    episode_image_url = (
+                        screenshot_list[0]
+                        if isinstance(screenshot_list, list) and screenshot_list
+                        else None
+                    )
+                    air_date = ep_details.get("first_aired")
+                else:
+                    episode_title = None
+                    episode_image_url = None
+                    air_date = None
+
+                # Update or create the episode record
+                episode_obj, _ = Episode.objects.update_or_create(
+                    show=show_obj,
+                    season=season_obj,
+                    episode_number=episode_number,
+                    defaults={
+                        "title": episode_title,
+                        "image_url": episode_image_url,
+                        "air_date": air_date,
+                        "plays": plays,
+                        "watched_at": watched_at,
+                        "last_updated_at": item.get("last_updated_at"),
+                    },
+                )
+
+                # Update the latest watched timestamp for the show
+                if watched_at:
+                    watched_at_dt = timezone.datetime.fromisoformat(
+                        watched_at.replace("Z", "+00:00")
+                    )
+                    if not latest_watched_at or watched_at_dt > latest_watched_at:
+                        latest_watched_at = watched_at_dt
+
+                # Record the watch event
+                progress = 100.0  # Adjust if you receive partial progress
+                EpisodeWatch.objects.create(
+                    episode=episode_obj, watched_at=watched_at, progress=progress
+                )
+
+        # Update the show's last_watched_at field
+        if latest_watched_at:
+            show_obj.last_watched_at = latest_watched_at
+            show_obj.save()
+
     return sorted_data

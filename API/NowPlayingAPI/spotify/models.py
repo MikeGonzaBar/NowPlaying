@@ -9,6 +9,7 @@ class StreamedSong(models.Model):
     artist = models.CharField(max_length=255)
     album = models.CharField(max_length=255, blank=True, null=True)
     played_at = models.DateTimeField()
+    album_thumbnail = models.URLField(blank=True, null=True)
 
     class Meta:
         ordering = ["-played_at"]
@@ -31,11 +32,9 @@ class StreamedSong(models.Model):
         token = (
             settings.SPOTIFY_ACCESS_TOKEN
         )  # Ensure this is set in your settings or .env file
-
         headers = {"Authorization": f"Bearer {token}"}
 
         response = requests.get(url, headers=headers)
-
         if response.status_code != 200:
             raise Exception(f"Failed to fetch recently played songs: {response.json()}")
 
@@ -51,14 +50,19 @@ class StreamedSong(models.Model):
             artist = ", ".join(
                 [artist.get("name") for artist in track.get("artists", [])]
             )
-            album = track.get("album", {}).get("name")
+            album_data = track.get("album", {})
+            album_name = album_data.get("name")
+            images = album_data.get("images", [])
+
+            # Choose the smallest image as a thumbnail (usually the last in the list)
+            album_thumbnail = images[0].get("url") if images else None
 
             # Save (or update) the song record in the database
             StreamedSong.objects.update_or_create(
                 title=title,
                 artist=artist,
                 played_at=played_at,
-                defaults={"album": album},
+                defaults={"album": album_name, "album_thumbnail": album_thumbnail},
             )
 
             # Append the song data to the result list
@@ -66,7 +70,8 @@ class StreamedSong(models.Model):
                 {
                     "title": title,
                     "artist": artist,
-                    "album": album,
+                    "album": album_name,
+                    "album_thumbnail": album_thumbnail,
                     "played_at": played_at.isoformat(),
                 }
             )

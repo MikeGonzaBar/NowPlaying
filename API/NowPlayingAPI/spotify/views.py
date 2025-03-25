@@ -29,9 +29,11 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="get-stored-songs")
     def getStoredSongs(self, request):
         """
-        Retrieves all stored songs from the database.
+        Retrieves all stored songs from the database, sorted by played_at in descending order.
         """
-        songs = StreamedSong.objects.all().values(
-            "title", "artist", "album", "played_at"
+        songs = (
+            StreamedSong.objects.all()
+            .order_by("-played_at")
+            .values("title", "artist", "album", "album_thumbnail", "played_at")
         )
         return Response({"results": list(songs)})
