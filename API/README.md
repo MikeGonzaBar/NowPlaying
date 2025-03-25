@@ -70,8 +70,8 @@ The following endpoints are available:
 - `/trakt/refresh-token`: Refreshes the Trakt access token.
 
 ## Notes
-**Steam**: Ensure your Steam API [key](https://steamcommunity.com/dev/apikey) is valid and linked to your account.
-**PlayStation**: Manual cookie manipulation is required to obtain the npsso token. For more information on how to retrieve the required cookies visit the library [guide](https://github.com/isFakeAccount/psnawp)
-**Spotify**: The access token must be configured by using the [dashboard](https://developer.spotify.com/dashboard) and app creation in spotify for developers.
-**Trakt**: Ensure your Trakt account is authenticated and tokens are valid, this can be obtaines in the following [link](https://trakt.tv/oauth/applications).
+- **Steam**: Ensure your Steam API [key](https://steamcommunity.com/dev/apikey) is valid and linked to your account.
+- **PlayStation**: Manual cookie manipulation is required to obtain the npsso token. For more information on how to retrieve the required cookies visit the library [guide](https://github.com/isFakeAccount/psnawp)
+- **Spotify**: The access token must be configured by using the [dashboard](https://developer.spotify.com/dashboard) and app creation in spotify for developers.
+- **Trakt**: Ensure your Trakt account is authenticated and tokens are valid, this can be obtaines in the following [link](https://trakt.tv/oauth/applications).
 
