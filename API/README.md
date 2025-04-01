@@ -57,16 +57,23 @@ The following endpoints are available:
 
 ### Steam
 - `/steam/get-game-list`: Fetches the list of games and achievements from Steam.
-`/steam/get-game-list-stored`: Retrieves stored Steam game data.
+- `/steam/get-game-list-stored`: Retrieves stored Steam game data.
+- `/steam/get-game-list-total-playtime`: Retrieves Steam games sorted by total playtime.
+- `/steam/get-game-list-most-achieved`: Retrieves Steam games sorted by the percentage of unlocked achievements.
 ### PlayStation
-- `psn/get-game-list`: Fetches the list of games and achievements from PlayStation.
+- `/psn/get-game-list`: Fetches the list of games and achievements from PlayStation.
 - `/psn/get-game-list-stored`: Retrieves stored PlayStation game data.
+- `/psn/get-game-list-total-playtime`: Retrieves PlayStation games sorted by total playtime.
+- `/psn/get-game-list-most-achieved`: Retrieves PlayStation games sorted by the weighted score of unlocked achievements.
 ### Spotify
 - `/spotify/fetch-recently-played`: Fetches recently played songs from Spotify.
 - `/spotify/get-stored-songs`: Retrieves stored Spotify song data.
 ### Trakt
-- `/trakt/fetch-latest-movies`: Fetches the latest watched movies from Trakt.
-- `/trakt/fetch-latest-shows`: Fetches the latest watched TV shows from Trakt.
+- `/trakt/fetch-latest-movies`: Fetches the latest watched movies from Trakt and updates the database.
+- `/trakt/fetch-latest-shows`: Fetches the latest watched TV shows (including episode details) from Trakt and updates the database.
+- `/trakt/get-stored-movies`: Retrieves stored movie data from the database.
+- `/trakt/get-stored-shows`: Retrieves stored TV show data from the database.
+- `/trakt/get-watched-seasons-episodes`: Retrieves watched seasons and episodes for a specific show, filtered by `trakt_id`.
 - `/trakt/refresh-token`: Refreshes the Trakt access token.
 
 ## Notes

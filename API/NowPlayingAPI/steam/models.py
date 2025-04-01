@@ -7,11 +7,6 @@ from datetime import datetime, timezone
 class Steam(models.Model):
     games_data = models.JSONField(default=dict)  # Field to store games data
 
-    def perform_operations(self):
-        # Access the secret key from settings
-        secret_key = settings.STEAM_API_KEY
-        return f"Operations performed with secret key: {secret_key}"
-
     def convert_playtime(self, playtime_minutes):
         hours, minutes = divmod(playtime_minutes, 60)
         minutes, seconds = divmod(minutes * 60, 60)
@@ -53,10 +48,11 @@ class Steam(models.Model):
     @classmethod
     def fetch_achievements(cls, app_id, steam_id):
         try:
+            print("\tFetching global achievements")
             global_achievements, error = cls.fetch_global_achievements(app_id)
             if error:
                 return {"message": error, "achievements": [], "total": 0, "unlocked": 0}
-
+            print("\tFetching player achievements")
             player_achievements, error = cls.fetch_player_achievements(app_id, steam_id)
             if error:
                 return {"message": error, "achievements": [], "total": 0, "unlocked": 0}
@@ -150,6 +146,7 @@ class Steam(models.Model):
         games = data.get("response", {}).get("games", [])
         formatted_games = []
         for game in games:
+            print("Updating info for game:", game.get("name"))
             achievements_data = cls.fetch_achievements(game.get("appid"), steam_id)
             formatted_games.append(
                 {
@@ -159,7 +156,7 @@ class Steam(models.Model):
                     "playtime_formatted": cls().convert_playtime(
                         game.get("playtime_forever")
                     ),
-                    "img_icon_url": f"http://media.steampowered.com/steamcommunity/public/images/apps/{game.get('appid')}/{game.get('img_icon_url')}.jpg",
+                    "img_icon_url": f"https://steamcdn-a.akamaihd.net/steam/apps/{game.get('appid')}/library_600x900_2x.jpg",
                     "has_community_visible_stats": game.get(
                         "has_community_visible_stats", False
                     ),

@@ -28,3 +28,7 @@ NowPlaying is a portfolio project designed to showcase your latest entertainment
 ## API Configuration
 
 To set up the required API integrations for this project, refer to the [API Configuration Guide](./API/README.md).
+
+## UI Configuration
+
+To set up the required UI integrations for this project, refer to the [UI Configuration Guide](./UI/README.md).

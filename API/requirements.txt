@@ -14,3 +14,4 @@ requests-ratelimiter==0.7.0
 sqlparse==0.5.3
 typing_extensions==4.12.2
 urllib3==2.3.0
+django-cors-headers==4.7.0
