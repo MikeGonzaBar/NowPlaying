@@ -3,10 +3,10 @@ import { BrowserRouter as Router, Routes, Route, } from 'react-router-dom';
 
 
 import LandingPage from './pages/LandingPage';
-import Games from './pages/games/games';
+import Games from './pages/games/pages/games';
 import Movies from './pages/movies/movies';
 import Music from './pages/music/music';
-import GameDetails from './pages/games/gameDetails';
+import GameDetails from './pages/games/pages/gameDetails';
 import './App.css'
 
 function App() {

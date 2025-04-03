@@ -1,8 +1,8 @@
 import { Box, Grid, Skeleton, Typography } from '@mui/material';
-import SideBar from '../../components/sideBar';
-import { SteamGame, PsnGame } from './types'; // Import interfaces
-import GameCard from './gameCard';
-import { parseDate, getPlaytime, calculateAchievementPercentage } from './utils';
+import SideBar from '../../../components/sideBar';
+import { SteamGame, PsnGame } from '../utils/types'; // Import interfaces
+import GameCard from '../components/gameCard';
+import { parseDate, getPlaytime, calculateAchievementPercentage } from '../utils/utils';
 
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';

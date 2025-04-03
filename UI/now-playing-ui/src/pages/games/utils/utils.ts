@@ -1,4 +1,4 @@
-import { SteamGame, PsnGame } from './types';
+import { SteamGame, PsnGame } from './utils/types';
 
 export const parseDate = (dateString: string): Date => {
     if (dateString.includes('/')) {
