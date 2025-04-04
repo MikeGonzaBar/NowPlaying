@@ -3,7 +3,7 @@ import { Box, Grid, Typography } from '@mui/material';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import EventIcon from '@mui/icons-material/Event';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
-import { SteamGame, PsnGame } from './types';
+import { SteamGame, PsnGame } from '../utils/types';
 
 interface GameCardProps {
     game: SteamGame | PsnGame;

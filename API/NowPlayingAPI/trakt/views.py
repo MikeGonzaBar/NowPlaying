@@ -105,6 +105,7 @@ class TraktViewSet(viewsets.ViewSet):
             .values(
                 "id",
                 "trakt_id",
+                "tmdb_id",
                 "title",
                 "year",
                 "image_url",
@@ -123,6 +124,7 @@ class TraktViewSet(viewsets.ViewSet):
                     "image_url": show["image_url"],
                     "ids": {
                         "trakt": show["trakt_id"],
+                        "tmdb": show["tmdb_id"],
                     },
                 },
             }

@@ -9,7 +9,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({ gameName }) => {
 
     const fetchNews = async () => {
         try {
-            const apiKey = process.env.VITE_REACT_APP_NEWS_API_KEY;
+            const apiKey = import.meta.env.VITE_REACT_APP_NEWS_API_KEY;
             const today = new Date();
             const oneMonthAgo = new Date(today);
             oneMonthAgo.setMonth(today.getMonth() - 1);

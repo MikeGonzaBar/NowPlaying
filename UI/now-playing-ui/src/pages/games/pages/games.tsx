@@ -107,7 +107,7 @@ function Games() {
                 <SideBar activeItem="Games" />
                 <Box
                     component="main"
-                    sx={{ width: { sm: `calc(100% - ${drawerWidth}px)` }, }}
+                    sx={{ width: '89vw', }}
                 >
                     <Typography variant="h5" sx={{
                         mt: 2, ml: 1, fontFamily: 'Inter, sans-serif',
@@ -119,7 +119,7 @@ function Games() {
                         sx={{
                             display: 'flex',
                             overflowX: 'auto',
-                            gap: 2,
+                            gap: 32,
                             py: 1,
                             px: 1,
                         }}
@@ -148,7 +148,7 @@ function Games() {
                         sx={{
                             display: 'flex',
                             overflowX: 'auto',
-                            gap: 2,
+                            gap: 32,
                             py: 1,
                             px: 1,
                         }}
@@ -177,7 +177,7 @@ function Games() {
                         sx={{
                             display: 'flex',
                             overflowX: 'auto',
-                            gap: 2,
+                            gap: 32,
                             py: 1,
                             px: 1,
                         }}

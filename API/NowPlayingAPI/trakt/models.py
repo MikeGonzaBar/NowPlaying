@@ -72,6 +72,8 @@ class Show(models.Model):
     """
 
     trakt_id = models.CharField(max_length=100, unique=True)
+    slug = models.CharField(max_length=255, null=True, blank=True)  # Trakt slug
+    tmdb_id = models.CharField(max_length=255, null=True, blank=True)
     title = models.CharField(max_length=255)
     year = models.IntegerField(null=True, blank=True)
     image_url = models.URLField(null=True, blank=True)
@@ -254,13 +256,21 @@ def fetch_latest_watched_shows():
         title = show_data.get("title")
         year = show_data.get("year")
         slug = show_data.get("ids", {}).get("slug")
+        # Extract the TMDb ID from the response
+        tmdb_id = show_data.get("ids", {}).get("tmdb")
         images = show_data.get("images", {})
         poster = images.get("poster", {}).get("full")
-
+        print(f"Recieved Show: {title} with tmdb_id: {tmdb_id}")
         # Update or create the show record
         show_obj, _ = Show.objects.update_or_create(
             trakt_id=trakt_id,
-            defaults={"title": title, "year": year, "image_url": poster, "slug": slug},
+            defaults={
+                "title": title,
+                "year": year,
+                "image_url": poster,
+                "slug": slug,
+                "tmdb_id": tmdb_id,
+            },
         )
 
         # Initialize the latest watched timestamp for the show
