@@ -27,6 +27,8 @@ TRAKT_CLIENT_SECRET = os.environ["TRAKT_CLIENT_SECRET"]
 TRAKT_REDIRECT_URI = os.environ["TRAKT_REDIRECT_URI"]
 TRAKT_AUTH_CODE = os.environ["TRAKT_AUTH_CODE"]
 SPOTIFY_ACCESS_TOKEN = os.environ["SPOTIFY_ACCESS_TOKEN"]
+RETROACHIEVEMENTS_API_KEY = os.environ["RETROACHIEVEMENTS_API_KEY"]
+RETROACHIEVEMENTS_USER = os.environ["RETROACHIEVEMENTS_USER"]
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -55,6 +57,7 @@ INSTALLED_APPS = [
     "playstation",
     "trakt",
     "spotify",
+    "retroachievements"
 ]
 
 MIDDLEWARE = [

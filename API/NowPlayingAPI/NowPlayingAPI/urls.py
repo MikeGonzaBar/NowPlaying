@@ -19,6 +19,7 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework import routers
 
+from retroachievements import views as retroachievements_views
 from steam import views as steam_views
 from playstation import views as psn_views
 from trakt import views as trakt_views
@@ -32,6 +33,7 @@ router.register(r"steam", steam_views.SteamViewSet, basename="steam")
 router.register(r"psn", psn_views.PSNViewSet, basename="psn")
 router.register(r"trakt", trakt_views.TraktViewSet, basename="trakt")
 router.register(r"spotify", spotify_views.StreamedSongViewSet, basename="spotify")
+router.register(r'retroachievements', retroachievements_views.RetroAchievementsViewSet, basename='retroachievements')
 
 
 # Wire up our API using automatic URL routing.

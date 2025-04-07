@@ -39,6 +39,8 @@ The API relies on several environment variables for configuration. Create a .env
     TRAKT_REDIRECT_URI=<your_trakt_redirect_uri>
     TRAKT_AUTH_CODE=<your_trakt_auth_code>
     SPOTIFY_ACCESS_TOKEN=<your_spotify_access_token>
+    RETROACHIEVEMENTS_API_KEY=<your_retroachievements_api_key>
+    RETROACHIEVEMENTS_USER=<your_retroachievements_username>
 
 ## Running the api
 
@@ -75,10 +77,15 @@ The following endpoints are available:
 - `/trakt/get-stored-shows`: Retrieves stored TV show data from the database.
 - `/trakt/get-watched-seasons-episodes`: Retrieves watched seasons and episodes for a specific show, filtered by `trakt_id`.
 - `/trakt/refresh-token`: Refreshes the Trakt access token.
+### RetroAchievements
+- `/retroachievements/fetch-recently-played-games`: Fetches and populates the latest 50 recently played games from RetroAchievements.
+- `/retroachievements/get-most-achieved-games`: Retrieves the list of games ordered by the percentage of unlocked achievements, with a secondary ordering by the last played date.
+- `/retroachievements/fetch-games`: Fetches all games without their achievements.
+- `/retroachievements/fetch-game-details`: Fetches a specific game and its achievements by `game_id`.
 
 ## Notes
 - **Steam**: Ensure your Steam API [key](https://steamcommunity.com/dev/apikey) is valid and linked to your account.
 - **PlayStation**: Manual cookie manipulation is required to obtain the npsso token. For more information on how to retrieve the required cookies visit the library [guide](https://github.com/isFakeAccount/psnawp)
 - **Spotify**: The access token must be configured by using the [dashboard](https://developer.spotify.com/dashboard) and app creation in spotify for developers.
 - **Trakt**: Ensure your Trakt account is authenticated and tokens are valid, this can be obtaines in the following [link](https://trakt.tv/oauth/applications).
-
+- **RetroAchievements**: Ensure your RetroAchievements API key and username are valid. You can find more information on the [RetroAchievements API documentation](https://retroachievements.org).
