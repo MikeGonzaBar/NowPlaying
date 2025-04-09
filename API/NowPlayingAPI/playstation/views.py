@@ -2,43 +2,33 @@ from datetime import datetime, timedelta
 import re
 from rest_framework.decorators import action
 from rest_framework import viewsets
-from .models import PSN
 from rest_framework.response import Response
-from .serializers import PSNSerializer
-
+from .models import PSNGame
+from .serializers import PSNGameSerializer
+from .models import PSN  # Import the utility class that contains get_games() and get_games_stored()
 
 class PSNViewSet(viewsets.ModelViewSet):
-    queryset = PSN.objects.all()
-    serializer_class = PSNSerializer
+    # Use the normalized model for queryset and serializer.
+    queryset = PSNGame.objects.all()
+    serializer_class = PSNGameSerializer
 
     @action(detail=False, methods=["get"], url_path="get-game-list")
     def getGameList(self, request):
-        # Call the model's method
+        # Call the utility class’s method that fetches and stores games.
         result = PSN.get_games()
         return Response({"result": result})
 
     @action(detail=False, methods=["get"], url_path="get-game-list-stored")
     def getGameListStored(self, request):
-        # Call the model's method
-        result = PSN.get_games_stored()
-        # Convert the result dictionary to a list and sort it by last_played
-        sorted_result = sorted(
-            result.values(),  # Get the values (list of games)
-            key=lambda x: datetime.strptime(
-                x["last_played"], "%Y-%m-%dT%H:%M:%S.%f%z"
-            ),  # Parse the ISO 8601 date
-            reverse=True,  # Sort in descending order (most recent first)
-        )
-
-        return Response({"result": sorted_result})
+        # Use the stored PSNGame records
+        games = PSNGame.objects.all().order_by("-last_played")
+        serializer = PSNGameSerializer(games, many=True)
+        return Response({"result": serializer.data})
 
     @action(detail=False, methods=["get"], url_path="get-game-list-total-playtime")
     def getGameListPlayitime(self, request):
-        # Call the model's method
-        result = PSN.get_games_stored()
-
-        # Convert the result dictionary to a list and sort it by last_played
-        # Helper function to convert total_playtime to total seconds
+        # Retrieve stored games sorted by playtime
+        # (Assuming total_playtime is stored as a string
         def parse_playtime(playtime):
             match = re.match(r"(?:(\d+) days?, )?(\d+):(\d+):(\d+)", playtime)
             if match:
@@ -51,41 +41,34 @@ class PSNViewSet(viewsets.ModelViewSet):
                 ).total_seconds()
             return 0
 
-        # Convert the result dictionary to a list and sort it by total_playtime
-        sorted_result = sorted(
-            result.values(),  # Get the values (list of games)
-            key=lambda x: parse_playtime(
-                x["total_playtime"]
-            ),  # Convert playtime to total seconds
-            reverse=True,  # Sort in descending order (most playtime first)
-        )
-
-        return Response({"result": sorted_result})
+        games = list(PSNGame.objects.all())
+        # Sort using the helper function:
+        sorted_games = sorted(games, key=lambda g: parse_playtime(g.total_playtime), reverse=True)
+        serializer = PSNGameSerializer(sorted_games, many=True)
+        return Response({"result": serializer.data})
 
     @action(detail=False, methods=["get"], url_path="get-game-list-most-achieved")
     def getGameListMostAchieved(self, request):
-        # Call the model's method
-        result = PSN.get_games_stored()
+        # Retrieve stored games
+        games = list(PSNGame.objects.all().prefetch_related("achievements"))
 
-        # Helper function to calculate the weighted score for unlocked achievements
-        def calculate_weighted_score(unlocked_achievements, total_achievements):
-            if total_achievements == 0:
-                return 0
-            platinum = (
-                unlocked_achievements.get("platinum", 0) * 20
-            )  # Platinum weight = 5
-            gold = unlocked_achievements.get("gold", 0) * 3  # Gold weight = 3
-            silver = unlocked_achievements.get("silver", 0) * 2  # Silver weight = 2
-            bronze = unlocked_achievements.get("bronze", 0) * 1  # Bronze weight = 1
-            return platinum + gold + silver + bronze
+        # Helper function to calculate the weighted score for unlocked achievements.
+        # (Adjust the weights based on your business logic.)
+        def calculate_weighted_score(game):
+            # Assuming achievements is a related name on PSNAchievement
+            unlocked = game.achievements.filter(unlocked=True)
+            score = 0
+            for trophy in unlocked:
+                if trophy.trophy_type.lower() == "platinum":
+                    score += 20
+                elif trophy.trophy_type.lower() == "gold":
+                    score += 3
+                elif trophy.trophy_type.lower() == "silver":
+                    score += 2
+                elif trophy.trophy_type.lower() == "bronze":
+                    score += 1
+            return score
 
-        # Convert the result dictionary to a list and sort it by the weighted score
-        sorted_result = sorted(
-            result.values(),  # Get the values (list of games)
-            key=lambda x: calculate_weighted_score(
-                x["unlocked_achievements"], x["total_achievements"]
-            ),  # Calculate weighted score
-            reverse=True,  # Sort in descending order (highest score first)
-        )
-
-        return Response({"result": sorted_result})
+        sorted_games = sorted(games, key=calculate_weighted_score, reverse=True)
+        serializer = PSNGameSerializer(sorted_games, many=True)
+        return Response({"result": serializer.data})

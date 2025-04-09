@@ -44,6 +44,7 @@ media
 
 # Virtualenv
 venv/
+nowPlayingVenv/
 ENV/
 env/
 env.bak/

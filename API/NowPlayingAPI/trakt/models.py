@@ -2,7 +2,7 @@ from django.db import models
 from django.utils import timezone
 from django.conf import settings
 import requests
-from datetime import timedelta
+from datetime import datetime, timedelta
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -122,6 +122,18 @@ class Episode(models.Model):
     last_updated_at = models.DateTimeField(
         null=True, blank=True
     )  # Last updated timestamp
+    overview = models.TextField(null=True, blank=True)  # Episode overview
+    rating = models.FloatField(null=True, blank=True)  # Episode rating
+    runtime = models.IntegerField(null=True, blank=True)  # Episode runtime in minutes
+    episode_type = models.CharField(
+        max_length=50, null=True, blank=True
+    )  # Episode type (e.g., "series_premiere")
+    ids = models.JSONField(
+        null=True, blank=True
+    )  # Store all IDs (trakt, tvdb, imdb, tmdb, etc.)
+    available_translations = models.JSONField(
+        null=True, blank=True
+    )  # List of available translations
 
     class Meta:
         unique_together = ("show", "season", "episode_number")
@@ -178,6 +190,11 @@ def get_trakt_headers():
     """
     try:
         token = TraktToken.objects.latest("updated_at")
+        print(f"Token: {token}")
+        print(f"Token: {token.access_token}")
+        print(f"Token: {token.refresh_token}")
+        print(f"Token: {token.expires_at}")
+        print(f"Token: {token.updated_at}")
     except TraktToken.DoesNotExist:
         raise Exception("Trakt token not found. Please authenticate first.")
     if token.is_expired():
@@ -290,55 +307,80 @@ def fetch_latest_watched_shows():
                 episode_number = episode.get("number")
                 watched_at = episode.get("last_watched_at")
                 plays = episode.get("plays", 0)
-                print(f"Processing Showc{title} S{season_number}E{episode_number}")
+                print(f"Processing Show {title}\tS: {season_number}\tE: {episode_number}")
 
                 # Make an extra API call to fetch detailed info for the episode
-                ep_url = f"https://api.trakt.tv/shows/{trakt_id}/seasons/{season_number}/episodes/{episode_number}?extended=images"
+                ep_url = f"https://api.trakt.tv/shows/{trakt_id}/seasons/{season_number}/episodes/{episode_number}?extended=full"
                 ep_response = session.get(ep_url, headers=headers)
                 if ep_response.status_code == 200:
                     ep_details = ep_response.json()
                     episode_title = ep_details.get("title")
-                    ep_images = ep_details.get("images", {})
-                    screenshot_list = ep_images.get("screenshot", {})
-                    episode_image_url = (
-                        screenshot_list[0]
-                        if isinstance(screenshot_list, list) and screenshot_list
-                        else None
-                    )
+                    overview = ep_details.get("overview")
+                    rating = ep_details.get("rating")
+                    runtime = ep_details.get("runtime")
+                    episode_type = ep_details.get("episode_type")
+                    trakt_ids = ep_details.get("ids", {})
                     air_date = ep_details.get("first_aired")
-                else:
-                    episode_title = None
-                    episode_image_url = None
-                    air_date = None
-
-                # Update or create the episode record
-                episode_obj, _ = Episode.objects.update_or_create(
-                    show=show_obj,
-                    season=season_obj,
-                    episode_number=episode_number,
-                    defaults={
-                        "title": episode_title,
-                        "image_url": episode_image_url,
-                        "air_date": air_date,
-                        "plays": plays,
-                        "watched_at": watched_at,
-                        "last_updated_at": item.get("last_updated_at"),
-                    },
-                )
-
-                # Update the latest watched timestamp for the show
-                if watched_at:
-                    watched_at_dt = timezone.datetime.fromisoformat(
-                        watched_at.replace("Z", "+00:00")
+                    updated_at = ep_details.get("updated_at")
+                    available_translations = ep_details.get(
+                        "available_translations", []
                     )
-                    if not latest_watched_at or watched_at_dt > latest_watched_at:
-                        latest_watched_at = watched_at_dt
+                    # Parse the air_date to extract only the date
+                    if air_date:
+                        air_date = datetime.fromisoformat(
+                            air_date.replace("Z", "+00:00")
+                        ).date()
 
-                # Record the watch event
-                progress = 100.0  # Adjust if you receive partial progress
-                EpisodeWatch.objects.create(
-                    episode=episode_obj, watched_at=watched_at, progress=progress
-                )
+                    episode_image_url = None
+
+                    if tmdb_id:
+                        tmdb_api_key = (
+                            settings.TMDB_API_KEY
+                        )  # Ensure you have this in your settings
+                        tmdb_url = f"https://api.themoviedb.org/3/tv/{tmdb_id}/season/{season_number}/episode/{episode_number}?api_key={tmdb_api_key}&language=en-US"
+                        tmdb_response = session.get(tmdb_url)
+                        if tmdb_response.status_code == 200:
+                            tmdb_data = tmdb_response.json()
+                            still_path = tmdb_data.get("still_path")
+                            if still_path:
+                                episode_image_url = (
+                                    f"https://image.tmdb.org/t/p/w780{still_path}"
+                                )
+
+                    # Update or create the episode record
+                    episode_obj, _ = Episode.objects.update_or_create(
+                        show=show_obj,
+                        season=season_obj,
+                        episode_number=episode_number,
+                        defaults={
+                            "title": episode_title,
+                            "overview": overview,
+                            "rating": rating,
+                            "runtime": runtime,
+                            "episode_type": episode_type,
+                            "air_date": air_date,
+                            "plays": plays,
+                            "watched_at": watched_at,
+                            "ids": trakt_ids,
+                            "available_translations": available_translations,
+                            "last_updated_at": updated_at,
+                            "image_url": episode_image_url,
+                        },
+                    )
+
+                    # Update the latest watched timestamp for the show
+                    if watched_at:
+                        watched_at_dt = timezone.datetime.fromisoformat(
+                            watched_at.replace("Z", "+00:00")
+                        )
+                        if not latest_watched_at or watched_at_dt > latest_watched_at:
+                            latest_watched_at = watched_at_dt
+
+                    # Record the watch event
+                    progress = 100.0  # Adjust if you receive partial progress
+                    EpisodeWatch.objects.create(
+                        episode=episode_obj, watched_at=watched_at, progress=progress
+                    )
 
         # Update the show's last_watched_at field
         if latest_watched_at:

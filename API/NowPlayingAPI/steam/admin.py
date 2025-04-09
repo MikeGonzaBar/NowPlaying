@@ -1,4 +1,4 @@
 from django.contrib import admin
-from .models import Steam
+from .models import Game
 
-admin.site.register(Steam)
+admin.site.register(Game)

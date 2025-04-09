@@ -24,7 +24,7 @@ function Games() {
         const mergedGames = [...steamArray, ...psnArray]
             .map(game => ({
                 ...game,
-                lastPlayed: parseDate('rtime_last_played' in game ? game.rtime_last_played : game.last_played),
+                lastPlayed: parseDate(game.last_played),
             }))
             .filter(game => game.lastPlayed.getTime() !== invalidTimestamp)
             .sort((a, b) => b.lastPlayed.getTime() - a.lastPlayed.getTime());
@@ -59,7 +59,7 @@ function Games() {
             setSteamGames(steamArray);
             setPsnGames(psnArray);
             const merged = mergeAndSortGames(steamArray, psnArray);
-
+            
             setMergedGames(merged);
 
             const mergedPlaytimeGames = [...steamPlaytimeArray, ...psnPlaytimeArray]

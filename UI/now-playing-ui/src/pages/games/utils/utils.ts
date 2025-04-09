@@ -1,6 +1,10 @@
-import { SteamGame, PsnGame } from './utils/types';
+import { SteamGame, PsnGame } from './types'; // Adjust the import path as necessary
 
 export const parseDate = (dateString: string): Date => {
+    if (!dateString) {
+        // Return fallback invalid timestamp (Jan 1, 1970)
+        return new Date(1970, 0, 1);
+    }
     if (dateString.includes('/')) {
         const [day, month, year] = dateString.split('/').map(Number);
         return new Date(year, month - 1, day);

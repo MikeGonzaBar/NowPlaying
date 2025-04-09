@@ -39,7 +39,7 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
             />
             <Box sx={{ paddingLeft: 2, paddingRight: 2, paddingBottom: 2, paddingTop: 1 }}>
                 <Grid container alignItems="center" justifyContent="space-between">
-                    <Grid key={game.appid}>
+                    <Grid key={ game.appid }>
                         <Typography
                             variant="subtitle1"
                             sx={{
@@ -77,7 +77,7 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
                                         const year = date.getFullYear();
                                         return `${day}/${month}/${year}`;
                                     } else {
-                                        return game.rtime_last_played;
+                                        return game.last_played;
                                     }
                                 })()}
                             </Typography>
@@ -144,7 +144,7 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
                                 <>
                                     <EmojiEventsIcon sx={{ fontSize: 16, mr: -1 }} />
                                     <Typography variant="body2" sx={{ fontFamily: 'Inter, sans-serif' }}>
-                                        {game.unlocked_achievements}/{game.total_achievements}
+                                        {game.unlocked_achievements_count}/{game.total_achievements}
                                     </Typography>
                                 </>
                             )}

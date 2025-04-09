@@ -14,9 +14,11 @@ export interface SteamGame {
     name: string;
     playtime_forever: number;
     playtime_formatted: string;
-    rtime_last_played: string;
+    last_played: string;
     total_achievements: number;
     unlocked_achievements: number;
+    unlocked_achievements_count: number;
+    locked_achievements_count: number;
 }
 
 export interface PsnAchievement {
