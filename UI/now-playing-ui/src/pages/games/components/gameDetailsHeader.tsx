@@ -33,7 +33,9 @@ const formatDate = (game: SteamGame | PsnGame): string => {
         const year = date.getFullYear();
         return `${day}/${month}/${year}`;
     } else {
-        return game.last_played;
+        const date = new Date(game.last_played);
+        const formatted = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+        return formatted;
     }
 };
 

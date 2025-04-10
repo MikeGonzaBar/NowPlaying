@@ -18,7 +18,6 @@ const fetchShowsData = async (): Promise<Show[]> => {
 };
 
 
-
 function Movies() {
     const [movies, setMovies] = useState<Movie[]>([]);
     const [shows, setShows] = useState<Show[]>([]);
@@ -58,7 +57,7 @@ function Movies() {
                     >
                         {movies && movies.length > 0 ? (
                             movies.map((movie: Movie) => (
-                                <MediaCard media={movie} mediaType="movie" />
+                                <MediaCard media={movie} mediaType="movie" key={movie.movie.ids.tmdb} />
                             ))
                         ) : (
                             <Typography variant="body1" sx={{ ml: 1 }}>
@@ -85,7 +84,7 @@ function Movies() {
                     >
                         {shows && shows.length > 0 ? (
                             shows.map((show: Show) => (
-                                <MediaCard media={show} mediaType="show" /> // Ensure MediaCard is properly used
+                                <MediaCard media={show} mediaType="show" key={show.show.ids.tmdb}/>
                             ))
                         ) : (
                             <Typography variant="body1" sx={{ ml: 1 }}>

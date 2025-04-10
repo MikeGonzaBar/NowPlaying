@@ -3,9 +3,16 @@ import { Movie, Show } from "../utils/types";
 import { useEffect, useState } from "react";
 import EventIcon from '@mui/icons-material/Event';
 import GradeIcon from '@mui/icons-material/Grade';
+import { useNavigate } from "react-router-dom";
 
+const movieCache = new Map<number, any>();
+const showCache = new Map<number, any>();
 async function getMovieDetails(tmdb: number): Promise<any | null> {
-    const apiKey = import.meta.env.VITE_REACT_APP_TMDB_API_KEY; // Replace with your TMDb API Key
+    if (movieCache.has(tmdb)) {
+        return movieCache.get(tmdb);
+    }
+
+    const apiKey = import.meta.env.VITE_REACT_APP_TMDB_API_KEY;
     const url = `https://api.themoviedb.org/3/movie/${tmdb}?api_key=${apiKey}`;
 
     try {
@@ -15,7 +22,8 @@ async function getMovieDetails(tmdb: number): Promise<any | null> {
         }
 
         const data = await response.json();
-        return data; // Return the entire movie details object
+        movieCache.set(tmdb, data); // Cache it!
+        return data;
     } catch (error) {
         console.error('Error fetching movie details from API:', error);
         return null;
@@ -23,7 +31,11 @@ async function getMovieDetails(tmdb: number): Promise<any | null> {
 }
 
 async function getShowDetails(tmdbId: number): Promise<any | null> {
-    const apiKey = import.meta.env.VITE_REACT_APP_TMDB_API_KEY; // TMDb API Key
+    if (showCache.has(tmdbId)) {
+        return showCache.get(tmdbId);
+    }
+
+    const apiKey = import.meta.env.VITE_REACT_APP_TMDB_API_KEY;
     const url = `https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${apiKey}`;
 
     try {
@@ -33,7 +45,8 @@ async function getShowDetails(tmdbId: number): Promise<any | null> {
         }
 
         const data = await response.json();
-        return data; // Return the entire show details object
+        showCache.set(tmdbId, data); // Cache it!
+        return data;
     } catch (error) {
         console.error('Error fetching show details from API:', error);
         return null;
@@ -47,10 +60,12 @@ interface MediaCardProps {
 
 const MediaCard: React.FC<MediaCardProps> = ({ media, mediaType }) => {
     const [mediaDetails, setMediaDetails] = useState<any | null>(null);
-
+    const navigate = useNavigate();
     const mediaTitle = mediaType === "movie" ? (media as Movie).movie.title : (media as Show).show.title;
     const mediaYear = mediaType === "movie" ? (media as Movie).movie.year : (media as Show).show.year;
-    const mediaImage = `https://image.tmdb.org/t/p/w780${mediaDetails.poster_path}`
+    const mediaImage = mediaDetails?.poster_path
+    ? `https://image.tmdb.org/t/p/w780${mediaDetails.poster_path}`
+    : ''
 
     useEffect(() => {
         const fetchDetails = async () => {
@@ -68,8 +83,18 @@ const MediaCard: React.FC<MediaCardProps> = ({ media, mediaType }) => {
         };
         fetchDetails();
     }, [media, mediaType]);
+    const handleCardClick = () => {
+        navigate("/movieDetails", {
+            state: {
+                media,
+                mediaType,
+                mediaDetails,
+            },
+        });
+    };
     return (
         <Box
+            onClick={handleCardClick}
             sx={{
                 backgroundColor: '#FFFFFF',
                 borderRadius: 2,
@@ -84,17 +109,19 @@ const MediaCard: React.FC<MediaCardProps> = ({ media, mediaType }) => {
             }}
         >
             {/* Top Section: Movie Image */}
-            <Box
-                component="img"
-                src={mediaImage}
-                alt={mediaTitle}
-                sx={{
-                    width: '100%',
-                    height: '250px',
-                    objectFit: 'cover',
-                    display: 'block',
-                }}
-            />
+            {mediaImage ? (
+  <Box
+    component="img"
+    src={mediaImage}
+    alt={mediaTitle}
+    sx={{
+      width: '100%',
+      height: '250px',
+      objectFit: 'cover',
+      display: 'block',
+    }}
+  />
+) : null}
 
             {/* Middle Section: Title and Year */}
             <Box sx={{ paddingLeft: 2, paddingRight: 2, paddingBottom: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
