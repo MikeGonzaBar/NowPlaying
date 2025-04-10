@@ -1,12 +1,12 @@
 from rest_framework.decorators import action
 from rest_framework import viewsets
 from rest_framework.response import Response
-from .models import StreamedSong
+from .models import Song
 from .serializers import StreamedSongSerializer  # Import the serializer
 
 
 class StreamedSongViewSet(viewsets.ModelViewSet):
-    queryset = StreamedSong.objects.all()
+    queryset = Song.objects.all()
     serializer_class = StreamedSongSerializer
 
     @action(detail=False, methods=["get"], url_path="fetch-recently-played")
@@ -16,7 +16,7 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
         and returns the fetched data.
         """
         try:
-            result = StreamedSong.fetch_recently_played_songs()
+            result = Song.fetch_recently_played_songs()
             return Response(
                 {
                     "message": "Recently played songs fetched and stored successfully.",
@@ -31,9 +31,6 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
         """
         Retrieves all stored songs from the database, sorted by played_at in descending order.
         """
-        songs = (
-            StreamedSong.objects.all()
-            .order_by("-played_at")
-            .values("title", "artist", "album", "album_thumbnail", "played_at")
-        )
-        return Response({"results": list(songs)})
+        songs = Song.objects.all().order_by("-played_at")
+        serializer = StreamedSongSerializer(songs, many=True)
+        return Response({"results": serializer.data})

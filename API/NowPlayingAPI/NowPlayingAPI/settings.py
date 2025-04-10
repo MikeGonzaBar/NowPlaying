@@ -57,7 +57,7 @@ INSTALLED_APPS = [
     "steam",
     "playstation",
     "trakt",
-    "spotify",
+    "music",
     "retroachievements"
 ]
 

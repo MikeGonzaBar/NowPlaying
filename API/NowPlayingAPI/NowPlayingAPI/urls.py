@@ -23,7 +23,7 @@ from retroachievements import views as retroachievements_views
 from steam import views as steam_views
 from playstation import views as psn_views
 from trakt import views as trakt_views
-from spotify import views as spotify_views
+from music import views as spotify_views
 
 
 admin.autodiscover()
