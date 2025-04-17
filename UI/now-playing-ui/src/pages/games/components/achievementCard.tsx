@@ -1,8 +1,8 @@
 import React from 'react';
 import { Box, Card, CardContent, Typography } from '@mui/material';
-import { SteamAchievement } from '../utils/types'; // Import the Achievement interface
+import { PsnAchievement, RetroAchievementsAchievement, SteamAchievement } from '../utils/types'; // Import the Achievement interface
 
-const AchievementCard: React.FC<{ achievement: SteamAchievement }> = ({ achievement }) => {
+const AchievementCard: React.FC<{ achievement: SteamAchievement | PsnAchievement | RetroAchievementsAchievement }> = ({ achievement }) => {
     return (
         <Card
             sx={{

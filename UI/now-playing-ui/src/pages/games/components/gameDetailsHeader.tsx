@@ -2,29 +2,83 @@ import React from "react";
 import { Box, Typography, IconButton, Card, CardMedia } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { Link } from "react-router-dom";
-import { SteamGame, PsnGame } from "../utils/types";
+import { SteamGame, PsnGame, RetroAchievementsGame } from "../utils/types";
 
 interface GameHeaderProps {
-    game: SteamGame | PsnGame;
+    game: SteamGame | PsnGame | RetroAchievementsGame;
 }
 
-const isPsnGame = (game: SteamGame | PsnGame): game is PsnGame => {
+const platformConfig = [
+    {
+        key: "platform",
+        value: "PS5",
+        src: "/Platforms/playstation-5.webp",
+        alt: "PS5 Logo",
+        width: "35px",
+    },
+    {
+        key: "platform",
+        value: "PS4",
+        src: "/Platforms/playstation-4.png",
+        alt: "PS4 Logo",
+        width: "45px",
+    },
+    {
+        key: "console_name",
+        value: "PlayStation 2",
+        src: "/Platforms/playstation-2.png",
+        alt: "PS2 Logo",
+        width: "45px",
+    },
+    {
+        key: "console_name",
+        value: "PlayStation",
+        src: "/Platforms/playstation.webp",
+        alt: "PS1 Logo",
+        width: "25px",
+    },
+    {
+        key: "console_name",
+        value: "Nintendo DS",
+        src: "/Platforms/nintendo-ds.png",
+        alt: "Nintendo DS Logo",
+        width: "45px",
+    },
+    {
+        key: "default",
+        value: "Steam",
+        src: "/Platforms/steam.webp",
+        alt: "Steam Logo",
+        width: "30px",
+    },
+];
+
+const getPlatformMatch = (
+    game: SteamGame | PsnGame | RetroAchievementsGame
+) => {
+    return (
+        platformConfig.find(
+            ({ key, value }) =>
+                key in game && (game as Record<string, any>)[key] === value
+        ) || platformConfig.find((cfg) => cfg.key === "default")
+    );
+};
+
+const isPsnGame = (
+    game: SteamGame | PsnGame | RetroAchievementsGame
+): game is PsnGame => {
     return (game as PsnGame).platform !== undefined;
 };
 
-const isPs4 = (game: SteamGame | PsnGame): game is PsnGame => {
-    return (game as PsnGame).platform == "PS4";
+const isPs2Game = (
+    game: SteamGame | PsnGame | RetroAchievementsGame
+): boolean => {
+    return "console_name" in game && game.console_name === "PlayStation 2";
 };
 
-const getPlatformLogo = (game: SteamGame | PsnGame): string => {
-    if (isPsnGame(game)) {
-        return game.platform === "PS5"
-            ? "/Platforms/playstation-5.webp"
-            : "/Platforms/playstation-4.png";
-    }
-    return "/Platforms/steam.webp";
-};
-const formatDate = (game: SteamGame | PsnGame): string => {
+const formatDate = (
+    game: SteamGame | PsnGame | RetroAchievementsGame
+): string => {
     if ("platform" in game) {
         const date = new Date(game.last_played);
         const day = String(date.getDate()).padStart(2, "0");
@@ -41,11 +95,14 @@ const formatDate = (game: SteamGame | PsnGame): string => {
 };
 
 const GameHeader: React.FC<GameHeaderProps> = ({ game }) => {
-    const platformLogo = getPlatformLogo(game);
+    const platform = getPlatformMatch(game);
     const lastPlayed = formatDate(game);
-    const totalPlaytime = isPsnGame(game)
-        ? game.total_playtime
-        : game.playtime_formatted;
+    const totalPlaytime =
+        isPsnGame(game) && game.total_playtime
+            ? game.total_playtime
+            : "playtime_formatted" in game && game.playtime_formatted
+                ? game.playtime_formatted
+                : "Not Available";
 
     if (!game) {
         return <Typography variant="h6">Game not found</Typography>;
@@ -76,10 +133,10 @@ const GameHeader: React.FC<GameHeaderProps> = ({ game }) => {
 
                 <Box
                     component="img"
-                    src={platformLogo}
-                    alt={`${isPsnGame(game) ? game.platform : "Steam"} Logo`}
+                    src={platform?.src}
+                    alt={platform?.alt}
                     sx={{
-                        width: isPsnGame(game) ? (isPs4(game) ? "45px" : "55px") : "30px",
+                        width: platform?.width,
                         height: "auto",
                         backgroundColor: "transparent",
                         marginTop: isPsnGame(game) ? "0px" : "2px",
@@ -95,7 +152,13 @@ const GameHeader: React.FC<GameHeaderProps> = ({ game }) => {
                         image={
                             isPsnGame(game) && game.img_icon_url
                                 ? game.img_icon_url
-                                : `https://cdn.akamai.steamstatic.com/steam/apps/${game.appid}/header.jpg`
+                                : (game as RetroAchievementsGame).console_name === "PlayStation 2"
+                                    ? (game as RetroAchievementsGame).image_title
+                                    : (game as RetroAchievementsGame).console_name === "PlayStation"
+                                        ? (game as RetroAchievementsGame).image_title
+                                        : (game as RetroAchievementsGame).console_name === "Nintendo DS"
+                                            ? (game as RetroAchievementsGame).image_title
+                                            : `https://cdn.akamai.steamstatic.com/steam/apps/${game.appid}/header.jpg`
                         }
                         alt={game.name}
                         sx={{

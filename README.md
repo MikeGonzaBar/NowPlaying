@@ -11,16 +11,19 @@ NowPlaying is a portfolio project designed to showcase your latest entertainment
 ## Supported Apps
 
 ### Games
+
 - **Steam**: ✅ Supported.
 - **PlayStation**: ⚠️ Manual cookie manipulation is required for integration.
 - **Xbox**: 🚧 In Progress
 - **Nintendo**: ❌
-- **Retroachievements**: 🚧 In Progress
+- **Retroachievements**: ✅ Supported (PS2, PS1, Nintendo DS)
 
 ### Movies
+
 - ⚠️ Integration is made through [Trakt](https://trakt.tv/). No streaming platforms are supported directly.
 
 ### Music
+
 - **Spotify**: ✅ Supported.
 - **Apple Music**: ❌ Not supported.
 - **YouTube Music**: ❌ Not supported.

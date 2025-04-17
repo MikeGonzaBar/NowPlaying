@@ -11,10 +11,10 @@ import {
     SelectChangeEvent,
 } from "@mui/material";
 import AchievementCard from "./achievementCard";
-import { SteamGame, PsnGame, SteamAchievement } from "../utils/types";
+import { SteamGame, PsnGame, SteamAchievement, RetroAchievementsGame } from "../utils/types";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 interface AchievementSectionProps {
-    game: SteamGame | PsnGame;
+    game: SteamGame | PsnGame | RetroAchievementsGame;
 }
 
 const TrophyIcon: React.FC<{
@@ -50,7 +50,7 @@ const AchievementSection: React.FC<AchievementSectionProps> = ({ game }) => {
     const handleChange = (event: SelectChangeEvent<string>) => {
         setSelectedOption(event.target.value);
     };
-
+    console.log("Selected option:", game);
     const filteredAchievements = game.achievements.filter(
         (achievement: SteamAchievement) => {
             if (selectedOption === "Unlocked") return achievement.unlocked;

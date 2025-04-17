@@ -49,3 +49,32 @@ export interface PsnGame {
     unlocked_achievements: AchievementDetails;
     total_achievements: AchievementDetails;
 }
+
+export interface RetroAchievementsAchievement {
+    achievement_id: number;
+    name: string;
+    description: string;
+    image: string;
+    points: number;
+    true_ratio: number;
+    unlock_time: string;
+    display_order: number;
+    type: string;
+    unlocked: boolean;
+}
+
+export interface RetroAchievementsGame {
+    appid: number;
+    name: string;
+    console_name: string;
+    image_icon: string;
+    image_title: string;
+    image_ingame: string;
+    img_icon_url: string;
+
+    last_played: string;
+    total_achievements: number;
+    unlocked_achievements_count: number;
+    score_achieved: number;
+    achievements: RetroAchievementsAchievement[];
+}

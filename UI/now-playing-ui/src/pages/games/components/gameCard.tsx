@@ -3,13 +3,51 @@ import { Box, Grid, Typography } from "@mui/material";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import EventIcon from "@mui/icons-material/Event";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
-import { SteamGame, PsnGame } from "../utils/types";
+import { SteamGame, PsnGame, RetroAchievementsGame } from "../utils/types";
 
 interface GameCardProps {
-    game: SteamGame | PsnGame;
+    game: SteamGame | PsnGame | RetroAchievementsGame;
 }
 
 const GameCard: React.FC<GameCardProps> = ({ game }) => {
+    const platformConfig = [
+        { key: "platform", value: "PS5", src: "Platforms/playstation-5.webp", alt: "PS5 Logo", width: "35px" },
+        { key: "platform", value: "PS4", src: "Platforms/playstation-4.png", alt: "PS4 Logo", width: "45px" },
+        { key: "console_name", value: "PlayStation 2", src: "Platforms/playstation-2.png", alt: "PS2 Logo", width: "45px" },
+        { key: "console_name", value: "PlayStation", src: "Platforms/playstation.webp", alt: "PS1 Logo", width: "25px" },
+        { key: "console_name", value: "Nintendo DS", src: "Platforms/nintendo-ds.png", alt: "Nintendo DS Logo", width: "45px" },
+    ];
+
+    const matchedPlatform = platformConfig.find(
+        ({ key, value }) =>
+            key in game && (game as Record<string, any>)[key] === value
+    );
+    const platformImg = matchedPlatform ? (
+        <Box
+            component="img"
+            src={matchedPlatform.src}
+            alt={matchedPlatform.alt}
+            sx={{
+                width: matchedPlatform.width,
+                height: "auto",
+                backgroundColor: "transparent",
+                marginRight: "8px",
+            }}
+        />
+    ) : (
+        <Box
+            component="img"
+            src="Platforms/steam.webp"
+            alt="Steam Logo"
+            sx={{
+                width: "30px",
+                height: "auto",
+                backgroundColor: "transparent",
+                marginTop: "2px",
+                marginBottom: "-3px",
+            }}
+        />
+    );
     return (
         <Box
             sx={{
@@ -67,7 +105,11 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
                         >
                             <AccessTimeIcon sx={{ fontSize: 16, mr: 0.5 }} />
                             <Typography variant="body2" sx={{ fontFamily: "Inter, sans-serif" }}>
-                                {"platform" in game ? game.total_playtime : game.playtime_formatted}
+                                {"platform" in game
+                                    ? game.total_playtime
+                                    : "playtime_formatted" in game && game.playtime_formatted
+                                        ? game.playtime_formatted
+                                        : "Not Available"}
                             </Typography>
                         </Box>
                     </Grid>
@@ -193,44 +235,7 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
                                 justifyContent: "flex-end",
                             }}
                         >
-                            {"platform" in game && game.platform === "PS5" ? (
-                                <Box
-                                    component="img"
-                                    src="Platforms/playstation-5.webp"
-                                    alt="PS5 Logo"
-                                    sx={{
-                                        width: "35px",
-                                        height: "auto",
-                                        backgroundColor: "transparent",
-                                        marginRight: "8px",
-                                    }}
-                                />
-                            ) : "platform" in game && game.platform === "PS4" ? (
-                                <Box
-                                    component="img"
-                                    src="Platforms/playstation-4.png"
-                                    alt="PS4 Logo"
-                                    sx={{
-                                        width: "45px",
-                                        height: "auto",
-                                        backgroundColor: "transparent",
-                                        marginRight: "8px",
-                                    }}
-                                />
-                            ) : (
-                                <Box
-                                    component="img"
-                                    src="Platforms/steam.webp"
-                                    alt="Steam Logo"
-                                    sx={{
-                                        width: "30px",
-                                        height: "auto",
-                                        backgroundColor: "transparent",
-                                        marginTop: "2px",
-                                        marginBottom: "-3px",
-                                    }}
-                                />
-                            )}
+                            {platformImg}
                         </Box>
                     </Grid>
                 </Grid>

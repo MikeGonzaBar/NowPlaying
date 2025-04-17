@@ -12,11 +12,13 @@ Before running the UI, ensure you have the following installed:
 ## Installation
 
 1. Navigate to the `now-playing-ui` folder:
+
    ```bash
    cd /root/NowPlaying/UI/now-playing-ui
    ```
 
 2. Install the required dependencies:
+
    ```bash
    npm install
    ```
@@ -34,6 +36,7 @@ Replace `<your_news_api_key>` with your API key from [NewsAPI](https://newsapi.o
 ## Running the UI
 
 1. Start the development server:
+
    ```bash
    npm run dev
    ```
@@ -43,6 +46,7 @@ Replace `<your_news_api_key>` with your API key from [NewsAPI](https://newsapi.o
 ## Building for Production
 
 To build the UI for production, run:
+
 ```bash
 npm run build
 ```
@@ -52,6 +56,7 @@ The production-ready files will be available in the `dist` folder.
 ## Linting
 
 To lint the codebase, run:
+
 ```bash
 npm run lint
 ```

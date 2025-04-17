@@ -2,14 +2,14 @@ import { Box, Grid } from '@mui/material';
 import React from 'react';
 import { useLocation } from 'react-router-dom';
 import SideBar from '../../../components/sideBar';
-import { SteamGame, PsnGame } from '../utils/types';
+import { SteamGame, PsnGame, RetroAchievementsGame } from '../utils/types';
 import AchievementsSection from '../components/achievementsSection';
 import GameHeader from '../components/gameDetailsHeader';
 import NewsSection from '../components/gameNews';
 
 const GameDetails: React.FC = () => {
     const location = useLocation();
-    const game = location.state?.game as SteamGame | PsnGame;
+    const game = location.state?.game as SteamGame | PsnGame| RetroAchievementsGame;
 
     if (!game) {
         return <div>Game not found</div>;

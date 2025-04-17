@@ -22,7 +22,7 @@ class RetroAchievementsViewSet(viewsets.ViewSet):
                         "fetch-recently-played-games/"
                     ),
                     "get_most_achieved_game": request.build_absolute_uri(
-                        "get-most-achieved-game/"
+                        "get-most-achieved-games/"
                     ),
                     "fetch_games": request.build_absolute_uri("fetch-games/"),
                     "fetch_game_details": request.build_absolute_uri(
@@ -46,45 +46,84 @@ class RetroAchievementsViewSet(viewsets.ViewSet):
         Returns the list of games ordered by the percentage of unlocked achievements.
         """
         games = RetroAchievementsGame.get_most_achieved_games()
-        formatted_games = [
-            {
-                "game_id": game.game_id,
-                "title": game.title,
+        formatted_games = []
+        for game in games:
+            achievements = GameAchievement.objects.filter(game=game).order_by("display_order")
+
+            formatted_achievements = [
+                {
+                    "achievement_id": achievement.achievement_id,
+                    "name": achievement.title,
+                    "description": achievement.description,
+                    "image": "https://media.retroachievements.org/Badge/"+achievement.badge_name+".png",
+                    "points": achievement.points,
+                    "true_ratio": achievement.true_ratio,
+                    "unlock_time": achievement.date_earned,
+                    "display_order": achievement.display_order,
+                    "type": achievement.type,
+                    "unlocked": bool(achievement.date_earned),
+                }
+                for achievement in achievements
+            ]
+
+            formatted_games.append({
+                "appid": game.game_id,
+                "name": game.title,
                 "console_name": game.console_name,
-                "image_icon": game.image_icon,
-                "image_title": game.image_title,
-                "image_ingame": game.image_ingame,
-                "image_box_art": game.image_box_art,
-                "num_achieved": game.num_achieved,
-                "achievements_total": game.achievements_total,
-                "unlocked_percentage": round(game.unlocked_percentage, 2),  # Round to 2 decimal places
-            }
-            for game in games
-        ]
-        return Response({"games": formatted_games})
+                "image_icon": "https://retroachievements.org" + game.image_icon,
+                "image_title": "https://retroachievements.org" + game.image_title,
+                "image_ingame": "https://retroachievements.org" + game.image_ingame,
+                "img_icon_url": "https://retroachievements.org" + game.image_box_art,
+                "last_played": game.last_played,
+                "total_achievements": game.achievements_total,
+                "unlocked_achievements_count": game.num_achieved,
+                "achievements": formatted_achievements,
+            })
+
+        return Response({"result": formatted_games})
 
     @action(detail=False, methods=["get"], url_path="fetch-games")
     def fetch_games(self, request):
         """
-        Fetches all games without their achievements.
+        Fetches all games along with their achievements.
         """
         games = RetroAchievementsGame.fetch_games()
-        formatted_games = [
-            {
-                "game_id": game.game_id,
-                "title": game.title,
+        formatted_games = []
+
+        for game in games:
+            achievements = GameAchievement.objects.filter(game=game).order_by("display_order")
+
+            formatted_achievements = [
+                {
+                    "achievement_id": achievement.achievement_id,
+                    "name": achievement.title,
+                    "description": achievement.description,
+                    "image": "https://media.retroachievements.org/Badge/"+achievement.badge_name+".png",
+                    "points": achievement.points,
+                    "true_ratio": achievement.true_ratio,
+                    "unlock_time": achievement.date_earned,
+                    "display_order": achievement.display_order,
+                    "type": achievement.type,
+                    "unlocked": bool(achievement.date_earned),
+                }
+                for achievement in achievements
+            ]
+
+            formatted_games.append({
+                "appid": game.game_id,
+                "name": game.title,
                 "console_name": game.console_name,
-                "image_icon": game.image_icon,
-                "image_title": game.image_title,
-                "image_ingame": game.image_ingame,
-                "image_box_art": game.image_box_art,
+                "image_icon": "https://retroachievements.org" + game.image_icon,
+                "image_title": "https://retroachievements.org" + game.image_title,
+                "image_ingame": "https://retroachievements.org" + game.image_ingame,
+                "img_icon_url": "https://retroachievements.org" + game.image_box_art,
                 "last_played": game.last_played,
-                "achievements_total": game.achievements_total,
-                "num_achieved": game.num_achieved,
-            }
-            for game in games
-        ]
-        return Response({"games": formatted_games})
+                "total_achievements": game.achievements_total,
+                "unlocked_achievements_count": game.num_achieved,
+                "achievements": formatted_achievements,
+            })
+
+        return Response({"result": formatted_games})
 
     @action(detail=False, methods=["get"], url_path="fetch-game-details")
     def fetch_game_details(self, request):
@@ -112,7 +151,7 @@ class RetroAchievementsViewSet(viewsets.ViewSet):
                     "achievement_id": achievement.achievement_id,
                     "title": achievement.title,
                     "description": achievement.description,
-                    "image_id": achievement.badge_name,
+                    "image": achievement.badge_name,
                     "points": achievement.points,
                     "true_ratio": achievement.true_ratio,
                     "date_earned": achievement.date_earned,
@@ -124,7 +163,7 @@ class RetroAchievementsViewSet(viewsets.ViewSet):
             return Response(
                 {
                     "game": {
-                        "game_id": game.game_id,
+                        "appid": game.game_id,
                         "title": game.title,
                         "console_name": game.console_name,
                         "image_icon": game.image_icon,

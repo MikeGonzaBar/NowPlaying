@@ -10,7 +10,7 @@ import {
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SideBar from "../../../components/sideBar";
-import { SteamGame, PsnGame } from "../utils/types"; // Import interfaces
+import { SteamGame, PsnGame, RetroAchievementsGame } from "../utils/types"; // Import interfaces
 import GameCard from "../components/gameCard";
 import {
     parseDate,
@@ -22,11 +22,11 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 
 function Games() {
-    const drawerWidth = 160;
 
     const [steamGames, setSteamGames] = useState<SteamGame[]>([]);
     const [psnGames, setPsnGames] = useState<PsnGame[]>([]);
-    const [latestPlayedGames, setMergedGames] = useState<(SteamGame | PsnGame)[]>(
+    const [retroGames, setRetroGames] = useState<RetroAchievementsGame[]>([]); // Adjust type as needed
+    const [latestPlayedGames, setMergedGames] = useState<(SteamGame | PsnGame | RetroAchievementsGame)[]>(
         []
     );
     const [mostPlayed, setMostPlayed] = useState<(SteamGame | PsnGame)[]>([]);
@@ -38,10 +38,11 @@ function Games() {
 
     function mergeAndSortGames(
         steamArray: SteamGame[],
-        psnArray: PsnGame[]
-    ): (SteamGame | PsnGame)[] {
+        psnArray: PsnGame[],
+        retroArray: RetroAchievementsGame[]
+    ): (SteamGame | PsnGame | RetroAchievementsGame)[] {
         const invalidTimestamp = new Date(1970, 0, 1).getTime();
-        const mergedGames = [...steamArray, ...psnArray]
+        const mergedGames = [...steamArray, ...psnArray, ...retroArray]
             .map((game) => ({
                 ...game,
                 lastPlayed: parseDate(game.last_played),
@@ -76,6 +77,14 @@ function Games() {
                 setSnackbarOpen(false); // Hide snackbar when fetch fails
                 return;
             }
+            const resRetro = await fetch("http://localhost:8000/retroachievements/fetch-recently-played-games/");
+
+            if (!resRetro.ok) {
+                setError("Failed to fetch recently played Retro games.");
+                setLoading(false);
+                setSnackbarOpen(false); // Hide snackbar when fetch fails
+                return;
+            }
             await fetchGames();
 
             setError(null);
@@ -94,22 +103,30 @@ function Games() {
             const [
                 steamArray,
                 psnArray,
+                retroArray,
                 steamPlaytimeArray,
                 psnPlaytimeArray,
                 steamMostAchievedArray,
                 psnMostAchievedArray,
+                retroMostAchievedArray,
             ] = await Promise.all([
                 fetchGameData("http://localhost:8000/steam/get-game-list-stored/"),
                 fetchGameData("http://localhost:8000/psn/get-game-list-stored/"),
+                fetchGameData("http://localhost:8000/retroachievements/fetch-games/"),
                 fetchGameData("http://localhost:8000/steam/get-game-list-total-playtime/"),
                 fetchGameData("http://localhost:8000/psn/get-game-list-total-playtime/"),
                 fetchGameData("http://localhost:8000/steam/get-game-list-most-achieved/"),
                 fetchGameData("http://localhost:8000/psn/get-game-list-most-achieved/"),
+                fetchGameData("http://localhost:8000/retroachievements/get-most-achieved-games/"),
+
             ]);
 
             setSteamGames(steamArray);
             setPsnGames(psnArray);
-            const merged = mergeAndSortGames(steamArray, psnArray);
+            setRetroGames(retroArray);
+            console.log("Enriched Retro Array:", retroArray);
+
+            const merged = mergeAndSortGames(steamArray, psnArray, retroArray);
 
             setMergedGames(merged);
 
@@ -125,6 +142,7 @@ function Games() {
             const mergedMostAchievedGames = [
                 ...steamMostAchievedArray,
                 ...psnMostAchievedArray,
+                ...retroMostAchievedArray
             ]
                 .map((game) => {
                     return {
