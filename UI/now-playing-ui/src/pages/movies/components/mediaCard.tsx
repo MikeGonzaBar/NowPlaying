@@ -64,8 +64,8 @@ const MediaCard: React.FC<MediaCardProps> = ({ media, mediaType }) => {
     const mediaTitle = mediaType === "movie" ? (media as Movie).movie.title : (media as Show).show.title;
     const mediaYear = mediaType === "movie" ? (media as Movie).movie.year : (media as Show).show.year;
     const mediaImage = mediaDetails?.poster_path
-    ? `https://image.tmdb.org/t/p/w780${mediaDetails.poster_path}`
-    : ''
+        ? `https://image.tmdb.org/t/p/w780${mediaDetails.poster_path}`
+        : ''
 
     useEffect(() => {
         const fetchDetails = async () => {
@@ -110,18 +110,18 @@ const MediaCard: React.FC<MediaCardProps> = ({ media, mediaType }) => {
         >
             {/* Top Section: Movie Image */}
             {mediaImage ? (
-  <Box
-    component="img"
-    src={mediaImage}
-    alt={mediaTitle}
-    sx={{
-      width: '100%',
-      height: '250px',
-      objectFit: 'cover',
-      display: 'block',
-    }}
-  />
-) : null}
+                <Box
+                    component="img"
+                    src={mediaImage}
+                    alt={mediaTitle}
+                    sx={{
+                        width: '100%',
+                        height: '250px',
+                        objectFit: 'cover',
+                        display: 'block',
+                    }}
+                />
+            ) : null}
 
             {/* Middle Section: Title and Year */}
             <Box sx={{ paddingLeft: 2, paddingRight: 2, paddingBottom: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -176,7 +176,7 @@ const MediaCard: React.FC<MediaCardProps> = ({ media, mediaType }) => {
                             color: 'gray',
                         }}
                     >
-                        {mediaDetails?.vote_average || 'N/A'}
+                        {mediaDetails?.vote_average.toFixed(2) || 'N/A'}
                     </Typography>
                 </Box>
                 {/* Genres */}

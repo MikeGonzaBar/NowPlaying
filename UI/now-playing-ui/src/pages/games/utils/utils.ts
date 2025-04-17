@@ -25,23 +25,29 @@ export const getPlaytime = (game: any) => {
     }
 };
 
+function isSteamGame(game: SteamGame | PsnGame): game is SteamGame {
+    // SteamGame doesn’t have a `platform` field
+    return !("platform" in game);
+}
+
 export const calculateAchievementPercentage = (game: SteamGame | PsnGame) => {
-    if (typeof game.unlocked_achievements === 'number' && typeof game.total_achievements === 'number') {
-        // Steam: unlocked_achievements and total_achievements are numbers
-        return (game.unlocked_achievements / game.total_achievements) * 100;
+    if (isSteamGame(game)) {
+        return (game.unlocked_achievements_count / game.total_achievements) * 100;
     } else if (typeof game.unlocked_achievements === 'object' && typeof game.total_achievements === 'object') {
-        // PSN: unlocked_achievements and total_achievements are objects
-        const unlocked =
-            (game.unlocked_achievements.platinum || 0) +
-            (game.unlocked_achievements.gold || 0) +
-            (game.unlocked_achievements.silver || 0) +
-            (game.unlocked_achievements.bronze || 0);
-        const total =
-            (game.total_achievements.platinum || 0) +
-            (game.total_achievements.gold || 0) +
-            (game.total_achievements.silver || 0) +
-            (game.total_achievements.bronze || 0);
-        return (unlocked / total) * 100;
+        const trophyValues = { bronze: 15, silver: 30, gold: 90, platinum: 300 };
+
+        const unlockedPoints =
+            (game.unlocked_achievements.bronze || 0) * trophyValues.bronze +
+            (game.unlocked_achievements.silver || 0) * trophyValues.silver +
+            (game.unlocked_achievements.gold || 0) * trophyValues.gold +
+            (game.unlocked_achievements.platinum || 0) * trophyValues.platinum;
+
+        const totalPoints =
+            (game.total_achievements.bronze || 0) * trophyValues.bronze +
+            (game.total_achievements.silver || 0) * trophyValues.silver +
+            (game.total_achievements.gold || 0) * trophyValues.gold +
+            (game.total_achievements.platinum || 0) * trophyValues.platinum;
+        return (unlockedPoints / totalPoints) * 100;
     }
     return 0;
 };

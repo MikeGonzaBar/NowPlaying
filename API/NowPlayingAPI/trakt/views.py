@@ -53,21 +53,24 @@ class TraktViewSet(viewsets.ViewSet):
         Returns the stored values from the Movie model, sorted by last_watched_at,
         and formatted like the fetch_latest_movies endpoint.
         """
+        page = int(request.query_params.get("page", 1))
+        page_size = int(request.query_params.get("page_size", 5))
+        offset = (page - 1) * page_size
+        limit = offset + page_size
         # Query movies and order by last_watched_at in descending order
-        movies = (
-            Movie.objects.all()
-            .order_by("-last_watched_at")
-            .values(
-                "title",
-                "year",
-                "plays",
-                "last_watched_at",
-                "last_updated_at",
-                "trakt_id",
-                "slug",
-                "imdb_id",
-                "tmdb_id",
-            )
+        movies_qs = Movie.objects.all().order_by("-last_watched_at")
+        total = movies_qs.count()
+
+        movies = movies_qs[offset:limit].values(
+            "title",
+            "year",
+            "plays",
+            "last_watched_at",
+            "last_updated_at",
+            "trakt_id",
+            "slug",
+            "imdb_id",
+            "tmdb_id",
         )
 
         # Format the response to match the desired structure
@@ -90,30 +93,37 @@ class TraktViewSet(viewsets.ViewSet):
             for movie in movies
         ]
 
-        return Response({"movies": formatted_movies})
+        return Response({
+        "page": page,
+        "page_size": page_size,
+        "total_items": total,
+        "total_pages": (total + page_size - 1) // page_size,
+        "movies": formatted_movies
+        })
 
     @action(detail=False, methods=["get"], url_path="get-stored-shows")
     def get_stored_shows(self, request):
         """
-        Returns the stored values from the Show model, sorted by last_watched_at,
-        and formatted like the fetch_latest_shows endpoint.
+        Returns paginated stored values from the Show model, sorted by last_watched_at.
         """
-        # Query shows and order by last_watched_at in descending order
-        shows = (
-            Show.objects.all()
-            .order_by("-last_watched_at")
-            .values(
-                "id",
-                "trakt_id",
-                "tmdb_id",
-                "title",
-                "year",
-                "image_url",
-                "last_watched_at",
-            )
+        page = int(request.query_params.get("page", 1))
+        page_size = int(request.query_params.get("page_size", 5))
+        offset = (page - 1) * page_size
+        limit = offset + page_size
+
+        shows_qs = Show.objects.all().order_by("-last_watched_at")
+        total = shows_qs.count()
+
+        shows = shows_qs[offset:limit].values(
+            "id",
+            "trakt_id",
+            "tmdb_id",
+            "title",
+            "year",
+            "image_url",
+            "last_watched_at",
         )
 
-        # Format the response to match the desired structure
         formatted_shows = [
             {
                 "last_watched_at": show["last_watched_at"],
@@ -131,7 +141,13 @@ class TraktViewSet(viewsets.ViewSet):
             for show in shows
         ]
 
-        return Response({"shows": formatted_shows})
+        return Response({
+            "page": page,
+            "page_size": page_size,
+            "total_items": total,
+            "total_pages": (total + page_size - 1) // page_size,
+            "shows": formatted_shows
+        })
 
     @action(detail=False, methods=["get"], url_path="get-watched-seasons-episodes")
     def get_watched_seasons_episodes(self, request):

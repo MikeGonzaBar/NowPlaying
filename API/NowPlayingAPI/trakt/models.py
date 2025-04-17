@@ -5,6 +5,8 @@ import requests
 from datetime import datetime, timedelta
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from dateutil.parser import isoparse
+from django.db.models import Max
 
 # Create your models here.
 
@@ -190,11 +192,7 @@ def get_trakt_headers():
     """
     try:
         token = TraktToken.objects.latest("updated_at")
-        print(f"Token: {token}")
-        print(f"Token: {token.access_token}")
-        print(f"Token: {token.refresh_token}")
-        print(f"Token: {token.expires_at}")
-        print(f"Token: {token.updated_at}")
+
     except TraktToken.DoesNotExist:
         raise Exception("Trakt token not found. Please authenticate first.")
     if token.is_expired():
@@ -215,15 +213,22 @@ def fetch_latest_watched_movies():
     headers = get_trakt_headers()
     response = requests.get(url, headers=headers)
     data = response.json()
-    sorted_data = sorted(data, key=lambda x: x.get("last_watched_at"), reverse=True)
+    sorted_data = sorted(data, key=lambda x: x.get("last_updated_at"), reverse=True)
 
     for item in sorted_data:
         movie_data = item.get("movie", {})
-        watched_at = item.get("last_watched_at")
-        last_updated_at = item.get("last_updated_at")
-        plays = item.get("plays", 0)  # Number of times the movie was watched
-
         trakt_id = str(movie_data.get("ids", {}).get("trakt"))
+        api_last_updated = isoparse(item["last_updated_at"])
+        try:
+            movie_obj = Movie.objects.get(trakt_id=trakt_id)
+        except Movie.DoesNotExist:
+            movie_obj = None
+        if movie_obj and movie_obj.last_updated_at and api_last_updated <= movie_obj.last_updated_at:
+            continue
+
+        plays = item.get("plays", 0)  # Number of times the movie was watched
+        last_updated_at = item.get("last_updated_at")
+        watched_at = item.get("last_watched_at")
         title = movie_data.get("title")
         year = movie_data.get("year")
         slug = movie_data.get("ids", {}).get("slug")
@@ -266,18 +271,28 @@ def fetch_latest_watched_shows():
     response = requests.get(url, headers=headers)
     data = response.json()
     sorted_data = sorted(data, key=lambda x: x.get("last_watched_at"), reverse=True)
-
     for item in sorted_data:
         show_data = item.get("show", {})
         trakt_id = str(show_data.get("ids", {}).get("trakt"))
+        try:
+            existing = Show.objects.get(trakt_id=trakt_id)
+        except Show.DoesNotExist:
+            existing = None
         title = show_data.get("title")
+        tmdb_id = show_data.get("ids", {}).get("tmdb")
+        api_last = isoparse(item["last_watched_at"])
+        if existing:
+            last_db = existing.last_watched_at
+        else:
+            last_db = None
+        print(f"Recieved Show: {title}\tAPI Last: {api_last}\tDB Last: {last_db}")
+        if ((last_db is not None) and (api_last <= last_db)):
+            continue
         year = show_data.get("year")
         slug = show_data.get("ids", {}).get("slug")
         # Extract the TMDb ID from the response
-        tmdb_id = show_data.get("ids", {}).get("tmdb")
         images = show_data.get("images", {})
         poster = images.get("poster", {}).get("full")
-        print(f"Recieved Show: {title} with tmdb_id: {tmdb_id}")
         # Update or create the show record
         show_obj, _ = Show.objects.update_or_create(
             trakt_id=trakt_id,

@@ -132,9 +132,11 @@ function Games() {
                         achievementPercentage: calculateAchievementPercentage(game),
                     };
                 })
-                .filter((game) => game.achievementPercentage > 0)
+                .filter((game) => {
+                    const percentage = game.achievementPercentage;
+                    return !isNaN(percentage) && percentage > 0;
+                })
                 .sort((a, b) => b.achievementPercentage - a.achievementPercentage);
-
             setMostAchieved(mergedMostAchievedGames);
         } catch (err) {
             console.error(err);

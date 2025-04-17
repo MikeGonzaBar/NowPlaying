@@ -326,7 +326,7 @@ const MovieHeader: React.FC<MovieHeaderProps> = ({ media, mediaType, mediaDetail
                                                         </Typography>
                                                         <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: 1 }}>
                                                             <Typography variant="body2" sx={{ fontWeight: 500 }} >
-                                                                <GradeIcon sx={{ mb: -1 }}></GradeIcon> {episode.rating}
+                                                                <GradeIcon sx={{ mb: -1 }}></GradeIcon> {episode.rating.toFixed(2)}
                                                             </Typography>
                                                             <Typography variant="body2" sx={{ fontWeight: 500 }} >
                                                                 Progress: {episode.progress}%
