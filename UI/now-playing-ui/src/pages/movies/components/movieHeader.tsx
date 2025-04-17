@@ -106,7 +106,7 @@ const MovieHeader: React.FC<MovieHeaderProps> = ({ media, mediaType, mediaDetail
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, ml: -1 }}>
                 <IconButton
                     component={Link}
-                    to="/page2"
+                    to="/movies"
                     color="primary"
                     sx={{ marginRight: 2 }}
                 >

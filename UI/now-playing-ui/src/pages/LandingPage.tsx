@@ -46,19 +46,19 @@ function LandingPage() {
             title: 'Games',
             emoji: '🎮',
             gradient: 'linear-gradient(to bottom, #101B2F, #1782B3)',
-            route: '/page1',
+            route: '/games',
         },
         {
             title: 'Movies & Shows',
             emoji: '📺',
             gradient: 'linear-gradient(to bottom, #9e43c6, #e40e31)',
-            route: '/page2',
+            route: '/movies',
         },
         {
             title: 'Music',
             emoji: '🎧',
             gradient: 'linear-gradient(to bottom, #1ED760, #107132)',
-            route: '/page3',
+            route: '/music',
         },
     ];
     return (

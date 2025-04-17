@@ -19,7 +19,7 @@ function SideBar({ activeItem }: SideBarProps) {
                     to="/"
                     sx={{
                         justifyContent: 'center',
-                        padding: 0, 
+                        padding: 0,
                     }}
                 >
                     <Box
@@ -35,30 +35,30 @@ function SideBar({ activeItem }: SideBarProps) {
             </ListItem>
 
             {[
-                { text: 'Games', icon: <SportsEsportsIcon />, route: '/page1' },
-                { text: 'Movies', icon: <OndemandVideoIcon />, route: '/page2' },
-                { text: 'Music', icon: <HeadsetIcon />, route: '/page3' },
+                { text: 'Games', icon: <SportsEsportsIcon />, route: '/games' },
+                { text: 'Movies', icon: <OndemandVideoIcon />, route: '/movies' },
+                { text: 'Music', icon: <HeadsetIcon />, route: '/music' },
             ].map((item) => (
                 <ListItem key={item.text} disablePadding>
                     <ListItemButton
                         component={Link}
-                        to={item.route} 
+                        to={item.route}
                         sx={{
-                            backgroundColor: activeItem === item.text ? 'rgba(255, 255, 255, 0.2)' : 'transparent', 
-                            borderRadius: '20px', 
-                            paddingLeft: '20px', 
-                            marginInline: '10px', 
+                            backgroundColor: activeItem === item.text ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
+                            borderRadius: '20px',
+                            paddingLeft: '20px',
+                            marginInline: '10px',
                             marginTop: '15px',
                             '&:hover': {
-                                backgroundColor: 'rgba(255, 255, 255, 0.1)', 
+                                backgroundColor: 'rgba(255, 255, 255, 0.1)',
                             },
                         }}
                     >
                         <ListItemIcon
                             sx={{
-                                minWidth: 'auto', 
-                                mr: 2, 
-                                svg: { fontSize: 40, color: '#ffffff' }, 
+                                minWidth: 'auto',
+                                mr: 2,
+                                svg: { fontSize: 40, color: '#ffffff' },
                             }}
                         >
                             {item.icon}
@@ -66,8 +66,8 @@ function SideBar({ activeItem }: SideBarProps) {
                         <ListItemText
                             primary={item.text}
                             sx={{
-                                fontSize: 20, 
-                                color: '#ffffff', 
+                                fontSize: 20,
+                                color: '#ffffff',
                             }}
                         />
                     </ListItemButton>

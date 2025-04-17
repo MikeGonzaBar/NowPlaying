@@ -15,9 +15,9 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/page1" element={<Games />} />
-        <Route path="/page2" element={<Movies />} />
-        <Route path="/page3" element={<Music />} />
+        <Route path="/games" element={<Games />} />
+        <Route path="/movies" element={<Movies />} />
+        <Route path="/music" element={<Music />} />
         <Route path="/game/:id" element={<GameDetails />} />
         <Route path="/movieDetails" element={<MovieDetails />} />
       </Routes>
