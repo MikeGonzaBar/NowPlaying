@@ -47,6 +47,7 @@ interface WatchedSeasonsEpisodesResponse {
 
 
 const MovieHeader: React.FC<MovieHeaderProps> = ({ media, mediaType, mediaDetails }) => {
+    const beBaseUrl = `http://${window.location.hostname}:8000`
     const mediaTitle = mediaType === "movie" ? (media as Movie).movie.title : (media as Show).show.title;
     const mediaImage = mediaDetails?.poster_path
         ? `https://image.tmdb.org/t/p/w1280${mediaDetails.backdrop_path}`
@@ -58,7 +59,7 @@ const MovieHeader: React.FC<MovieHeaderProps> = ({ media, mediaType, mediaDetail
 
     const fetchWatchedSeasonsEpisodes = async () => {
         try {
-            const response = await fetch(`http://localhost:8000/trakt/get-watched-seasons-episodes/?trakt_id=${traktId}`);
+            const response = await fetch(`${beBaseUrl}/trakt/get-watched-seasons-episodes/?trakt_id=${traktId}`);
             const result = await response.json();
             console.log("Fetched watched seasons and episodes:", result);
             setData(result);

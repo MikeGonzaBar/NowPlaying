@@ -13,9 +13,11 @@ import MediaCard from "../components/mediaCard";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 
+const beBaseUrl = `http://${window.location.hostname}:8000`
+
 const fetchMoviesData = async (page = 1, pageSize = 5): Promise<Movie[]> => {
     const res = await fetch(
-        `http://localhost:8000/trakt/get-stored-movies?page=${page}&page_size=${pageSize}`
+        `${beBaseUrl}/trakt/get-stored-movies?page=${page}&page_size=${pageSize}`
     );
     const data = await res.json();
     return data.movies;
@@ -23,7 +25,7 @@ const fetchMoviesData = async (page = 1, pageSize = 5): Promise<Movie[]> => {
 
 const fetchShowsData = async (page = 1, pageSize = 5): Promise<Show[]> => {
     const res = await fetch(
-        `http://localhost:8000/trakt/get-stored-shows?page=${page}&page_size=${pageSize}`
+        `${beBaseUrl}/trakt/get-stored-shows?page=${page}&page_size=${pageSize}`
     );
     const data = await res.json();
     return data.shows;
@@ -42,7 +44,7 @@ function Movies() {
         console.log(loading)
         try {
             setSnackbarOpen(true);
-            const res = await fetch("http://localhost:8000/trakt/fetch-latest-movies/");
+            const res = await fetch( `${beBaseUrl}/trakt/fetch-latest-movies/ `);
             if (!res.ok) {
                 setError("Failed to fetch recently played movies.");
                 setLoading(false);
@@ -50,7 +52,7 @@ function Movies() {
                 return;
             }
             const resShows = await fetch(
-                "http://localhost:8000/trakt/fetch-latest-shows/"
+                `${beBaseUrl}/trakt/fetch-latest-shows/ `
             );
             if (!resShows.ok) {
                 setError("Failed to fetch recently palyes tv shows.");

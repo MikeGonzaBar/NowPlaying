@@ -26,6 +26,7 @@ interface SpotifyItem {
 }
 
 function Music() {
+    const beBaseUrl = `http://${window.location.hostname}:8000`
     const drawerWidth = 160;
 
     // State to store the tracks
@@ -35,7 +36,7 @@ function Music() {
 
     const fetchStoredSongs = async () => {
         try {
-            const res = await fetch("http://localhost:8000/spotify/get-stored-songs/");
+            const res = await fetch(`${beBaseUrl}/spotify/get-stored-songs/`);
 
             if (!res.ok) {
                 setError("Failed to fetch stored songs.");
@@ -62,7 +63,7 @@ function Music() {
             setSnackbarOpen(true); // Show snackbar when fetching starts
 
             const res = await fetch(
-                "http://localhost:8000/spotify/fetch-recently-played/"
+                `${beBaseUrl}/spotify/fetch-recently-played/`
             );
 
             if (!res.ok) {
