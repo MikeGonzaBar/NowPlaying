@@ -124,7 +124,9 @@ function Games() {
             setSteamGames(steamArray);
             setPsnGames(psnArray);
             setRetroGames(retroArray);
-            console.log("Enriched Retro Array:", retroArray);
+            console.log("Steam: ", steamGames)
+            console.log("PSN: ", psnGames)
+            console.log("retro: ", retroGames)
 
             const merged = mergeAndSortGames(steamArray, psnArray, retroArray);
 

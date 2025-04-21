@@ -39,6 +39,7 @@ function Movies() {
     const [loading, setLoading] = useState(true);
 
     const fetchLatest = async () => {
+        console.log(loading)
         try {
             setSnackbarOpen(true);
             const res = await fetch("http://localhost:8000/trakt/fetch-latest-movies/");

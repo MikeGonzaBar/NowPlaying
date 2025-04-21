@@ -1,0 +1,26 @@
+
+services:
+  api:
+    build: ./API/
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./API:/app
+      - ./API/static:/app/static
+    env_file:
+      - ./API/.env
+    command: >
+      sh -c "
+      cd NowPlayingAPI &&
+      python manage.py makemigrations &&
+      python manage.py migrate &&
+      python manage.py collectstatic --noinput &&
+      gunicorn NowPlayingAPI.wsgi:application --bind 0.0.0.0:8000 --timeout 120
+      "
+  
+  ui:
+    build: ./UI/now-playing-ui
+    ports:
+      - "3000:80"
+    environment:
+      - NODE_ENV=production

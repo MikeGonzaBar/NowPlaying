@@ -70,11 +70,6 @@ const isPsnGame = (
     return (game as PsnGame).platform !== undefined;
 };
 
-const isPs2Game = (
-    game: SteamGame | PsnGame | RetroAchievementsGame
-): boolean => {
-    return "console_name" in game && game.console_name === "PlayStation 2";
-};
 
 const formatDate = (
     game: SteamGame | PsnGame | RetroAchievementsGame

@@ -31,7 +31,6 @@ function Music() {
     // State to store the tracks
     const [tracks, setTracks] = useState<SpotifyItem[]>([]);
     const [error, setError] = useState<string | null>(null); // Error state
-    const [loading, setLoading] = useState(false); // State to control the loading banner visibility
     const [snackbarOpen, setSnackbarOpen] = useState(false); // State to control the snackbar visibility
 
     const fetchStoredSongs = async () => {
@@ -60,7 +59,6 @@ function Music() {
     };
     const fetchRecentlyPlayed = async () => {
         try {
-            setLoading(true);
             setSnackbarOpen(true); // Show snackbar when fetching starts
 
             const res = await fetch(
@@ -69,7 +67,6 @@ function Music() {
 
             if (!res.ok) {
                 setError("Failed to fetch recently played tracks.");
-                setLoading(false);
                 setSnackbarOpen(false); // Hide snackbar when fetch fails
                 return;
             }
@@ -78,12 +75,10 @@ function Music() {
             await fetchStoredSongs();
 
             setError(null);
-            setLoading(false);
             setSnackbarOpen(false); // Hide snackbar when fetch is successful
         } catch (error) {
             console.error("Error fetching recently played tracks:", error);
             setError("An error occurred while fetching recently played tracks.");
-            setLoading(false);
             setSnackbarOpen(false); // Hide snackbar when an error occurs
         }
     };

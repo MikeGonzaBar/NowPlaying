@@ -1,4 +1,4 @@
-import { Box, Chip, Grid, Tooltip, Typography } from "@mui/material";
+import { Box, Chip, Tooltip, Typography } from "@mui/material";
 import { Movie, Show } from "../utils/types";
 import { useEffect, useState } from "react";
 import EventIcon from '@mui/icons-material/Event';
