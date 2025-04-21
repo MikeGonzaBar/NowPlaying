@@ -22,6 +22,7 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 
 function Games() {
+    const beBaseUrl = `http://${window.location.hostname}:8000`
 
     const [steamGames, setSteamGames] = useState<SteamGame[]>([]);
     const [psnGames, setPsnGames] = useState<PsnGame[]>([]);
@@ -61,7 +62,7 @@ function Games() {
     const fetchLatestPlayedGames = async () => {
         try {
             setSnackbarOpen(true);
-            const res = await fetch("http://localhost:8000/steam/get-game-list/");
+            const res = await fetch(`${beBaseUrl}/steam/get-game-list/`);
 
             if (!res.ok) {
                 setError("Failed to fetch recently played steam games.");
@@ -69,7 +70,7 @@ function Games() {
                 setSnackbarOpen(false); // Hide snackbar when fetch fails
                 return;
             }
-            const resPSN = await fetch("http://localhost:8000/psn/get-game-list/");
+            const resPSN = await fetch(`${beBaseUrl}/psn/get-game-list/`);
 
             if (!resPSN.ok) {
                 setError("Failed to fetch recently played PSN games.");
@@ -77,7 +78,7 @@ function Games() {
                 setSnackbarOpen(false); // Hide snackbar when fetch fails
                 return;
             }
-            const resRetro = await fetch("http://localhost:8000/retroachievements/fetch-recently-played-games/");
+            const resRetro = await fetch(`${beBaseUrl}/retroachievements/fetch-recently-played-games/`);
 
             if (!resRetro.ok) {
                 setError("Failed to fetch recently played Retro games.");
@@ -110,14 +111,14 @@ function Games() {
                 psnMostAchievedArray,
                 retroMostAchievedArray,
             ] = await Promise.all([
-                fetchGameData("http://localhost:8000/steam/get-game-list-stored/"),
-                fetchGameData("http://localhost:8000/psn/get-game-list-stored/"),
-                fetchGameData("http://localhost:8000/retroachievements/fetch-games/"),
-                fetchGameData("http://localhost:8000/steam/get-game-list-total-playtime/"),
-                fetchGameData("http://localhost:8000/psn/get-game-list-total-playtime/"),
-                fetchGameData("http://localhost:8000/steam/get-game-list-most-achieved/"),
-                fetchGameData("http://localhost:8000/psn/get-game-list-most-achieved/"),
-                fetchGameData("http://localhost:8000/retroachievements/get-most-achieved-games/"),
+                fetchGameData(`${beBaseUrl}/steam/get-game-list-stored/`),
+                fetchGameData(`${beBaseUrl}/psn/get-game-list-stored/`),
+                fetchGameData(`${beBaseUrl}/retroachievements/fetch-games/`),
+                fetchGameData(`${beBaseUrl}/steam/get-game-list-total-playtime/`),
+                fetchGameData(`${beBaseUrl}/psn/get-game-list-total-playtime/`),
+                fetchGameData(`${beBaseUrl}/steam/get-game-list-most-achieved/`),
+                fetchGameData(`${beBaseUrl}/psn/get-game-list-most-achieved/`),
+                fetchGameData(`${beBaseUrl}/retroachievements/get-most-achieved-games/`),
 
             ]);
 
