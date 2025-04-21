@@ -1,6 +1,6 @@
-# API Configuration Guide
+# NowPlaying API
 
-This folder contains the backend API for the **NowPlaying** project. The API is built using Django and Django REST Framework to fetch and manage data from various services like Steam, PlayStation, Spotify, and Trakt.
+This folder contains the backend API for the **NowPlaying** project. The API is built using Django 5.1 and Django REST Framework to fetch and manage data from various entertainment services including Steam, PlayStation, RetroAchievements, Spotify, and Trakt.
 
 ## Prerequisites
 
@@ -15,53 +15,85 @@ Before running the API, ensure you have the following installed:
 1. Navigate to the `API` folder:
 
    ```bash
-   cd /root/NowPlaying/API
+   cd API
    ```
 
 2. Create and activate a virtual environment:
 
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
+   ```bash
+   # On Windows
+   python -m venv nowPlayingVenv
+   nowPlayingVenv\Scripts\activate
+   
+   # On macOS/Linux
+   python3 -m venv nowPlayingVenv
+   source nowPlayingVenv/bin/activate
    ```
 
 3. Install the required dependencies:
 
-    ```bash
-    pip install -r requirements.txt
+   ```bash
+   pip install -r requirements.txt
    ```
 
 ## Environment Variables
 
-The API relies on several environment variables for configuration. Create a .env file in the API folder and add the following variables:
+The API relies on several environment variables for configuration. Create a `.env` file in the API folder and add the following variables:
 
-    STEAM_API_KEY=<your_steam_api_key>
-    STEAM_ID=<your_steam_id>
-    PLAY_STATION_NPSSO=<your_playstation_npso_token>
-    PLAY_STATION_ID=<your_playstation_id>
-    TRAKT_CLIENT_ID=<your_trakt_client_id>
-    TRAKT_CLIENT_SECRET=<your_trakt_client_secret>
-    TRAKT_REDIRECT_URI=<your_trakt_redirect_uri>
-    TRAKT_AUTH_CODE=<your_trakt_auth_code>
-    SPOTIFY_ACCESS_TOKEN=<your_spotify_access_token>
-    RETROACHIEVEMENTS_API_KEY=<your_retroachievements_api_key>
-    RETROACHIEVEMENTS_USER=<your_retroachievements_username>
+```env
+STEAM_API_KEY=<your_steam_api_key>
+STEAM_ID=<your_steam_id>
+PLAY_STATION_NPSSO=<your_playstation_npso_token>
+PLAY_STATION_ID=<your_playstation_id>
+TRAKT_CLIENT_ID=<your_trakt_client_id>
+TRAKT_CLIENT_SECRET=<your_trakt_client_secret>
+TRAKT_REDIRECT_URI=<your_trakt_redirect_uri>
+TRAKT_AUTH_CODE=<your_trakt_auth_code>
+SPOTIFY_ACCESS_TOKEN=<your_spotify_access_token>
+RETROACHIEVEMENTS_API_KEY=<your_retroachievements_api_key>
+RETROACHIEVEMENTS_USER=<your_retroachievements_username>
+```
 
-## Running the api
+## Running the API
 
-1. Apply migrations to set up the database:
+1. Navigate to the Django project directory:
+
+   ```bash
+   cd NowPlayingAPI
+   ```
+
+2. Apply migrations to set up the database:
 
    ```bash
    python manage.py migrate
    ```
 
-2. Start the development server:
+3. Start the development server:
 
-    ```bash
-    python manage.py runserver
+   ```bash
+   python manage.py runserver
    ```
 
-3. Access the API at <http://127.0.0.1:8000/>.
+4. Access the API at <http://127.0.0.1:8000/>.
+
+## Docker Deployment
+
+The API can be deployed using Docker:
+
+1. Build and run using Docker Compose from the project root:
+
+   ```bash
+   docker-compose up -d
+   ```
+
+   This will start both the API and UI services.
+
+2. Alternatively, build and run the API container directly:
+
+   ```bash
+   docker build -t nowplaying-api .
+   docker run -p 8000:8000 nowplaying-api
+   ```
 
 ## API Endpoints
 
@@ -102,10 +134,42 @@ The following endpoints are available:
 - `/retroachievements/fetch-games`: Fetches all games without their achievements.
 - `/retroachievements/fetch-game-details`: Fetches a specific game and its achievements by `game_id`.
 
-## Notes
+## Technologies Used
 
-- **Steam**: Ensure your Steam API [key](https://steamcommunity.com/dev/apikey) is valid and linked to your account.
-- **PlayStation**: Manual cookie manipulation is required to obtain the npsso token. For more information on how to retrieve the required cookies visit the library [guide](https://github.com/isFakeAccount/psnawp)
-- **Spotify**: The access token must be configured by using the [dashboard](https://developer.spotify.com/dashboard) and app creation in spotify for developers.
-- **Trakt**: Ensure your Trakt account is authenticated and tokens are valid, this can be obtaines in the following [link](https://trakt.tv/oauth/applications).
-- **RetroAchievements**: Ensure your RetroAchievements API key and username are valid. You can find more information on the [RetroAchievements API documentation](https://retroachievements.org).
+- **Django 5.1**: Web framework for building the API
+- **Django REST Framework 3.15**: For creating RESTful API endpoints
+- **SQLite**: Default database for development (can be changed in settings)
+- **Gunicorn**: WSGI HTTP server for production
+- **Django CORS Headers**: For handling Cross-Origin Resource Sharing
+- **Python-dotenv**: For managing environment variables
+
+## Service Integration Notes
+
+- **Steam**: Requires a valid Steam API [key](https://steamcommunity.com/dev/apikey) linked to your account and your Steam ID.
+- **PlayStation**: Manual cookie manipulation is required to obtain the npsso token. See the [PSNAWP library guide](https://github.com/isFakeAccount/psnawp) for how to retrieve the required cookies.
+- **Spotify**: The access token must be configured using the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) by creating an app.
+- **Trakt**: Authentication requires setting up an application in the [Trakt API Applications](https://trakt.tv/oauth/applications) page.
+- **RetroAchievements**: Requires a valid RetroAchievements API key and username. See the [RetroAchievements API documentation](https://retroachievements.org) for more details.
+
+## Project Structure
+
+```
+API/
+├── NowPlayingAPI/       # Django project root
+│   ├── NowPlayingAPI/   # Main Django settings module
+│   │   ├── settings.py  # Project settings
+│   │   ├── urls.py      # URL declarations
+│   │   └── wsgi.py      # WSGI application entry point
+│   ├── steam/           # Steam integration module
+│   ├── playstation/     # PlayStation integration module
+│   ├── retroachievements/ # RetroAchievements integration module
+│   ├── trakt/           # Trakt integration module
+│   ├── music/           # Spotify integration module
+│   ├── static/          # Collected static files
+│   │   └── admin/       # Admin static files
+│   ├── db.sqlite3       # SQLite database
+│   └── manage.py        # Django command-line utility
+├── requirements.txt     # Python dependencies
+├── Dockerfile           # Docker configuration
+└── .env                 # Environment variables (not tracked by git)
+```
