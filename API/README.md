@@ -153,7 +153,7 @@ The following endpoints are available:
 
 ## Project Structure
 
-```
+```plaintext
 API/
 ├── NowPlayingAPI/       # Django project root
 │   ├── NowPlayingAPI/   # Main Django settings module

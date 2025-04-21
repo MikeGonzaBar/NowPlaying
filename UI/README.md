@@ -72,7 +72,7 @@ Or use the root docker-compose.yml file to deploy the entire application.
 
 The project follows a feature-based organization:
 
-```
+```plaintext
 now-playing-ui/
 ├── public/                 # Static assets
 │   └── nowPlaying.svg      # Logo for the application
