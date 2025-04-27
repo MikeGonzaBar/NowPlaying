@@ -52,6 +52,7 @@ TRAKT_AUTH_CODE=<your_trakt_auth_code>
 SPOTIFY_ACCESS_TOKEN=<your_spotify_access_token>
 RETROACHIEVEMENTS_API_KEY=<your_retroachievements_api_key>
 RETROACHIEVEMENTS_USER=<your_retroachievements_username>
+OPEN_XBL_API=<your_openxbl_token>
 ```
 
 ## Running the API
@@ -113,6 +114,13 @@ The following endpoints are available:
 - `/psn/get-game-list-total-playtime`: Retrieves PlayStation games sorted by total playtime.
 - `/psn/get-game-list-most-achieved`: Retrieves PlayStation games sorted by the weighted score of unlocked achievements.
 
+### Xbox
+
+- `/xbox/get-game-list`: Fetches the list of games and achievements from OpenXBL.
+- `/xbox/get-game-list-stored`: Retrieves stored Xbox game data.
+- `/xbox/get-game-list-total-playtime`: Retrieves Xbox games sorted by total playtime.
+- `/xbox/get-game-list-most-achieved`: Retrieves Xbox games sorted by the weighted score of unlocked achievements.
+
 ### Spotify
 
 - `/spotify/fetch-recently-played`: Fetches recently played songs from Spotify.
@@ -150,6 +158,7 @@ The following endpoints are available:
 - **Spotify**: The access token must be configured using the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) by creating an app.
 - **Trakt**: Authentication requires setting up an application in the [Trakt API Applications](https://trakt.tv/oauth/applications) page.
 - **RetroAchievements**: Requires a valid RetroAchievements API key and username. See the [RetroAchievements API documentation](https://retroachievements.org) for more details.
+- **Xbox**: Requires a valid OpenXBL API key. See the [OpenXBL documentation](https://xbl.io/docs) for more details.
 
 ## Project Structure
 
@@ -162,6 +171,7 @@ API/
 │   │   └── wsgi.py      # WSGI application entry point
 │   ├── steam/           # Steam integration module
 │   ├── playstation/     # PlayStation integration module
+│   ├── xbox/            # Xbox integration module
 │   ├── retroachievements/ # RetroAchievements integration module
 │   ├── trakt/           # Trakt integration module
 │   ├── music/           # Spotify integration module
