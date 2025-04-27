@@ -14,7 +14,7 @@ NowPlaying is a portfolio project designed to showcase your latest entertainment
 
 - **Steam**: ✅ Supported - Full integration with game list and achievements.
 - **PlayStation**: ✅ Supported - ⚠️ Manual cookie manipulation required for the npsso token.
-- **Xbox**: ❌ Not implemented.
+- **Xbox**: ✅ Supported - ⚠️ Account required from [OpenXBL](https://xbl.io/).
 - **Nintendo**: ❌ Not supported.
 - **RetroAchievements**: ✅ Supported - Including games from PS2, PS1, Nintendo DS, and other retro consoles.
 
