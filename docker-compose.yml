@@ -1,7 +1,8 @@
-
 services:
   api:
-    build: ./API/
+    build:
+      context: ./API
+      dockerfile: ./Dockerfile # Removed './' to avoid path concatenation issues
     ports:
       - "8000:8000"
     volumes:
@@ -19,7 +20,9 @@ services:
       "
   
   ui:
-    build: ./UI/now-playing-ui
+    build:
+      context: ./UI/now-playing-ui
+      dockerfile: ./Dockerfile # Removed './' to avoid path concatenation issues
     ports:
       - "3000:80"
     environment:

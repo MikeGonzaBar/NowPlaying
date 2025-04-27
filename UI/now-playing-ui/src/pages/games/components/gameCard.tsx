@@ -3,25 +3,79 @@ import { Box, Grid, Typography } from "@mui/material";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import EventIcon from "@mui/icons-material/Event";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
-import { SteamGame, PsnGame, RetroAchievementsGame } from "../utils/types";
-
+import {
+    SteamGame,
+    PsnGame,
+    RetroAchievementsGame,
+    XboxGame,
+} from "../utils/types";
+import { formatPlaytime, isPsnGame } from "../utils/utils";
 interface GameCardProps {
-    game: SteamGame | PsnGame | RetroAchievementsGame;
+    game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
 }
 
 const GameCard: React.FC<GameCardProps> = ({ game }) => {
     const platformConfig = [
-        { key: "platform", value: "PS5", src: "Platforms/playstation-5.webp", alt: "PS5 Logo", width: "35px" },
-        { key: "platform", value: "PS4", src: "Platforms/playstation-4.png", alt: "PS4 Logo", width: "45px" },
-        { key: "console_name", value: "PlayStation 2", src: "Platforms/playstation-2.png", alt: "PS2 Logo", width: "45px" },
-        { key: "console_name", value: "PlayStation", src: "Platforms/playstation.webp", alt: "PS1 Logo", width: "25px" },
-        { key: "console_name", value: "Nintendo DS", src: "Platforms/nintendo-ds.png", alt: "Nintendo DS Logo", width: "45px" },
+        {
+            key: "platform",
+            value: "PS5",
+            src: "Platforms/playstation-5.webp",
+            alt: "PS5 Logo",
+            width: "45px",
+            style: { marginTop: "-10px" },
+        },
+        {
+            key: "platform",
+            value: "PS4",
+            src: "Platforms/playstation-4.png",
+            alt: "PS4 Logo",
+            width: "50px",
+        },
+        {
+            key: "platform",
+            value: "PC, XboxOne, XboxSeries, Xbox360",
+            src: "Platforms/xbox.svg",
+            alt: "XBOX Logo",
+            width: "55px",
+            style: { marginTop: "-5px" },
+        },
+        {
+            key: "console_name",
+            value: "PlayStation 2",
+            src: "Platforms/playstation-2.png",
+            alt: "PS2 Logo",
+            width: "45px",
+            style: { marginTop: "8px" },
+        },
+        {
+            key: "console_name",
+            value: "PlayStation",
+            src: "Platforms/playstation.webp",
+            alt: "PS1 Logo",
+            width: "25px",
+        },
+        {
+            key: "console_name",
+            value: "Nintendo DS",
+            src: "Platforms/nintendo-ds.png",
+            alt: "Nintendo DS Logo",
+            width: "80px",
+            style: { marginTop: "8px" },
+        },
     ];
+    const playMins = formatPlaytime(game);
+    const matchedPlatform = platformConfig.find(({ key, value }) => {
+        if (!(key in game)) return false;
 
-    const matchedPlatform = platformConfig.find(
-        ({ key, value }) =>
-            key in game && (game as Record<string, any>)[key] === value
-    );
+        const gameValue = (game as Record<string, any>)[key];
+        if (typeof gameValue !== "string") return false;
+
+        const gameValues = gameValue.split(",").map((v) => v.trim().toLowerCase());
+        const configValues = value.split(",").map((v) => v.trim().toLowerCase());
+
+        // Check if any value matches
+        return configValues.some((configVal) => gameValues.includes(configVal));
+    });
     const platformImg = matchedPlatform ? (
         <Box
             component="img"
@@ -31,7 +85,7 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
                 width: matchedPlatform.width,
                 height: "auto",
                 backgroundColor: "transparent",
-                marginRight: "8px",
+                marginTop: matchedPlatform.style?.marginTop || "0px",
             }}
         />
     ) : (
@@ -40,7 +94,7 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
             src="Platforms/steam.webp"
             alt="Steam Logo"
             sx={{
-                width: "30px",
+                width: "22px",
                 height: "auto",
                 backgroundColor: "transparent",
                 marginTop: "2px",
@@ -105,11 +159,7 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
                         >
                             <AccessTimeIcon sx={{ fontSize: 16, mr: 0.5 }} />
                             <Typography variant="body2" sx={{ fontFamily: "Inter, sans-serif" }}>
-                                {"platform" in game
-                                    ? game.total_playtime
-                                    : "playtime_formatted" in game && game.playtime_formatted
-                                        ? game.playtime_formatted
-                                        : "Not Available"}
+                                {playMins}
                             </Typography>
                         </Box>
                     </Grid>
@@ -118,11 +168,11 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
                     container
                     alignItems="center"
                     justifyContent="space-between"
-                    sx={{ mt: 1, alignItems: "end", minHeight: "100%" }}
+                    sx={{ alignItems: "end", minHeight: "100%" }}
                 >
                     <Grid>
                         <Box sx={{ display: "flex", alignItems: "center" }}>
-                            <EventIcon sx={{ fontSize: 16, mr: 0.5 }} />
+                            <EventIcon sx={{ fontSize: 15, mr: 0.5 }} />
                             <Typography variant="body2" sx={{ fontFamily: "Inter, sans-serif" }}>
                                 {(() => {
                                     if ("platform" in game) {
@@ -155,89 +205,117 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
                                 gap: 1,
                             }}
                         >
-                            {"platform" in game &&
-                                game.unlocked_achievements?.platinum !== undefined && (
-                                    <Box
-                                        component="img"
-                                        src="PSN_Trophies/PSN_platinum.png"
-                                        alt="Platinum Trophy"
-                                        sx={{
-                                            width: "10.5px",
-                                            height: "10.5px",
-                                            filter:
-                                                game.unlocked_achievements.platinum === 0
-                                                    ? "grayscale(100%)"
-                                                    : "none",
-                                        }}
-                                    />
-                                )}
+                            {(() => {
+                                // Only compute this once
+                                const psn = isPsnGame(game) ? game.unlocked_achievements : null;
 
-                            {"platform" in game &&
-                                game.unlocked_achievements?.gold !== undefined && (
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                                        <Box
-                                            component="img"
-                                            src="PSN_Trophies/PSN_gold.png"
-                                            alt="Gold Trophy"
-                                            sx={{ width: "10.5px", height: "10.5px" }}
-                                        />
-                                        <Typography variant="body2" sx={{ fontFamily: "Inter, sans-serif" }}>
-                                            {game.unlocked_achievements.gold}
-                                        </Typography>
-                                    </Box>
-                                )}
+                                if (psn) {
+                                    // Define your trophy types and images in one place
+                                    const trophies: {
+                                        type: keyof typeof psn;
+                                        src: string;
+                                        alt: string;
+                                    }[] = [
+                                            {
+                                                type: "platinum",
+                                                src: "PSN_Trophies/PSN_platinum.png",
+                                                alt: "Platinum Trophy",
+                                            },
+                                            {
+                                                type: "gold",
+                                                src: "PSN_Trophies/PSN_gold.png",
+                                                alt: "Gold Trophy",
+                                            },
+                                            {
+                                                type: "silver",
+                                                src: "PSN_Trophies/PSN_silver.png",
+                                                alt: "Silver Trophy",
+                                            },
+                                            {
+                                                type: "bronze",
+                                                src: "PSN_Trophies/PSN_bronze.png",
+                                                alt: "Bronze Trophy",
+                                            },
+                                        ];
 
-                            {"platform" in game &&
-                                game.unlocked_achievements?.silver !== undefined && (
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                                        <Box
-                                            component="img"
-                                            src="PSN_Trophies/PSN_silver.png"
-                                            alt="Silver Trophy"
-                                            sx={{ width: "10.5px", height: "10.5px" }}
-                                        />
-                                        <Typography variant="body2" sx={{ fontFamily: "Inter, sans-serif" }}>
-                                            {game.unlocked_achievements.silver}
-                                        </Typography>
-                                    </Box>
-                                )}
+                                    return trophies.map(({ type, src, alt }) => {
+                                        const count = psn[type];
+                                        // skip rendering if this tier isn’t defined
+                                        if (count === undefined) return null;
+                                        return (
+                                            <Box
+                                                key={type}
+                                                sx={{
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                }}
+                                            >
+                                                <Box
+                                                    component="img"
+                                                    src={src}
+                                                    alt={alt}
+                                                    sx={{
+                                                        width: "10.5px",
+                                                        height: "10.5px",
+                                                        filter: count === 0 ? "grayscale(100%)" : "none",
+                                                    }}
+                                                />
+                                                <Typography
+                                                    variant="body2"
+                                                    sx={{ fontFamily: "Inter, sans-serif" }}
+                                                >
+                                                    {count}
+                                                </Typography>
+                                            </Box>
+                                        );
+                                    });
+                                }
 
-                            {"platform" in game &&
-                                game.unlocked_achievements?.bronze !== undefined && (
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                                        <Box
-                                            component="img"
-                                            src="PSN_Trophies/PSN_bronze.png"
-                                            alt="Bronze Trophy"
-                                            sx={{ width: "10.5px", height: "10.5px" }}
-                                        />
-                                        <Typography variant="body2" sx={{ fontFamily: "Inter, sans-serif" }}>
-                                            {game.unlocked_achievements.bronze}
-                                        </Typography>
-                                    </Box>
-                                )}
+                                // only if the game actually has unlocked_achievements_count & total_achievements
+                                if (
+                                    "unlocked_achievements_count" in game &&
+                                    "total_achievements" in game
+                                ) {
+                                    return (
+                                        <>
+                                            <EmojiEventsIcon sx={{ fontSize: 16, mr: -1 }} />
+                                            <Typography variant="body2" sx={{ fontFamily: "Inter, sans-serif" }}>
+                                                {
+                                                    (
+                                                        game as Pick<
+                                                            SteamGame,
+                                                            "unlocked_achievements_count" | "total_achievements"
+                                                        >
+                                                    ).unlocked_achievements_count
+                                                }
+                                                /
+                                                {
+                                                    (
+                                                        game as Pick<
+                                                            SteamGame,
+                                                            "unlocked_achievements_count" | "total_achievements"
+                                                        >
+                                                    ).total_achievements
+                                                }
+                                            </Typography>
+                                        </>
+                                    );
+                                }
 
-                            {!("platform" in game) && (
-                                <>
-                                    <EmojiEventsIcon sx={{ fontSize: 16, mr: -1 }} />
-                                    <Typography variant="body2" sx={{ fontFamily: "Inter, sans-serif" }}>
-                                        {game.unlocked_achievements_count}/{game.total_achievements}
-                                    </Typography>
-                                </>
-                            )}
+                                return null;
+                            })()}
                         </Box>
                     </Grid>
-                    <Grid sx={{ textAlign: "right" }}>
-                        <Box
-                            sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "flex-end",
-                            }}
-                        >
-                            {platformImg}
-                        </Box>
-                    </Grid>
+                </Grid>
+                <Grid sx={{ textAlign: "right" }}>
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                        }}
+                    >
+                        {platformImg}
+                    </Box>
                 </Grid>
             </Box>
         </Box>

@@ -10,7 +10,12 @@ import {
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SideBar from "../../../components/sideBar";
-import { SteamGame, PsnGame, RetroAchievementsGame } from "../utils/types"; // Import interfaces
+import {
+    SteamGame,
+    PsnGame,
+    RetroAchievementsGame,
+    XboxGame,
+} from "../utils/types"; // Import interfaces
 import GameCard from "../components/gameCard";
 import {
     parseDate,
@@ -22,14 +27,15 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 
 function Games() {
-    const beBaseUrl = `http://${window.location.hostname}:8000`
+    const beBaseUrl = `http://${window.location.hostname}:8000`;
 
     const [steamGames, setSteamGames] = useState<SteamGame[]>([]);
     const [psnGames, setPsnGames] = useState<PsnGame[]>([]);
     const [retroGames, setRetroGames] = useState<RetroAchievementsGame[]>([]); // Adjust type as needed
-    const [latestPlayedGames, setMergedGames] = useState<(SteamGame | PsnGame | RetroAchievementsGame)[]>(
-        []
-    );
+    const [xboxGames, setXboxGames] = useState<XboxGame[]>([]); // Adjust type as needed
+    const [latestPlayedGames, setMergedGames] = useState<
+        (SteamGame | PsnGame | RetroAchievementsGame | XboxGame)[]
+    >([]);
     const [mostPlayed, setMostPlayed] = useState<(SteamGame | PsnGame)[]>([]);
     const [mostAchieved, setMostAchieved] = useState<(SteamGame | PsnGame)[]>([]);
 
@@ -40,10 +46,11 @@ function Games() {
     function mergeAndSortGames(
         steamArray: SteamGame[],
         psnArray: PsnGame[],
-        retroArray: RetroAchievementsGame[]
-    ): (SteamGame | PsnGame | RetroAchievementsGame)[] {
+        retroArray: RetroAchievementsGame[],
+        xboxArray: XboxGame[]
+    ): (SteamGame | PsnGame | RetroAchievementsGame | XboxGame)[] {
         const invalidTimestamp = new Date(1970, 0, 1).getTime();
-        const mergedGames = [...steamArray, ...psnArray, ...retroArray]
+        const mergedGames = [...steamArray, ...psnArray, ...retroArray, ...xboxArray]
             .map((game) => ({
                 ...game,
                 lastPlayed: parseDate(game.last_played),
@@ -78,9 +85,19 @@ function Games() {
                 setSnackbarOpen(false); // Hide snackbar when fetch fails
                 return;
             }
-            const resRetro = await fetch(`${beBaseUrl}/retroachievements/fetch-recently-played-games/`);
+            const resRetro = await fetch(
+                `${beBaseUrl}/retroachievements/fetch-recently-played-games/`
+            );
 
             if (!resRetro.ok) {
+                setError("Failed to fetch recently played Retro games.");
+                setLoading(false);
+                setSnackbarOpen(false); // Hide snackbar when fetch fails
+                return;
+            }
+            const resXbox = await fetch(`${beBaseUrl}/xbox/get-game-list/`);
+
+            if (!resXbox.ok) {
                 setError("Failed to fetch recently played Retro games.");
                 setLoading(false);
                 setSnackbarOpen(false); // Hide snackbar when fetch fails
@@ -105,35 +122,51 @@ function Games() {
                 steamArray,
                 psnArray,
                 retroArray,
+                xboxArray,
                 steamPlaytimeArray,
                 psnPlaytimeArray,
+                xboxPlaytimeArray,
                 steamMostAchievedArray,
                 psnMostAchievedArray,
                 retroMostAchievedArray,
+                xboxMostAchievedArray,
             ] = await Promise.all([
                 fetchGameData(`${beBaseUrl}/steam/get-game-list-stored/`),
                 fetchGameData(`${beBaseUrl}/psn/get-game-list-stored/`),
                 fetchGameData(`${beBaseUrl}/retroachievements/fetch-games/`),
+                fetchGameData(`${beBaseUrl}/xbox/get-game-list-stored/`),
                 fetchGameData(`${beBaseUrl}/steam/get-game-list-total-playtime/`),
                 fetchGameData(`${beBaseUrl}/psn/get-game-list-total-playtime/`),
+                fetchGameData(`${beBaseUrl}/xbox/get-game-list-total-playtime/`),
                 fetchGameData(`${beBaseUrl}/steam/get-game-list-most-achieved/`),
                 fetchGameData(`${beBaseUrl}/psn/get-game-list-most-achieved/`),
                 fetchGameData(`${beBaseUrl}/retroachievements/get-most-achieved-games/`),
-
+                fetchGameData(`${beBaseUrl}/xbox/get-game-list-most-achieved/`),
             ]);
 
             setSteamGames(steamArray);
             setPsnGames(psnArray);
             setRetroGames(retroArray);
-            console.log("Steam: ", steamGames)
-            console.log("PSN: ", psnGames)
-            console.log("retro: ", retroGames)
+            setXboxGames(xboxArray);
+            console.log("Steam: ", steamGames);
+            console.log("PSN: ", psnGames);
+            console.log("retro: ", retroGames);
+            console.log("xbox: ", xboxGames);
 
-            const merged = mergeAndSortGames(steamArray, psnArray, retroArray);
+            const merged = mergeAndSortGames(
+                steamArray,
+                psnArray,
+                retroArray,
+                xboxArray
+            );
 
             setMergedGames(merged);
 
-            const mergedPlaytimeGames = [...steamPlaytimeArray, ...psnPlaytimeArray]
+            const mergedPlaytimeGames = [
+                ...steamPlaytimeArray,
+                ...psnPlaytimeArray,
+                ...xboxPlaytimeArray,
+            ]
                 .filter((game) => {
                     return getPlaytime(game);
                 })
@@ -145,7 +178,8 @@ function Games() {
             const mergedMostAchievedGames = [
                 ...steamMostAchievedArray,
                 ...psnMostAchievedArray,
-                ...retroMostAchievedArray
+                ...retroMostAchievedArray,
+                ...xboxMostAchievedArray,
             ]
                 .map((game) => {
                     return {

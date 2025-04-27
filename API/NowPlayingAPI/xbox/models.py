@@ -42,7 +42,7 @@ class XboxAPI:
                 print(f"Error parsing JSON from URL: {url}")
                 return {}  # or None, depending on what you prefer
         else:
-            print(f"Bad response from URL {url}: {response.status_code}")
+            print(f"Bad response from URL {url}: {response.status_code} {response.reason}")
             return {} 
     
     @staticmethod
@@ -98,11 +98,11 @@ class XboxAPI:
                         int(stat["value"])
                         for group in response.get("statlistscollection", [])
                         for stat in group.get("stats", [])
-                        if stat.get("name") == "MinutesPlayed"
+                        if stat.get("name") == "MinutesPlayed" and stat.get("value") is not None
                     ),
                     "0"
                 )
-                if total_playtime is not None:
+                if total_playtime is not "0":
                     first_played = last_played - timedelta(minutes=total_playtime)
                 else:
                     first_played = None
@@ -130,8 +130,10 @@ class XboxAPI:
                         None
                     )                       
                     time_unlocked = ach.get("progression").get("timeUnlocked")
-                    print(ach)
-                    print(time_unlocked)
+                    raw_rewards = ach.get("rewards") or []            # if None or empty, becomes []
+                    first_reward = raw_rewards[0] if raw_rewards else {}  
+                    achievement_value = first_reward.get("value", "")  # "" if missing
+
                     XboxAchievement.objects.update_or_create(
                         game=game_instance,
                         name=ach["name"],
@@ -140,7 +142,7 @@ class XboxAPI:
                             "image":icon_asset,
                             "unlocked": False if time_unlocked == "0001-01-01T00:00:00.0000000Z" else True,
                             "unlock_time": time_unlocked,
-                            "achievement_value": ach.get("rewards")[0].get("value")
+                            "achievement_value": achievement_value
                         }
                     )
                 

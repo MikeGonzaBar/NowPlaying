@@ -1,5 +1,6 @@
 from django.shortcuts import render
-
+from django.db.models import IntegerField
+from django.db.models.functions import Cast
 from .serializers import XboxGameSerializer
 from .models import XboxGame
 from .models import XboxAPI
@@ -27,8 +28,11 @@ class XBOXViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="get-game-list-total-playtime")
     def getGameListPlaytime(self, request):
-        result = XboxGame.objects.all().order_by("-total_playtime")
-        serializer = XboxGameSerializer(result, many=True)
+        qs = XboxGame.objects.annotate(
+            total_playtime_int=Cast("total_playtime", IntegerField())
+        ).order_by("-total_playtime_int")
+
+        serializer = XboxGameSerializer(qs, many=True)
         return Response({"result": serializer.data})
     
     @action(detail=False, methods=["get"], url_path="get-game-list-most-achieved")
@@ -39,11 +43,15 @@ class XBOXViewSet(viewsets.ModelViewSet):
         # Helper function to calculate the weighted score for unlocked achievements.
         # (Adjust the weights based on your business logic.)
         def calculate_weighted_score(game):
-            # Assuming achievements is a related name on PSNAchievement
             unlocked = game.achievements.filter(unlocked=True)
             score = 0
             for ach in unlocked:
-                score+=ach.achievement_value
+                # turn the stored string into an int (default to 0 on bad data)
+                try:
+                    val = int(ach.achievement_value)
+                except (TypeError, ValueError):
+                    val = 0
+                score += val
             return score
 
         sorted_games = sorted(games, key=calculate_weighted_score, reverse=True)
