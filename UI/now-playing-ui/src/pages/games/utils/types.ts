@@ -78,3 +78,25 @@ export interface RetroAchievementsGame {
     score_achieved: number;
     achievements: RetroAchievementsAchievement[];
 }
+
+export interface XboxAchievement {
+    name: string;
+    description: string;
+    image: string;
+    unlocked: boolean;
+    unlock_time: string;
+    achievement_value: string;
+}
+export interface XboxGame {
+    appid: number;
+    name: string;
+    platform: string;
+    total_playtime: string;
+    first_played: string;
+    last_played: string;
+    img_icon_url: string;
+    achievements: XboxAchievement[];
+    total_achievements: number;
+    unlocked_achievements_count: number;
+    locked_achievements_count: number;
+}

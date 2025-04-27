@@ -2,10 +2,15 @@ import React from "react";
 import { Box, Typography, IconButton, Card, CardMedia } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { Link } from "react-router-dom";
-import { SteamGame, PsnGame, RetroAchievementsGame } from "../utils/types";
+import {
+    SteamGame,
+    PsnGame,
+    RetroAchievementsGame,
+    XboxGame,
+} from "../utils/types";
 
 interface GameHeaderProps {
-    game: SteamGame | PsnGame | RetroAchievementsGame;
+    game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
 }
 
 const platformConfig = [
@@ -31,6 +36,13 @@ const platformConfig = [
         width: "45px",
     },
     {
+        key: "platform",
+        value: "PC, XboxOne, XboxSeries, Xbox360",
+        src: "/Platforms/xbox.svg",
+        alt: "XBOX Logo",
+        width: "75px",
+    },
+    {
         key: "console_name",
         value: "PlayStation",
         src: "/Platforms/playstation.webp",
@@ -54,25 +66,32 @@ const platformConfig = [
 ];
 
 const getPlatformMatch = (
-    game: SteamGame | PsnGame | RetroAchievementsGame
+    game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame
 ) => {
-    return (
-        platformConfig.find(
-            ({ key, value }) =>
-                key in game && (game as Record<string, any>)[key] === value
-        ) || platformConfig.find((cfg) => cfg.key === "default")
-    );
+    const matchedPlatform = platformConfig.find(({ key, value }) => {
+        if (!(key in game)) return false;
+
+        const gameValue = (game as Record<string, any>)[key];
+        if (typeof gameValue !== "string") return false;
+
+        const gameValues = gameValue.split(",").map((v) => v.trim().toLowerCase());
+        const configValues = value.split(",").map((v) => v.trim().toLowerCase());
+
+        return configValues.some((configVal) => gameValues.includes(configVal));
+    });
+
+    // If no platform matches, use the default (Steam)
+    return matchedPlatform || platformConfig.find((cfg) => cfg.key === "default");
 };
 
 const isPsnGame = (
-    game: SteamGame | PsnGame | RetroAchievementsGame
+    game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame
 ): game is PsnGame => {
     return (game as PsnGame).platform !== undefined;
 };
 
-
 const formatDate = (
-    game: SteamGame | PsnGame | RetroAchievementsGame
+    game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame
 ): string => {
     if ("platform" in game) {
         const date = new Date(game.last_played);

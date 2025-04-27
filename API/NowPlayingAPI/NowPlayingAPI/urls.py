@@ -24,6 +24,7 @@ from steam import views as steam_views
 from playstation import views as psn_views
 from trakt import views as trakt_views
 from music import views as spotify_views
+from xbox import views as xbox_views
 
 
 admin.autodiscover()
@@ -34,6 +35,7 @@ router.register(r"psn", psn_views.PSNViewSet, basename="psn")
 router.register(r"trakt", trakt_views.TraktViewSet, basename="trakt")
 router.register(r"spotify", spotify_views.StreamedSongViewSet, basename="spotify")
 router.register(r'retroachievements', retroachievements_views.RetroAchievementsViewSet, basename='retroachievements')
+router.register(r'xbox', xbox_views.XBOXViewSet, basename='xbox')
 
 
 # Wire up our API using automatic URL routing.

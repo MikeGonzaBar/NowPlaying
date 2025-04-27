@@ -30,6 +30,8 @@ TMDB_API_KEY = os.environ["TMDB_API_KEY"]
 SPOTIFY_ACCESS_TOKEN = os.environ["SPOTIFY_ACCESS_TOKEN"]
 RETROACHIEVEMENTS_API_KEY = os.environ["RETROACHIEVEMENTS_API_KEY"]
 RETROACHIEVEMENTS_USER = os.environ["RETROACHIEVEMENTS_USER"]
+OPEN_XBL_API = os.environ["OPEN_XBL_API"]
+XUID = os.environ["XUID"]
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -58,7 +60,8 @@ INSTALLED_APPS = [
     "playstation",
     "trakt",
     "music",
-    "retroachievements"
+    "retroachievements",
+    "xbox"
 ]
 
 MIDDLEWARE = [
