@@ -13,7 +13,8 @@ import MediaCard from "../components/mediaCard";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 
-const beBaseUrl = `http://${window.location.hostname}:8000`
+const beBaseUrl = `http://${window.location.hostname}:8080`;
+// const beBaseUrl = `https://UPDATE FOR YOUR BACKEND URL`;
 
 const fetchMoviesData = async (page = 1, pageSize = 5): Promise<Movie[]> => {
     const res = await fetch(
@@ -44,7 +45,7 @@ function Movies() {
         console.log(loading)
         try {
             setSnackbarOpen(true);
-            const res = await fetch( `${beBaseUrl}/trakt/fetch-latest-movies/ `);
+            const res = await fetch(`${beBaseUrl}/trakt/fetch-latest-movies/ `);
             if (!res.ok) {
                 setError("Failed to fetch recently played movies.");
                 setLoading(false);

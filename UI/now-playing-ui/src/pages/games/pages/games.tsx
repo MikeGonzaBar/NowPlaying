@@ -27,7 +27,8 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 
 function Games() {
-    const beBaseUrl = `http://${window.location.hostname}:8000`;
+    const beBaseUrl = `http://${window.location.hostname}:8080`;
+    // const beBaseUrl = `https://UPDATE FOR YOUR BACKEND URL`;
 
     const [steamGames, setSteamGames] = useState<SteamGame[]>([]);
     const [psnGames, setPsnGames] = useState<PsnGame[]>([]);

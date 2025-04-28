@@ -26,7 +26,8 @@ interface SpotifyItem {
 }
 
 function Music() {
-    const beBaseUrl = `http://${window.location.hostname}:8000`
+    const beBaseUrl = `http://${window.location.hostname}:8080`;
+    // const beBaseUrl = `https://UPDATE FOR YOUR BACKEND URL`;
     const drawerWidth = 160;
 
     // State to store the tracks

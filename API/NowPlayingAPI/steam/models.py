@@ -2,6 +2,9 @@ from django.db import models
 from django.conf import settings
 import requests
 from datetime import datetime, timezone
+import logging
+
+logger = logging.getLogger("steam")
 
 
 class Game(models.Model):
@@ -64,8 +67,14 @@ class SteamAPI:
             "steamid": steam_id,
             "appid": appid,
         })
-        data = response.json()
+        try:
+            data = response.json()
+        except requests.JSONDecodeError as e:
+            logger.error(f"Failed to decode JSON: {e}")
+            return None, "Invalid response from Steam API."
+
         if not data.get("playerstats") or not data["playerstats"].get("achievements"):
+            logger.error(f"Error retrieving player achievements data.")
             return None, "Error retrieving player achievements data."
         return {ach["apiname"]: ach for ach in data["playerstats"]["achievements"]}, None
 
@@ -75,7 +84,8 @@ class SteamAPI:
         Accepts a dictionary with game info and updates or creates Game and its related Achievements.
         """
         # Create or update the Game instance
-        game_instance, created = Game.objects.update_or_create(
+        logger = logging.getLogger(__name__)
+        game_instance,_ = Game.objects.update_or_create(
             appid=game_data["appid"],
             defaults={
                 "name": game_data.get("name", ""),
