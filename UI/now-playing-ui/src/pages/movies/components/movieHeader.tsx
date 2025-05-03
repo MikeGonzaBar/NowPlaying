@@ -47,7 +47,8 @@ interface WatchedSeasonsEpisodesResponse {
 
 
 const MovieHeader: React.FC<MovieHeaderProps> = ({ media, mediaType, mediaDetails }) => {
-    const beBaseUrl = `http://${window.location.hostname}:8000`
+    const beBaseUrl = `http://${window.location.hostname}:8080`;
+    // const beBaseUrl = `https://UPDATE FOR YOUR BACKEND URL`;
     const mediaTitle = mediaType === "movie" ? (media as Movie).movie.title : (media as Show).show.title;
     const mediaImage = mediaDetails?.poster_path
         ? `https://image.tmdb.org/t/p/w1280${mediaDetails.backdrop_path}`
