@@ -12,7 +12,7 @@ services:
       - ./API/.env
     environment:
       - PORT=8080
-  
+
   ui:
     build:
       context: ./UI/now-playing-ui
@@ -29,10 +29,8 @@ services:
     restart: always
     ports:
       - "5432:5432"
-    environment:
-      POSTGRES_DB: nowplaying
-      POSTGRES_USER: nowplaying_user
-      POSTGRES_PASSWORD: nowplaying_password
+    env_file:
+      - ./DB/.env
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

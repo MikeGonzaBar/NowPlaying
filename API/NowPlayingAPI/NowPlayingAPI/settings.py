@@ -108,11 +108,11 @@ WSGI_APPLICATION = "NowPlayingAPI.wsgi.application"
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'nowplaying',
-        'USER': 'nowplaying_user',
-        'PASSWORD': 'nowplaying_password',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.environ.get('POSTGRES_DB', 'nowplaying'),
+        'USER': os.environ.get('POSTGRES_USER', 'nowplaying_user'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'nowplaying_password'),
+        'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
+        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
     }
 }
 
