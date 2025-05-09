@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import EventIcon from '@mui/icons-material/Event';
 import GradeIcon from '@mui/icons-material/Grade';
 import { useNavigate } from "react-router-dom";
+import { useApi } from '../../../hooks/useApi';
 
 const movieCache = new Map<number, any>();
 const showCache = new Map<number, any>();
-async function getMovieDetails(tmdb: number): Promise<any | null> {
+
+const getMovieDetails = async (tmdb: number, api: any): Promise<any | null> => {
     if (movieCache.has(tmdb)) {
         return movieCache.get(tmdb);
     }
@@ -16,13 +18,8 @@ async function getMovieDetails(tmdb: number): Promise<any | null> {
     const url = `https://api.themoviedb.org/3/movie/${tmdb}?api_key=${apiKey}`;
 
     try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch movie data: ${response.status}`);
-        }
-
-        const data = await response.json();
-        movieCache.set(tmdb, data); // Cache it!
+        const data = await api.request(url);
+        movieCache.set(tmdb, data);
         return data;
     } catch (error) {
         console.error('Error fetching movie details from API:', error);
@@ -30,7 +27,7 @@ async function getMovieDetails(tmdb: number): Promise<any | null> {
     }
 }
 
-async function getShowDetails(tmdbId: number): Promise<any | null> {
+const getShowDetails = async (tmdbId: number, api: any): Promise<any | null> => {
     if (showCache.has(tmdbId)) {
         return showCache.get(tmdbId);
     }
@@ -39,13 +36,8 @@ async function getShowDetails(tmdbId: number): Promise<any | null> {
     const url = `https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${apiKey}`;
 
     try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch show data: ${response.status}`);
-        }
-
-        const data = await response.json();
-        showCache.set(tmdbId, data); // Cache it!
+        const data = await api.request(url);
+        showCache.set(tmdbId, data);
         return data;
     } catch (error) {
         console.error('Error fetching show details from API:', error);
@@ -61,6 +53,7 @@ interface MediaCardProps {
 const MediaCard: React.FC<MediaCardProps> = ({ media, mediaType }) => {
     const [mediaDetails, setMediaDetails] = useState<any | null>(null);
     const navigate = useNavigate();
+    const api = useApi();
     const mediaTitle = mediaType === "movie" ? (media as Movie).movie.title : (media as Show).show.title;
     const mediaYear = mediaType === "movie" ? (media as Movie).movie.year : (media as Show).show.year;
     const mediaImage = mediaDetails?.poster_path
@@ -71,18 +64,18 @@ const MediaCard: React.FC<MediaCardProps> = ({ media, mediaType }) => {
         const fetchDetails = async () => {
             if (mediaType === "movie") {
                 const movie = media as Movie;
-                const details = await getMovieDetails(movie.movie.ids.tmdb);
+                const details = await getMovieDetails(movie.movie.ids.tmdb, api);
                 setMediaDetails(details);
-
             } else if (mediaType === "show") {
                 const show = media as Show;
-                const tmdbId = parseInt(show.show.ids.tmdb); // Assuming trakt ID can be used as TMDb ID
-                const details = await getShowDetails(tmdbId);
+                const tmdbId = parseInt(show.show.ids.tmdb);
+                const details = await getShowDetails(tmdbId, api);
                 setMediaDetails(details);
             }
         };
         fetchDetails();
     }, [media, mediaType]);
+
     const handleCardClick = () => {
         navigate("/movieDetails", {
             state: {

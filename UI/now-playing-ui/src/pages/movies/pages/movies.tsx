@@ -12,25 +12,10 @@ import { Movie, Show } from "../utils/types";
 import MediaCard from "../components/mediaCard";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
+import { useApi } from '../../../hooks/useApi';
 
-const beBaseUrl = `http://${window.location.hostname}:8080`;
+const beBaseUrl = `http://${window.location.hostname}:8000`;
 // const beBaseUrl = `https://UPDATE FOR YOUR BACKEND URL`;
-
-const fetchMoviesData = async (page = 1, pageSize = 5): Promise<Movie[]> => {
-    const res = await fetch(
-        `${beBaseUrl}/trakt/get-stored-movies?page=${page}&page_size=${pageSize}`
-    );
-    const data = await res.json();
-    return data.movies;
-};
-
-const fetchShowsData = async (page = 1, pageSize = 5): Promise<Show[]> => {
-    const res = await fetch(
-        `${beBaseUrl}/trakt/get-stored-shows?page=${page}&page_size=${pageSize}`
-    );
-    const data = await res.json();
-    return data.shows;
-};
 
 function Movies() {
     const [movies, setMovies] = useState<Movie[]>([]);
@@ -41,40 +26,57 @@ function Movies() {
     const [error, setError] = useState<string | null>(null); // Error state
     const [loading, setLoading] = useState(true);
 
+    const moviesApi = useApi<{ movies: Movie[] }>();
+    const showsApi = useApi<{ shows: Show[] }>();
+
+    const fetchMoviesData = async (page = 1, pageSize = 5): Promise<Movie[]> => {
+        try {
+            const data = await moviesApi.request(
+                `${beBaseUrl}/trakt/get-stored-movies?page=${page}&page_size=${pageSize}`
+            );
+            return data.movies;
+        } catch (error) {
+            console.error('Error fetching movies:', error);
+            throw error;
+        }
+    };
+
+    const fetchShowsData = async (page = 1, pageSize = 5): Promise<Show[]> => {
+        try {
+            const data = await showsApi.request(
+                `${beBaseUrl}/trakt/get-stored-shows?page=${page}&page_size=${pageSize}`
+            );
+            return data.shows;
+        } catch (error) {
+            console.error('Error fetching shows:', error);
+            throw error;
+        }
+    };
+
     const fetchLatest = async () => {
-        console.log(loading)
         try {
             setSnackbarOpen(true);
-            const res = await fetch(`${beBaseUrl}/trakt/fetch-latest-movies/ `);
-            if (!res.ok) {
-                setError("Failed to fetch recently played movies.");
-                setLoading(false);
-                setSnackbarOpen(false); // Hide snackbar when fetch fails
-                return;
-            }
-            const resShows = await fetch(
-                `${beBaseUrl}/trakt/fetch-latest-shows/ `
-            );
-            if (!resShows.ok) {
-                setError("Failed to fetch recently palyes tv shows.");
-                setLoading(false);
-                setSnackbarOpen(false); // Hide snackbar when fetch fails
-                return;
-            }
+
+            await moviesApi.request(`${beBaseUrl}/trakt/fetch-latest-movies/`);
+            await showsApi.request(`${beBaseUrl}/trakt/fetch-latest-shows/`);
+
             const refreshedMovies = await fetchMoviesData(1);
             const refreshedShows = await fetchShowsData(1);
+
             setMovies(refreshedMovies);
             setShows(refreshedShows);
             setMoviesPage(1);
             setShowsPage(1);
             setError(null);
         } catch (error) {
-            console.error("Error fetching recently played tracks:", error);
-            setError("An error occurred while fetching recently played tracks.");
+            console.error("Error fetching latest:", error);
+            setError("An error occurred while fetching latest content");
+        } finally {
             setLoading(false);
-            setSnackbarOpen(false); // Hide snackbar when an error occurs
+            setSnackbarOpen(false);
         }
     };
+
     const loadMoreMovies = async () => {
         const nextPage = moviesPage + 1;
         try {
@@ -86,6 +88,7 @@ function Movies() {
             setError("Failed to load more movies.");
         }
     };
+
     const loadMoreShows = async () => {
         const nextPage = showsPage + 1;
         try {
@@ -97,6 +100,7 @@ function Movies() {
             setError("Failed to load more shows.");
         }
     };
+
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -104,18 +108,20 @@ function Movies() {
                 const initialShows = await fetchShowsData(1);
                 setMovies(initialMovies);
                 setShows(initialShows);
-                setLoading(false);
             } catch (err) {
                 setError("Failed to load media.");
+            } finally {
                 setLoading(false);
             }
         };
 
         fetchData();
     }, []);
+
     const handleSnackbarClose = () => {
         setSnackbarOpen(false);
     };
+
     return (
         <div>
             <Box sx={{ display: "flex" }}>

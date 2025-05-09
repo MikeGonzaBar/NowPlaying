@@ -21,3 +21,20 @@ services:
       - "3000:80"
     environment:
       - NODE_ENV=production
+
+  db:
+    build:
+      context: ./DB
+      dockerfile: ./Dockerfile
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: nowplaying
+      POSTGRES_USER: nowplaying_user
+      POSTGRES_PASSWORD: nowplaying_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

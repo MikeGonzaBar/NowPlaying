@@ -62,6 +62,22 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
             width: "80px",
             style: { marginTop: "8px" },
         },
+        {
+            key: "console_name",
+            value: "Game Boy Color",
+            src: "Platforms/gameboy-color.png",
+            alt: "Game Boy Color Logo",
+            width: "50px",
+            style: { marginTop: "3px" },
+        },
+        {
+            key: "console_name",
+            value: "Game Boy Advance",
+            src: "Platforms/gameboy-advance.png",
+            alt: "Game Boy Advance Logo",
+            width: "85px",
+            style: { marginTop: "-30px" },
+        },
     ];
     const playMins = formatPlaytime(game);
     const matchedPlatform = platformConfig.find(({ key, value }) => {

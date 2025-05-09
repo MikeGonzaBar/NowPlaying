@@ -16,4 +16,5 @@ typing_extensions==4.12.2
 urllib3==2.3.0
 django-cors-headers==4.7.0
 python-dateutil==2.9.0
-gunicorn
+gunicorn==23.0.0
+psycopg2==2.9.10
