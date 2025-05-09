@@ -1,6 +1,6 @@
 # NowPlaying API
 
-This folder contains the backend API for the **NowPlaying** project. The API is built using Django 5.1 and Django REST Framework to fetch and manage data from various entertainment services including Steam, PlayStation, RetroAchievements, Spotify, and Trakt.
+This folder contains the backend API for the **NowPlaying** project. The API is built using Django 5.1 and Django REST Framework to fetch and manage data from various entertainment services including Steam, PlayStation, RetroAchievements, Xbox, Spotify, and Trakt.
 
 ## Prerequisites
 
@@ -9,6 +9,7 @@ Before running the API, ensure you have the following installed:
 - Python 3.10 or higher
 - pip (Python package manager)
 - A virtual environment tool (e.g., `venv` or `virtualenv`)
+- PostgreSQL (optional, SQLite is configured by default)
 
 ## Installation
 
@@ -41,6 +42,7 @@ Before running the API, ensure you have the following installed:
 The API relies on several environment variables for configuration. Create a `.env` file in the API folder and add the following variables:
 
 ```env
+# Service API Keys and IDs
 STEAM_API_KEY=<your_steam_api_key>
 STEAM_ID=<your_steam_id>
 PLAY_STATION_NPSSO=<your_playstation_npso_token>
@@ -53,6 +55,15 @@ SPOTIFY_ACCESS_TOKEN=<your_spotify_access_token>
 RETROACHIEVEMENTS_API_KEY=<your_retroachievements_api_key>
 RETROACHIEVEMENTS_USER=<your_retroachievements_username>
 OPEN_XBL_API=<your_openxbl_token>
+XUID=<your_xbox_live_user_id>
+TMDB_API_KEY=<your_tmdb_api_key>
+
+# Database Configuration (Optional - PostgreSQL)
+POSTGRES_DB=<your_psql_db>
+POSTGRES_USER=<your_psql_user>
+POSTGRES_PASSWORD=<your_psql_pwd>
+POSTGRES_HOST=<your_psql_host>
+POSTGRES_PORT=<your_psql_port>
 ```
 
 ## Running the API
@@ -130,8 +141,8 @@ The following endpoints are available:
 
 - `/trakt/fetch-latest-movies`: Fetches the latest watched movies from Trakt and updates the database.
 - `/trakt/fetch-latest-shows`: Fetches the latest watched TV shows (including episode details) from Trakt and updates the database.
-- `/trakt/get-stored-movies`: Retrieves stored movie data from the database.
-- `/trakt/get-stored-shows`: Retrieves stored TV show data from the database.
+- `/trakt/get-stored-movies`: Retrieves stored movie data from the database, with pagination support.
+- `/trakt/get-stored-shows`: Retrieves stored TV show data from the database, with pagination support.
 - `/trakt/get-watched-seasons-episodes`: Retrieves watched seasons and episodes for a specific show, filtered by `trakt_id`.
 - `/trakt/refresh-token`: Refreshes the Trakt access token.
 
@@ -142,11 +153,17 @@ The following endpoints are available:
 - `/retroachievements/fetch-games`: Fetches all games without their achievements.
 - `/retroachievements/fetch-game-details`: Fetches a specific game and its achievements by `game_id`.
 
+## Database
+
+The application supports both SQLite (default for development) and PostgreSQL (recommended for production). The database configuration is in `NowPlayingAPI/settings.py`.
+
+To use PostgreSQL, make sure you have the database server running and set appropriate environment variables in the `.env` file.
+
 ## Technologies Used
 
 - **Django 5.1**: Web framework for building the API
 - **Django REST Framework 3.15**: For creating RESTful API endpoints
-- **SQLite**: Default database for development (can be changed in settings)
+- **PostgreSQL/SQLite**: Database options
 - **Gunicorn**: WSGI HTTP server for production
 - **Django CORS Headers**: For handling Cross-Origin Resource Sharing
 - **Python-dotenv**: For managing environment variables
@@ -159,6 +176,7 @@ The following endpoints are available:
 - **Trakt**: Authentication requires setting up an application in the [Trakt API Applications](https://trakt.tv/oauth/applications) page.
 - **RetroAchievements**: Requires a valid RetroAchievements API key and username. See the [RetroAchievements API documentation](https://retroachievements.org) for more details.
 - **Xbox**: Requires a valid OpenXBL API key. See the [OpenXBL documentation](https://xbl.io/docs) for more details.
+- **TMDB**: Used for movie and show details. Get an API key from [The Movie Database](https://www.themoviedb.org/documentation/api).
 
 ## Project Structure
 
@@ -176,8 +194,7 @@ API/
 │   ├── trakt/           # Trakt integration module
 │   ├── music/           # Spotify integration module
 │   ├── static/          # Collected static files
-│   │   └── admin/       # Admin static files
-│   ├── db.sqlite3       # SQLite database
+│   ├── db.sqlite3       # SQLite database (if used)
 │   └── manage.py        # Django command-line utility
 ├── requirements.txt     # Python dependencies
 ├── Dockerfile           # Docker configuration

@@ -1,6 +1,6 @@
 # NowPlaying UI
 
-This folder contains the frontend user interface for the **NowPlaying** project. The UI is built using **React**, **TypeScript**, and **Vite**, with Material-UI v7 for styling.
+This folder contains the frontend user interface for the **NowPlaying** project. The UI is built using **React**, **TypeScript**, and **Vite**, with Material-UI for styling.
 
 ## Prerequisites
 
@@ -75,72 +75,93 @@ The project follows a feature-based organization:
 ```plaintext
 now-playing-ui/
 ├── public/                 # Static assets
-│   └── nowPlaying.svg      # Logo for the application
 ├── src/                    # Source code
-│   ├── assets/             # Additional assets
-│   │   └── now-playing-icon.png
 │   ├── components/         # Reusable components
-│   │   └── sideBar.tsx
-│   ├── pages/              # Page components
-│   │   ├── LandingPage.tsx # Landing page
-│   │   ├── games/          # Games-related pages
-│   │   │   ├── games.tsx
-│   │   │   ├── gameCard.tsx
-│   │   │   ├── gameDetails.tsx
-│   │   │   ├── achievementCard.tsx
-│   │   │   ├── types.ts
-│   │   │   └── utils.ts
-│   │   ├── movies/         # Movies-related pages
-│   │   │   └── movies.tsx
-│   │   └── music/          # Music-related pages
-│   │       └── music.tsx
-│   ├── App.tsx             # Main application component
-│   ├── main.tsx            # Entry point
-│   ├── index.css           # Global styles
-│   └── vite-env.d.ts       # Vite environment types
-├── .env                    # Environment variables
-├── .gitignore              # Git ignore rules
-├── eslint.config.js        # ESLint configuration
-├── index.html              # HTML template
-├── package.json            # Project metadata and dependencies
-├── tsconfig.json           # TypeScript configuration
-├── tsconfig.app.json       # TypeScript app-specific configuration
-├── tsconfig.node.json      # TypeScript node-specific configuration
-└── vite.config.ts          # Vite configuration
+│   │   ├── sideBar.tsx
+│   │   └── ...
+│   ├── hooks/             # Custom React hooks
+│   │   ├── useApi.ts
+│   │   └── ...
+│   ├── pages/             # Page components
+│   │   ├── games/         # Games-related pages
+│   │   │   ├── components/
+│   │   │   ├── hooks/
+│   │   │   ├── utils/
+│   │   │   └── types/
+│   │   ├── movies/        # Movies-related pages
+│   │   │   ├── components/
+│   │   │   ├── hooks/
+│   │   │   └── utils/
+│   │   └── music/         # Music-related pages
+│   ├── App.tsx            # Main application component
+│   ├── main.tsx           # Entry point
+│   └── index.css          # Global styles
+├── .env                   # Environment variables
+├── .gitignore            # Git ignore rules
+├── package.json          # Project metadata and dependencies
+├── tsconfig.json         # TypeScript configuration
+└── vite.config.ts        # Vite configuration
 ```
 
 ## Features
 
-- **Games**: Displays recently played games, total playtime, and achievements from:
+### Games
+- Displays recently played games from:
   - Steam
   - PlayStation Network
   - RetroAchievements (supporting classic consoles)
-- **Movies & Shows**: Displays recently watched movies and TV shows using Trakt integration.
-- **Music**: Displays recently played songs from Spotify.
+  - Xbox
+- Shows achievements and trophies
+- Displays playtime statistics
+- Platform-specific icons and information
+- News articles related to games using NewsAPI
+
+### Movies & Shows
+- Displays recently watched movies and TV shows using Trakt integration
+- Shows detailed information including:
+  - Release dates
+  - Ratings
+  - Genres
+  - Production companies
+  - Watch history
+  - Episode progress for TV shows
+- YouTube trailer integration
+- Chronological episode sorting
+
+### Music
+- Displays recently played songs from Spotify
+- Shows album artwork and artist information
 
 ## Technology Stack
 
-- **React 19**: For UI components and state management
+- **React**: For UI components and state management
 - **TypeScript**: For type safety
-- **Material UI v7**: For modern, responsive UI components
-- **React Router v7**: For application routing
-- **Vite v6**: For fast development and optimized builds
+- **Material UI**: For modern, responsive UI components
+- **React Router**: For application routing
+- **Vite**: For fast development and optimized builds
 
 ## API Integration
 
-The UI connects to the Django backend API for data retrieval. Each feature (games, movies, music) has its own API endpoints.
+The UI connects to a Django backend API for data retrieval. Each feature (games, movies, music) has its own API endpoints:
 
-## Notes
+- Games: `/trakt/get-stored-games`
+- Movies: `/trakt/get-stored-movies`
+- Shows: `/trakt/get-stored-shows`
+- Music: `/spotify/get-recently-played`
 
-- **News Integration**: The `GameDetails` page fetches news articles related to the selected game using the [NewsAPI](https://newsapi.org/).
-- **Material-UI**: The project uses Material-UI for consistent and responsive styling.
-- **Routing**: React Router is used for navigation between pages.
+## Development
+
+- **Component Structure**: Components are organized by feature and split into smaller, reusable pieces
+- **Custom Hooks**: Common functionality is extracted into custom hooks
+- **Type Safety**: TypeScript interfaces for all data structures
+- **Responsive Design**: Mobile-friendly layouts using Material-UI's responsive components
+- **News Integration**: The `GameDetails` page fetches news articles related to the selected game using the [NewsAPI](https://newsapi.org/)
 
 ## Scripts
 
-- `npm run dev`: Starts the development server.
-- `npm run build`: Builds the project for production.
-- `npm run lint`: Lints the codebase.
+- `npm run dev`: Starts the development server
+- `npm run build`: Builds the project for production
+- `npm run lint`: Lints the codebase
 
 ## License
 
