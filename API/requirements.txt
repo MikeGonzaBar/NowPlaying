@@ -30,3 +30,4 @@ pycountry==24.6.1
 pyrate-limiter==2.10.0
 typing_extensions==4.12.2
 attrs==24.2.0
+cryptography==44.0.3

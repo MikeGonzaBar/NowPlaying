@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
+from .models import UserApiKey
 
 # Unregister the provided model
 admin.site.unregister(User)
@@ -11,3 +12,10 @@ class CustomUserAdmin(UserAdmin):
     # Add any customizations here
     list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff')
     search_fields = ('username', 'email')
+
+@admin.register(UserApiKey)
+class UserApiKeyAdmin(admin.ModelAdmin):
+    list_display = ('user', 'service_name', 'last_used', 'created_at', 'updated_at')
+    list_filter = ('service_name', 'created_at', 'last_used')
+    search_fields = ('user__username', 'service_name')
+    readonly_fields = ('last_used', 'created_at', 'updated_at')

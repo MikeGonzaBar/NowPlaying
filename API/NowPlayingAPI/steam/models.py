@@ -3,12 +3,14 @@ from django.conf import settings
 import requests
 from datetime import datetime, timezone
 import logging
+from django.contrib.auth.models import User
 
 logger = logging.getLogger("steam")
 
 
 class Game(models.Model):
-    appid = models.PositiveIntegerField(unique=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='steam_games')  # Allow null initially for migration
+    appid = models.PositiveIntegerField()
     name = models.CharField(max_length=255)
     playtime_forever = models.PositiveIntegerField(default=0)
     playtime_formatted = models.CharField(max_length=50, blank=True)
@@ -16,6 +18,9 @@ class Game(models.Model):
     has_community_visible_stats = models.BooleanField(default=False)
     last_played = models.DateTimeField(null=True, blank=True)
     content_descriptorids = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        unique_together = ('user', 'appid')  # A game can appear multiple times, but only once per user
 
     def __str__(self):
         return self.name
@@ -47,9 +52,9 @@ class Achievement(models.Model):
 class SteamAPI:
 
     @staticmethod
-    def fetch_global_achievements(appid):
+    def fetch_global_achievements(appid, steam_api_key):
         url = "http://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/"
-        response = requests.get(url, params={"key": settings.STEAM_API_KEY, "appid": appid})
+        response = requests.get(url, params={"key": steam_api_key, "appid": appid})
         data = response.json()
         if (
             not data.get("game")
@@ -60,10 +65,10 @@ class SteamAPI:
         return data["game"]["availableGameStats"]["achievements"], None
 
     @staticmethod
-    def fetch_player_achievements(appid, steam_id):
+    def fetch_player_achievements(appid, steam_id, steam_api_key):
         url = "http://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/"
         response = requests.get(url, params={
-            "key": settings.STEAM_API_KEY,
+            "key": steam_api_key,
             "steamid": steam_id,
             "appid": appid,
         })
@@ -79,14 +84,22 @@ class SteamAPI:
         return {ach["apiname"]: ach for ach in data["playerstats"]["achievements"]}, None
 
     @classmethod
-    def update_game_and_achievements(cls, game_data, steam_id):
+    def update_game_and_achievements(cls, game_data, steam_id, steam_api_key, user=None):
+        if user is None:
+            raise ValueError("User must be provided to associate games.")
         """
         Accepts a dictionary with game info and updates or creates Game and its related Achievements.
+        
+        Args:
+            game_data (dict): The game data from Steam API
+            steam_id (str): The Steam ID of the player
+            user (User, optional): The Django User model instance to associate with this game
         """
         # Create or update the Game instance
         logger = logging.getLogger(__name__)
         game_instance,_ = Game.objects.update_or_create(
             appid=game_data["appid"],
+            user=user,  # Add user to query criteria
             defaults={
                 "name": game_data.get("name", ""),
                 "playtime_forever": game_data.get("playtime_forever", 0),
@@ -96,16 +109,17 @@ class SteamAPI:
                     game_data.get("rtime_last_played", 0), timezone.utc
                 ) if game_data.get("rtime_last_played") else None,
                 "content_descriptorids": game_data.get("content_descriptorids", []),
+                "user": user,  # Add user to defaults as well
             }
         )
         
         # Fetch achievements
-        global_achievements, error = cls.fetch_global_achievements(game_data["appid"])
+        global_achievements, error = cls.fetch_global_achievements(game_data["appid"], steam_api_key)
         if error:
             # You might want to log the error or handle it appropriately here.
             return {"message": error}
 
-        player_achievements, error = cls.fetch_player_achievements(game_data["appid"], steam_id)
+        player_achievements, error = cls.fetch_player_achievements(game_data["appid"], steam_id, steam_api_key)
         if error:
             return {"message": error}
 
@@ -141,14 +155,21 @@ class SteamAPI:
         }
 
     @classmethod
-    def get_games(cls, steam_id):
+    def get_games(cls, steam_id, steam_api_key, user=None):
+        if user is None:
+            raise ValueError("User must be provided to associate games.")
         """
         Fetches games data from the Steam API, updates the database models,
         and returns the formatted list of games.
+        
+        Args:
+            steam_id (str): The Steam ID of the player
+            user (User, optional): The Django User model instance to associate with the games
         """
+        
         url = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"
         params = {
-            "key": settings.STEAM_API_KEY,
+            "key": steam_api_key,
             "steamid": steam_id,
             "include_appinfo": True,
             "include_played_free_games": True,
@@ -162,9 +183,9 @@ class SteamAPI:
 
         formatted_games = []
         for game in games:
-            update_result = cls.update_game_and_achievements(game, steam_id)
+            update_result = cls.update_game_and_achievements(game, steam_id, steam_api_key, user)
             # Retrieve fresh game data along with achievements from the database
-            game_instance = Game.objects.get(appid=game["appid"])
+            game_instance = Game.objects.get(appid=game["appid"], user=user)
             achievements = list(game_instance.achievements.all().values(
                 "name", "description", "image", "unlocked", "unlock_time"
             ))

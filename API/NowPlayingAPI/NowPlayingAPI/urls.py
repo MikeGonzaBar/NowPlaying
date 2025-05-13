@@ -45,4 +45,5 @@ urlpatterns = [
     path("", include(router.urls)),
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
     path("auth/", include("users.urls")),  # Include our authentication endpoints
+    path("users/", include("users.urls")),  # Also include under users/ path
 ]

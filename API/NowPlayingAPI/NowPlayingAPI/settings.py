@@ -19,8 +19,8 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(find_dotenv())
 
-STEAM_API_KEY = os.environ["STEAM_API_KEY"]
-STEAM_ID = os.environ["STEAM_ID"]
+# STEAM_API_KEY = os.environ["STEAM_API_KEY"]
+# STEAM_ID = os.environ["STEAM_ID"]
 PLAY_STATION_NPSSO = os.environ["PLAY_STATION_NPSSO"]
 PLAY_STATION_ID = os.environ["PLAY_STATION_ID"]
 TRAKT_CLIENT_ID = os.environ["TRAKT_CLIENT_ID"]
@@ -33,6 +33,12 @@ RETROACHIEVEMENTS_API_KEY = os.environ["RETROACHIEVEMENTS_API_KEY"]
 RETROACHIEVEMENTS_USER = os.environ["RETROACHIEVEMENTS_USER"]
 OPEN_XBL_API = os.environ["OPEN_XBL_API"]
 XUID = os.environ["XUID"]
+
+# API Key encryption
+# In production, use a strong key stored in environment
+# This key is used to encrypt/decrypt user's API keys
+API_KEY_ENCRYPTION_KEY = os.environ.get('API_KEY_ENCRYPTION_KEY', 'C3fygP72WNfaeLgDXCwPRgxSzWQctoCY7fHB3DNOZPM=')
+# The above is a properly formatted Fernet key for development only. In production, always set this in the environment.
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
