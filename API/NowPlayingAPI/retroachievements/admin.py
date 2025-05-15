@@ -24,17 +24,22 @@ class GameAchievementInline(admin.TabularInline):
 
 @admin.register(RetroAchievementsGame)
 class RetroAchievementsGameAdmin(admin.ModelAdmin):
-    list_display = ['title', 'console_name', 'achievement_progress', 'score_progress', 'last_played']
-    list_filter = ['console_name', 'last_played']
-    search_fields = ['title', 'game_id']
-    readonly_fields = ['game_id', 'console_id', 'console_name', 'title', 'image_icon', 'image_title', 
+    list_display = ['title', 'user_username', 'console_name', 'achievement_progress', 'score_progress', 'last_played']
+    list_filter = ['user', 'console_name', 'last_played']
+    search_fields = ['title', 'game_id', 'user__username']
+    readonly_fields = ['user', 'game_id', 'console_id', 'console_name', 'title', 'image_icon', 'image_title', 
                       'image_ingame', 'image_box_art', 'last_played', 'achievements_total', 
                       'num_possible_achievements', 'possible_score', 'num_achieved', 'score_achieved', 
                       'num_achieved_hardcore', 'score_achieved_hardcore', 'achievement_progress', 
                       'score_progress', 'box_art_display', 'title_image_display']
-    fields = ['game_id', 'title', 'console_name', 'last_played', 'box_art_display', 'title_image_display',
+    fields = ['user', 'game_id', 'title', 'console_name', 'last_played', 'box_art_display', 'title_image_display',
              'achievement_progress', 'score_progress']
     inlines = [GameAchievementInline]
+    
+    def user_username(self, obj):
+        return obj.user.username if obj.user else "No User"
+    user_username.short_description = "User"
+    user_username.admin_order_field = 'user__username'
 
     def achievement_progress(self, obj):
         if obj.achievements_total:
@@ -64,19 +69,24 @@ class RetroAchievementsGameAdmin(admin.ModelAdmin):
 
 @admin.register(GameAchievement)
 class GameAchievementAdmin(admin.ModelAdmin):
-    list_display = ['title', 'game_title', 'points', 'author', 'is_earned', 'date_earned']
-    list_filter = ['game__console_name', 'date_earned', 'author']
-    search_fields = ['title', 'description', 'game__title']
-    readonly_fields = ['achievement_id', 'game', 'title', 'description', 'points', 'true_ratio', 
+    list_display = ['title', 'game_title', 'game_user', 'points', 'author', 'is_earned', 'date_earned']
+    list_filter = ['game__console_name', 'date_earned', 'author', 'game__user']
+    search_fields = ['title', 'description', 'game__title', 'game__user__username']
+    readonly_fields = ['achievement_id', 'game', 'game_user', 'title', 'description', 'points', 'true_ratio', 
                       'author', 'date_created', 'date_modified', 'badge_name', 'type', 
                       'date_earned', 'badge_image']
-    fields = ['game', 'title', 'description', 'points', 'badge_image', 
+    fields = ['game', 'game_user', 'title', 'description', 'points', 'badge_image', 
              'author', 'date_created', 'date_earned']
 
     def game_title(self, obj):
         return obj.game.title
     game_title.short_description = "Game"
     game_title.admin_order_field = 'game__title'
+    
+    def game_user(self, obj):
+        return obj.game.user.username if obj.game and obj.game.user else "No User"
+    game_user.short_description = "User"
+    game_user.admin_order_field = 'game__user__username'
     
     def is_earned(self, obj):
         return obj.date_earned is not None

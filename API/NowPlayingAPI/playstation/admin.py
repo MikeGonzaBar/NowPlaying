@@ -15,12 +15,17 @@ class PSNAchievementInline(admin.TabularInline):
 
 @admin.register(PSNGame)
 class PSNGameAdmin(admin.ModelAdmin):
-    list_display = ['name', 'platform', 'total_playtime', 'last_played', 'achievement_progress']
-    list_filter = ['platform', 'last_played']
-    search_fields = ['name', 'appid']
-    readonly_fields = ['appid', 'name', 'platform', 'total_playtime', 'first_played', 'last_played', 'img_icon_url', 'achievement_progress', 'image_display']
-    fields = ['appid', 'name', 'platform', 'total_playtime', 'first_played', 'last_played', 'image_display']
+    list_display = ['name', 'user_username', 'platform', 'total_playtime', 'last_played', 'achievement_progress']
+    list_filter = ['user', 'platform', 'last_played']
+    search_fields = ['name', 'appid', 'user__username']
+    readonly_fields = ['user', 'appid', 'name', 'platform', 'total_playtime', 'first_played', 'last_played', 'img_icon_url', 'achievement_progress', 'image_display']
+    fields = ['user', 'appid', 'name', 'platform', 'total_playtime', 'first_played', 'last_played', 'image_display']
     inlines = [PSNAchievementInline]
+
+    def user_username(self, obj):
+        return obj.user.username if obj.user else "No User"
+    user_username.short_description = "User"
+    user_username.admin_order_field = 'user__username'
 
     def achievement_progress(self, obj):
         total = obj.achievements.count()
@@ -39,11 +44,16 @@ class PSNGameAdmin(admin.ModelAdmin):
 
 @admin.register(PSNAchievement)
 class PSNAchievementAdmin(admin.ModelAdmin):
-    list_display = ['name', 'game', 'trophy_type', 'unlocked', 'unlock_time']
-    list_filter = ['unlocked', 'trophy_type', 'game']
-    search_fields = ['name', 'description', 'game__name']
-    readonly_fields = ['game', 'name', 'description', 'trophy_type', 'unlocked', 'unlock_time', 'image_display']
-    fields = ['game', 'name', 'description', 'trophy_type', 'unlocked', 'unlock_time', 'image_display']
+    list_display = ['name', 'game', 'game_user', 'trophy_type', 'unlocked', 'unlock_time']
+    list_filter = ['unlocked', 'trophy_type', 'game', 'game__user']
+    search_fields = ['name', 'description', 'game__name', 'game__user__username']
+    readonly_fields = ['game', 'game_user', 'name', 'description', 'trophy_type', 'unlocked', 'unlock_time', 'image_display']
+    fields = ['game', 'game_user', 'name', 'description', 'trophy_type', 'unlocked', 'unlock_time', 'image_display']
+
+    def game_user(self, obj):
+        return obj.game.user.username if obj.game and obj.game.user else "No User"
+    game_user.short_description = "User"
+    game_user.admin_order_field = 'game__user__username'
 
     def image_display(self, obj):
         if obj.image:

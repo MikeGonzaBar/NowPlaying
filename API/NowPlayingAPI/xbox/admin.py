@@ -21,14 +21,19 @@ class XboxAchievementInline(admin.TabularInline):
 
 @admin.register(XboxGame)
 class XboxGameAdmin(admin.ModelAdmin):
-    list_display = ["name", "platform", "total_playtime", "last_played", "achievement_progress"]
-    list_filter = ["platform", "last_played"]
-    search_fields = ["name", "appid"]
-    readonly_fields = ['appid', 'name', 'platform', 'total_playtime', 'first_played', 
+    list_display = ["name", "user_username", "platform", "total_playtime", "last_played", "achievement_progress"]
+    list_filter = ["user", "platform", "last_played"]
+    search_fields = ["name", "appid", "user__username"]
+    readonly_fields = ['user', 'appid', 'name', 'platform', 'total_playtime', 'first_played', 
                       'last_played', 'img_icon_url', 'achievement_progress', 'game_image_display']
-    fields = ['appid', 'name', 'platform', 'game_image_display', 'total_playtime', 
+    fields = ['user', 'appid', 'name', 'platform', 'game_image_display', 'total_playtime', 
              'first_played', 'last_played', 'achievement_progress']
     inlines = [XboxAchievementInline]
+    
+    def user_username(self, obj):
+        return obj.user.username if obj.user else "No User"
+    user_username.short_description = "User"
+    user_username.admin_order_field = 'user__username'
     
     def achievement_progress(self, obj):
         total = obj.achievements.count()
@@ -47,17 +52,22 @@ class XboxGameAdmin(admin.ModelAdmin):
 
 @admin.register(XboxAchievement)
 class XboxAchievementAdmin(admin.ModelAdmin):
-    list_display = ['name', 'game_name', 'unlocked', 'unlock_time', 'achievement_value']
-    list_filter = ['unlocked', 'game']
-    search_fields = ['name', 'description', 'game__name']
-    readonly_fields = ['game', 'name', 'description', 'image', 'unlocked', 'unlock_time', 
+    list_display = ['name', 'game_name', 'game_user', 'unlocked', 'unlock_time', 'achievement_value']
+    list_filter = ['unlocked', 'game', 'game__user']
+    search_fields = ['name', 'description', 'game__name', 'game__user__username']
+    readonly_fields = ['game', 'game_user', 'name', 'description', 'image', 'unlocked', 'unlock_time', 
                       'achievement_value', 'image_display']
-    fields = ['game', 'name', 'description', 'image_display', 'unlocked', 'unlock_time', 'achievement_value']
+    fields = ['game', 'game_user', 'name', 'description', 'image_display', 'unlocked', 'unlock_time', 'achievement_value']
     
     def game_name(self, obj):
         return obj.game.name
     game_name.short_description = "Game"
     game_name.admin_order_field = 'game__name'
+    
+    def game_user(self, obj):
+        return obj.game.user.username if obj.game and obj.game.user else "No User"
+    game_user.short_description = "User"
+    game_user.admin_order_field = 'game__user__username'
     
     def image_display(self, obj):
         if obj.image:
