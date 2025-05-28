@@ -3,7 +3,27 @@ import { SteamGame, PsnGame, RetroAchievementsGame, XboxGame } from './types';
 export const isPsnGame = (
     game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame
 ): game is PsnGame => {
-    return (game as PsnGame).platform !== undefined;
+    return (game as PsnGame).platform !== undefined &&
+        typeof (game as PsnGame).unlocked_achievements === 'object' &&
+        (game as PsnGame).unlocked_achievements !== null &&
+        !Array.isArray((game as PsnGame).unlocked_achievements) &&
+        ('bronze' in (game as PsnGame).unlocked_achievements ||
+            'silver' in (game as PsnGame).unlocked_achievements ||
+            'gold' in (game as PsnGame).unlocked_achievements ||
+            'platinum' in (game as PsnGame).unlocked_achievements);
+};
+
+export const isXboxGame = (
+    game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame
+): game is XboxGame => {
+    const hasplatform = "platform" in game;
+    const unlocked = (game as any).unlocked_achievements;
+    const hasNumericUnlocked = typeof unlocked === 'number';
+    const platform = (game as any).platform;
+    const platformMatches = hasplatform && typeof platform === 'string' &&
+        ["XboxOne", "XboxSeries", "PC", "Xbox360"].some(plat => platform.includes(plat));
+
+    return hasplatform && hasNumericUnlocked && platformMatches;
 };
 
 export const isRetroAchievementsGame = (
@@ -15,41 +35,5 @@ export const isRetroAchievementsGame = (
 export const isSteamGame = (
     game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame
 ): game is SteamGame => {
-    return !("platform" in game);
-};
-
-export const isXboxGame = (
-    game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame
-): game is XboxGame => {
-    return "platform" in game &&
-        ["XboxOne", "XboxSeries", "PC", "Xbox360"].some(
-            plat => (game.platform as string).includes(plat)
-        );
-};
-
-export const calculateAchievementPercentage = (
-    game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame
-): number => {
-    if (isSteamGame(game) || isXboxGame(game)) {
-        return (game.unlocked_achievements_count / game.total_achievements) * 100;
-    } else if (isPsnGame(game)) {
-        const trophyValues = { bronze: 15, silver: 30, gold: 90, platinum: 300 };
-
-        const unlockedPoints =
-            (game.unlocked_achievements.bronze || 0) * trophyValues.bronze +
-            (game.unlocked_achievements.silver || 0) * trophyValues.silver +
-            (game.unlocked_achievements.gold || 0) * trophyValues.gold +
-            (game.unlocked_achievements.platinum || 0) * trophyValues.platinum;
-
-        const totalPoints =
-            (game.total_achievements.bronze || 0) * trophyValues.bronze +
-            (game.total_achievements.silver || 0) * trophyValues.silver +
-            (game.total_achievements.gold || 0) * trophyValues.gold +
-            (game.total_achievements.platinum || 0) * trophyValues.platinum;
-
-        return totalPoints > 0 ? (unlockedPoints / totalPoints) * 100 : 0;
-    } else if (isRetroAchievementsGame(game)) {
-        return (game.unlocked_achievements_count / game.total_achievements) * 100;
-    }
-    return 0;
+    return !("platform" in game) && !("console_name" in game);
 }; 

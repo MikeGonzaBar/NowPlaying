@@ -61,7 +61,7 @@ const TrophyStats: React.FC<TrophyStatsProps> = ({ game }) => {
                     variant="body2"
                     sx={{ fontFamily: "Inter, sans-serif", fontSize: "20px" }}
                 >
-                    {game.unlocked_achievements_count}/{game.total_achievements}
+                    {game.unlocked_achievements}/{game.total_achievements}
                 </Typography>
             </>
         );

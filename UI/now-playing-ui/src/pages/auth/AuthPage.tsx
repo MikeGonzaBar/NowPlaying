@@ -1,51 +1,96 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { setAuthToken } from '../../utils/auth';
+import { useAuth } from '../../hooks/useAuth';
 import { Container, Box, Typography, TextField, Button, Paper } from '@mui/material';
 import nowPlayingIcon from '../../assets/now-playing-icon.png';
+import { getApiUrl, API_CONFIG } from '../../config/api';
 
 const AuthPage: React.FC = () => {
     const [isLogin, setIsLogin] = useState(true);
     const [formData, setFormData] = useState({
+        username: '',
         email: '',
         password: '',
-        confirmPassword: '',
+        password2: '',
     });
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
+    const { authenticated, login } = useAuth();
+
+    // Redirect if already authenticated
+    useEffect(() => {
+        if (authenticated) {
+            navigate('/');
+        }
+    }, [authenticated, navigate]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        setIsLoading(true);
 
-        if (!isLogin && formData.password !== formData.confirmPassword) {
+        if (!isLogin && formData.password !== formData.password2) {
             setError('Passwords do not match');
+            setIsLoading(false);
             return;
         }
 
         try {
-            // For development, we'll use a dummy successful response
-            // TODO: Replace with actual API call when backend is ready
-            const dummyResponse = {
-                ok: true,
-                json: () => Promise.resolve({
-                    token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'
-                })
-            };
+            const endpoint = isLogin
+                ? getApiUrl(`${API_CONFIG.USERS_ENDPOINT}/login/`)
+                : getApiUrl(`${API_CONFIG.USERS_ENDPOINT}/register/`);
 
-            const data = await dummyResponse.json();
+            const payload = isLogin
+                ? {
+                    username: formData.username,
+                    password: formData.password
+                }
+                : {
+                    username: formData.username,
+                    email: formData.email,
+                    password: formData.password,
+                    password2: formData.password2
+                };
 
-            if (!dummyResponse.ok) {
-                throw new Error('Authentication failed');
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                // Handle specific error messages from the API
+                if (data.detail) {
+                    throw new Error(data.detail);
+                } else if (data.username) {
+                    throw new Error(data.username[0]);
+                } else if (data.email) {
+                    throw new Error(data.email[0]);
+                } else if (data.password) {
+                    throw new Error(data.password[0]);
+                } else if (data.password2) {
+                    throw new Error(data.password2[0]);
+                } else if (data.non_field_errors) {
+                    throw new Error(data.non_field_errors[0]);
+                } else {
+                    throw new Error(isLogin ? 'Login failed' : 'Registration failed');
+                }
             }
 
-            // Store the token
-            setAuthToken(data.token);
+            // Use the login function from the auth hook
+            login(data.access, data.refresh);
 
             // Redirect to landing page
             navigate('/');
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An error occurred');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -114,10 +159,10 @@ const AuthPage: React.FC = () => {
 
                 <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <TextField
-                        type="email"
-                        name="email"
-                        placeholder="Email"
-                        value={formData.email}
+                        type="text"
+                        name="username"
+                        placeholder="Username"
+                        value={formData.username}
                         onChange={handleInputChange}
                         required
                         fullWidth
@@ -139,6 +184,35 @@ const AuthPage: React.FC = () => {
                             },
                         }}
                     />
+
+                    {!isLogin && (
+                        <TextField
+                            type="email"
+                            name="email"
+                            placeholder="Email"
+                            value={formData.email}
+                            onChange={handleInputChange}
+                            required
+                            fullWidth
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    color: '#fff',
+                                    '& fieldset': {
+                                        borderColor: 'rgba(255, 255, 255, 0.23)',
+                                    },
+                                    '&:hover fieldset': {
+                                        borderColor: 'rgba(255, 255, 255, 0.5)',
+                                    },
+                                    '&.Mui-focused fieldset': {
+                                        borderColor: '#00a8cc',
+                                    },
+                                },
+                                '& .MuiInputLabel-root': {
+                                    color: 'rgba(255, 255, 255, 0.7)',
+                                },
+                            }}
+                        />
+                    )}
 
                     <TextField
                         type="password"
@@ -170,9 +244,9 @@ const AuthPage: React.FC = () => {
                     {!isLogin && (
                         <TextField
                             type="password"
-                            name="confirmPassword"
+                            name="password2"
                             placeholder="Confirm Password"
-                            value={formData.confirmPassword}
+                            value={formData.password2}
                             onChange={handleInputChange}
                             required
                             fullWidth
@@ -200,6 +274,7 @@ const AuthPage: React.FC = () => {
                         type="submit"
                         variant="contained"
                         fullWidth
+                        disabled={isLoading}
                         sx={{
                             mt: 2,
                             py: 1.5,
@@ -208,10 +283,14 @@ const AuthPage: React.FC = () => {
                                 background: 'linear-gradient(45deg, #0097b2 0%, #008ba3 100%)',
                                 transform: 'translateY(-2px)',
                             },
+                            '&:disabled': {
+                                background: 'rgba(255, 255, 255, 0.12)',
+                                color: 'rgba(255, 255, 255, 0.3)',
+                            },
                             transition: 'transform 0.2s ease',
                         }}
                     >
-                        {isLogin ? 'Login' : 'Register'}
+                        {isLoading ? 'Please wait...' : (isLogin ? 'Login' : 'Register')}
                     </Button>
 
                     <Typography sx={{ color: '#b3b3b3', mt: 2 }}>

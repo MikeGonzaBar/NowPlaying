@@ -10,15 +10,28 @@ import { parseDate, getPlaytime, calculateAchievementPercentage } from '../utils
 
 export const useGameData = (beBaseUrl: string) => {
     const [latestPlayedGames, setLatestPlayedGames] = useState<(SteamGame | PsnGame | RetroAchievementsGame | XboxGame)[]>([]);
-    const [mostPlayed, setMostPlayed] = useState<(SteamGame | PsnGame)[]>([]);
-    const [mostAchieved, setMostAchieved] = useState<(SteamGame | PsnGame)[]>([]);
+    const [mostPlayed, setMostPlayed] = useState<(SteamGame | PsnGame | RetroAchievementsGame | XboxGame)[]>([]);
+    const [mostAchieved, setMostAchieved] = useState<(SteamGame | PsnGame | RetroAchievementsGame | XboxGame)[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [missingServices, setMissingServices] = useState<string[]>([]);
 
     const api = useApi();
 
     const fetchGameData = async (url: string): Promise<any> => {
         const data = await api.request(url);
+
+        // Check if the response has the expected structure
+        if (data.result && data.result.games) {
+            return data.result.games;
+        }
+
+        // Fallback: if result is already an array (for different endpoints)
+        if (Array.isArray(data.result)) {
+            return data.result;
+        }
+
+        // Last resort: try to extract values (original logic)
         return Object.values(data.result);
     };
 
@@ -74,6 +87,7 @@ export const useGameData = (beBaseUrl: string) => {
                 ...steamPlaytimeArray,
                 ...psnPlaytimeArray,
                 ...xboxPlaytimeArray,
+                // Note: RetroAchievements might not have playtime data, but we include the possibility
             ]
                 .filter((game) => getPlaytime(game))
                 .sort((a, b) => getPlaytime(b) - getPlaytime(a));
@@ -85,10 +99,13 @@ export const useGameData = (beBaseUrl: string) => {
                 ...retroMostAchievedArray,
                 ...xboxMostAchievedArray,
             ]
-                .map((game) => ({
-                    ...game,
-                    achievementPercentage: calculateAchievementPercentage(game),
-                }))
+                .map((game) => {
+                    const percentage = calculateAchievementPercentage(game);
+                    return {
+                        ...game,
+                        achievementPercentage: percentage,
+                    };
+                })
                 .filter((game) => {
                     const percentage = game.achievementPercentage;
                     return !isNaN(percentage) && percentage > 0;
@@ -119,8 +136,26 @@ export const useGameData = (beBaseUrl: string) => {
         }
     };
 
+    const checkApiKeys = async () => {
+        try {
+            const response = await api.request(`${beBaseUrl}/users/api-keys/services/`);
+            const configuredServices = response || [];
+
+            const requiredServices = ['steam', 'xbox', 'psn', 'retroachievements'];
+            const missing = requiredServices.filter(service => !configuredServices.includes(service));
+            setMissingServices(missing);
+
+            if (missing.length > 0) {
+                console.log(`Missing API keys for: ${missing.join(', ')}`);
+            }
+        } catch (error) {
+            console.error('Error checking API keys:', error);
+        }
+    };
+
     useEffect(() => {
         fetchGames();
+        checkApiKeys();
     }, []);
 
     return {
@@ -130,5 +165,6 @@ export const useGameData = (beBaseUrl: string) => {
         loading,
         error,
         refreshGames,
+        missingServices,
     };
 }; 

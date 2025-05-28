@@ -9,15 +9,49 @@ import GameDetails from './pages/games/pages/gameDetails';
 import './App.css'
 import MovieDetails from './pages/movies/pages/movieDetails';
 import AuthPage from './pages/auth/AuthPage';
+import ProfilePage from './pages/profile/ProfilePage';
+import { isAuthenticated, refreshAuthToken } from './utils/auth';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const token = localStorage.getItem('token');
+  const [isChecking, setIsChecking] = useState(true);
+  const [authenticated, setAuthenticated] = useState(false);
 
-  if (!token) {
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (isAuthenticated()) {
+        setAuthenticated(true);
+      } else {
+        // Try to refresh the token
+        const refreshed = await refreshAuthToken();
+        setAuthenticated(refreshed);
+      }
+      setIsChecking(false);
+    };
+
+    checkAuth();
+  }, []);
+
+  if (isChecking) {
+    // Show loading spinner or placeholder while checking authentication
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        backgroundColor: '#0E0022',
+        color: '#fff'
+      }}>
+        <div>Checking authentication...</div>
+      </div>
+    );
+  }
+
+  if (!authenticated) {
     return <Navigate to="/auth" replace />;
   }
 
@@ -25,11 +59,19 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 };
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authStatus, setAuthStatus] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    setIsAuthenticated(!!token);
+    const checkAuthStatus = async () => {
+      if (isAuthenticated()) {
+        setAuthStatus(true);
+      } else {
+        const refreshed = await refreshAuthToken();
+        setAuthStatus(refreshed);
+      }
+    };
+
+    checkAuthStatus();
   }, []);
 
   return (
@@ -58,6 +100,12 @@ function App() {
         <Route path="/music" element={
           <ProtectedRoute>
             <Music />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <ProfilePage />
           </ProtectedRoute>
         } />
 

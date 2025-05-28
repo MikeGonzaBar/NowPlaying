@@ -9,7 +9,9 @@ import {
     RetroAchievementsGame,
     XboxGame,
 } from "../utils/types";
-import { formatPlaytime, isPsnGame } from "../utils/utils";
+import { formatPlaytime } from "../utils/utils";
+import { isPsnGame } from "../utils/typeGuards";
+
 interface GameCardProps {
     game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
 }
@@ -256,7 +258,7 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
 
                                     return trophies.map(({ type, src, alt }) => {
                                         const count = psn[type];
-                                        // skip rendering if this tier isn’t defined
+                                        // skip rendering if this tier isn't defined
                                         if (count === undefined) return null;
                                         return (
                                             <Box
@@ -287,11 +289,8 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
                                     });
                                 }
 
-                                // only if the game actually has unlocked_achievements_count & total_achievements
-                                if (
-                                    "unlocked_achievements_count" in game &&
-                                    "total_achievements" in game
-                                ) {
+                                // For Steam games (use unlocked_achievements_count)
+                                if ("unlocked_achievements_count" in game && "total_achievements" in game) {
                                     return (
                                         <>
                                             <EmojiEventsIcon sx={{ fontSize: 16, mr: -1 }} />
@@ -310,6 +309,34 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
                                                         game as Pick<
                                                             SteamGame,
                                                             "unlocked_achievements_count" | "total_achievements"
+                                                        >
+                                                    ).total_achievements
+                                                }
+                                            </Typography>
+                                        </>
+                                    );
+                                }
+
+                                // For Xbox and RetroAchievements games (use unlocked_achievements)
+                                if ("unlocked_achievements" in game && "total_achievements" in game) {
+                                    return (
+                                        <>
+                                            <EmojiEventsIcon sx={{ fontSize: 16, mr: -1 }} />
+                                            <Typography variant="body2" sx={{ fontFamily: "Inter, sans-serif" }}>
+                                                {
+                                                    (
+                                                        game as Pick<
+                                                            XboxGame | RetroAchievementsGame,
+                                                            "unlocked_achievements" | "total_achievements"
+                                                        >
+                                                    ).unlocked_achievements
+                                                }
+                                                /
+                                                {
+                                                    (
+                                                        game as Pick<
+                                                            XboxGame | RetroAchievementsGame,
+                                                            "unlocked_achievements" | "total_achievements"
                                                         >
                                                     ).total_achievements
                                                 }

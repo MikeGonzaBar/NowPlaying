@@ -5,6 +5,8 @@ import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { InfoChipSection, MediaStats, TrailerSection } from './MediaInfoSections';
 import { ShowEpisodes } from './ShowEpisodes';
+import { authenticatedFetch } from '../../../utils/auth';
+import { getApiUrl, API_CONFIG } from '../../../config/api';
 
 interface MovieHeaderProps {
     media: Movie | Show;
@@ -42,8 +44,6 @@ interface WatchedSeasonsEpisodesResponse {
 }
 
 const MovieHeader: React.FC<MovieHeaderProps> = ({ media, mediaType, mediaDetails }) => {
-    const beBaseUrl = `http://${window.location.hostname}:8000`;
-    // const beBaseUrl = `https://UPDATE FOR YOUR BACKEND URL`;
     const mediaTitle = mediaType === "movie" ? (media as Movie).movie.title : (media as Show).show.title;
     const mediaImage = mediaDetails?.poster_path
         ? `https://image.tmdb.org/t/p/w1280${mediaDetails.backdrop_path}`
@@ -54,10 +54,17 @@ const MovieHeader: React.FC<MovieHeaderProps> = ({ media, mediaType, mediaDetail
 
     const fetchWatchedSeasonsEpisodes = async () => {
         try {
-            const response = await fetch(`${beBaseUrl}/trakt/get-watched-seasons-episodes/?trakt_id=${traktId}`);
-            const result = await response.json();
-            console.log("Fetched watched seasons and episodes:", result);
-            setWatchedData(result);
+            const response = await authenticatedFetch(
+                getApiUrl(`${API_CONFIG.TRAKT_ENDPOINT}/get-watched-seasons-episodes/?trakt_id=${traktId}`)
+            );
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log("Fetched watched seasons and episodes:", result);
+                setWatchedData(result);
+            } else {
+                console.error("Failed to fetch watched seasons and episodes:", response.status);
+            }
         } catch (error) {
             console.error("Error fetching watched seasons and episodes:", error);
         }

@@ -6,8 +6,11 @@ import {
     Alert,
     Snackbar,
     Button,
+    Chip,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import SettingsIcon from "@mui/icons-material/Settings";
+import { Link } from "react-router-dom";
 import SideBar from "../../../components/sideBar";
 import GameSection from "../components/GameSection";
 import { useGameData } from "../hooks/useGameData";
@@ -23,6 +26,7 @@ function Games() {
         loading,
         error,
         refreshGames,
+        missingServices,
     } = useGameData(beBaseUrl);
 
     const handleRefresh = async () => {
@@ -58,6 +62,37 @@ function Games() {
                     {error && (
                         <Alert severity="error" sx={{ mb: 2 }}>
                             {error}
+                        </Alert>
+                    )}
+                    {missingServices && missingServices.length > 0 && (
+                        <Alert
+                            severity="info"
+                            sx={{ mb: 2 }}
+                            action={
+                                <Button
+                                    component={Link}
+                                    to="/profile"
+                                    color="inherit"
+                                    size="small"
+                                    startIcon={<SettingsIcon />}
+                                >
+                                    Configure API Keys
+                                </Button>
+                            }
+                        >
+                            <Typography variant="body2" sx={{ mb: 1 }}>
+                                To see games from all platforms, please configure your API keys for:
+                            </Typography>
+                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                {missingServices.map((service) => (
+                                    <Chip
+                                        key={service}
+                                        label={service.charAt(0).toUpperCase() + service.slice(1)}
+                                        size="small"
+                                        variant="outlined"
+                                    />
+                                ))}
+                            </Box>
                         </Alert>
                     )}
                     <GameSection
