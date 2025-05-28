@@ -6,9 +6,16 @@ from .models import TraktToken, Movie, MovieWatch, Show, Season, Episode, Episod
 # Register your models here.
 @admin.register(TraktToken)
 class TraktTokenAdmin(admin.ModelAdmin):
-    list_display = ("id", "token_preview", "expires_at", "updated_at", "is_expired_display")
-    readonly_fields = ("access_token", "refresh_token", "expires_at", "updated_at")
-    fields = ("access_token", "refresh_token", "expires_at", "updated_at")
+    list_display = ("id", "user_username", "token_preview", "expires_at", "updated_at", "is_expired_display")
+    list_filter = ("user", "expires_at", "updated_at")
+    search_fields = ("user__username",)
+    readonly_fields = ("user", "access_token", "refresh_token", "expires_at", "updated_at")
+    fields = ("user", "access_token", "refresh_token", "expires_at", "updated_at")
+    
+    def user_username(self, obj):
+        return obj.user.username if obj.user else "No User"
+    user_username.short_description = "User"
+    user_username.admin_order_field = 'user__username'
     
     def token_preview(self, obj):
         return f"{obj.access_token[:10]}..." if obj.access_token else ""
@@ -32,14 +39,19 @@ class MovieWatchInline(admin.TabularInline):
 
 @admin.register(Movie)
 class MovieAdmin(admin.ModelAdmin):
-    list_display = ('title', 'year', 'plays', 'last_watched_at', 'last_updated_at')
-    list_filter = ('year', 'last_watched_at')
-    search_fields = ('title', 'trakt_id', 'imdb_id', 'tmdb_id')
-    readonly_fields = ('trakt_id', 'title', 'year', 'image_url', 'plays', 'last_watched_at', 
+    list_display = ('title', 'user_username', 'year', 'plays', 'last_watched_at', 'last_updated_at')
+    list_filter = ('user', 'year', 'last_watched_at')
+    search_fields = ('title', 'trakt_id', 'imdb_id', 'tmdb_id', 'user__username')
+    readonly_fields = ('user', 'trakt_id', 'title', 'year', 'image_url', 'plays', 'last_watched_at', 
                       'last_updated_at', 'imdb_id', 'tmdb_id', 'slug', 'poster_display')
-    fields = ('title', 'year', 'poster_display', 'plays', 'last_watched_at', 'last_updated_at', 
+    fields = ('user', 'title', 'year', 'poster_display', 'plays', 'last_watched_at', 'last_updated_at', 
              'trakt_id', 'imdb_id', 'tmdb_id', 'slug')
     inlines = [MovieWatchInline]
+    
+    def user_username(self, obj):
+        return obj.user.username if obj.user else "No User"
+    user_username.short_description = "User"
+    user_username.admin_order_field = 'user__username'
     
     def poster_display(self, obj):
         if obj.image_url:
@@ -49,9 +61,9 @@ class MovieAdmin(admin.ModelAdmin):
 
 @admin.register(MovieWatch)
 class MovieWatchAdmin(admin.ModelAdmin):
-    list_display = ('movie_title', 'watched_at', 'progress')
-    list_filter = ('watched_at',)
-    search_fields = ('movie__title',)
+    list_display = ('movie_title', 'movie_user', 'watched_at', 'progress')
+    list_filter = ('watched_at', 'movie__user')
+    search_fields = ('movie__title', 'movie__user__username')
     readonly_fields = ('movie', 'watched_at', 'progress')
     fields = ('movie', 'watched_at', 'progress')
     
@@ -59,6 +71,11 @@ class MovieWatchAdmin(admin.ModelAdmin):
         return obj.movie.title
     movie_title.short_description = "Movie"
     movie_title.admin_order_field = 'movie__title'
+    
+    def movie_user(self, obj):
+        return obj.movie.user.username if obj.movie and obj.movie.user else "No User"
+    movie_user.short_description = "User"
+    movie_user.admin_order_field = 'movie__user__username'
 
 class EpisodeInline(admin.TabularInline):
     model = Episode
@@ -84,13 +101,18 @@ class SeasonInline(admin.TabularInline):
 
 @admin.register(Show)
 class ShowAdmin(admin.ModelAdmin):
-    list_display = ('title', 'year', 'last_watched_at', 'seasons_count', 'episodes_count')
-    list_filter = ('year', 'last_watched_at')
-    search_fields = ('title', 'trakt_id', 'tmdb_id')
-    readonly_fields = ('trakt_id', 'slug', 'tmdb_id', 'title', 'year', 'image_url', 
+    list_display = ('title', 'user_username', 'year', 'last_watched_at', 'seasons_count', 'episodes_count')
+    list_filter = ('user', 'year', 'last_watched_at')
+    search_fields = ('title', 'trakt_id', 'tmdb_id', 'user__username')
+    readonly_fields = ('user', 'trakt_id', 'slug', 'tmdb_id', 'title', 'year', 'image_url', 
                       'last_watched_at', 'poster_display', 'seasons_count', 'episodes_count')
-    fields = ('title', 'year', 'poster_display', 'last_watched_at', 'trakt_id', 'tmdb_id', 'slug')
+    fields = ('user', 'title', 'year', 'poster_display', 'last_watched_at', 'trakt_id', 'tmdb_id', 'slug')
     inlines = [SeasonInline]
+    
+    def user_username(self, obj):
+        return obj.user.username if obj.user else "No User"
+    user_username.short_description = "User"
+    user_username.admin_order_field = 'user__username'
     
     def poster_display(self, obj):
         if obj.image_url:
@@ -108,9 +130,9 @@ class ShowAdmin(admin.ModelAdmin):
 
 @admin.register(Season)
 class SeasonAdmin(admin.ModelAdmin):
-    list_display = ('show_title', 'season_number', 'title', 'air_date', 'episodes_count')
-    list_filter = ('show', 'air_date')
-    search_fields = ('show__title', 'title')
+    list_display = ('show_title', 'show_user', 'season_number', 'title', 'air_date', 'episodes_count')
+    list_filter = ('show', 'show__user', 'air_date')
+    search_fields = ('show__title', 'title', 'show__user__username')
     readonly_fields = ('show', 'season_number', 'image_url', 'title', 'air_date', 'episodes_count')
     fields = ('show', 'season_number', 'title', 'air_date')
     inlines = [EpisodeInline]
@@ -119,6 +141,11 @@ class SeasonAdmin(admin.ModelAdmin):
         return obj.show.title
     show_title.short_description = "Show"
     show_title.admin_order_field = 'show__title'
+    
+    def show_user(self, obj):
+        return obj.show.user.username if obj.show and obj.show.user else "No User"
+    show_user.short_description = "User"
+    show_user.admin_order_field = 'show__user__username'
     
     def episodes_count(self, obj):
         return obj.episodes.count()
@@ -137,15 +164,20 @@ class EpisodeWatchInline(admin.TabularInline):
 
 @admin.register(Episode)
 class EpisodeAdmin(admin.ModelAdmin):
-    list_display = ('__str__', 'title', 'air_date', 'plays', 'watched_at')
-    list_filter = ('show', 'season', 'watched_at', 'air_date')
-    search_fields = ('title', 'show__title')
+    list_display = ('__str__', 'show_user', 'title', 'air_date', 'plays', 'watched_at')
+    list_filter = ('show', 'show__user', 'season', 'watched_at', 'air_date')
+    search_fields = ('title', 'show__title', 'show__user__username')
     readonly_fields = ('show', 'season', 'episode_number', 'title', 'image_url', 'air_date',
                       'plays', 'watched_at', 'last_updated_at', 'overview', 'rating', 
                       'runtime', 'episode_type', 'ids', 'available_translations', 'image_display')
     fields = ('show', 'season', 'episode_number', 'title', 'image_display', 'air_date',
              'plays', 'watched_at', 'overview', 'rating', 'runtime')
     inlines = [EpisodeWatchInline]
+    
+    def show_user(self, obj):
+        return obj.show.user.username if obj.show and obj.show.user else "No User"
+    show_user.short_description = "User"
+    show_user.admin_order_field = 'show__user__username'
     
     def image_display(self, obj):
         if obj.image_url:
@@ -155,12 +187,17 @@ class EpisodeAdmin(admin.ModelAdmin):
 
 @admin.register(EpisodeWatch)
 class EpisodeWatchAdmin(admin.ModelAdmin):
-    list_display = ('episode_display', 'watched_at', 'progress')
-    list_filter = ('watched_at',)
-    search_fields = ('episode__title', 'episode__show__title')
+    list_display = ('episode_display', 'episode_user', 'watched_at', 'progress')
+    list_filter = ('watched_at', 'episode__show__user')
+    search_fields = ('episode__title', 'episode__show__title', 'episode__show__user__username')
     readonly_fields = ('episode', 'watched_at', 'progress')
     fields = ('episode', 'watched_at', 'progress')
     
     def episode_display(self, obj):
         return str(obj.episode)
     episode_display.short_description = "Episode"
+    
+    def episode_user(self, obj):
+        return obj.episode.show.user.username if obj.episode and obj.episode.show and obj.episode.show.user else "No User"
+    episode_user.short_description = "User"
+    episode_user.admin_order_field = 'episode__show__user__username'

@@ -15,7 +15,8 @@ class CustomUserAdmin(UserAdmin):
 
 @admin.register(UserApiKey)
 class UserApiKeyAdmin(admin.ModelAdmin):
-    list_display = ('user', 'service_name', 'last_used', 'created_at', 'updated_at')
+    list_display = ('user', 'service_name', 'service_user_id', 'last_used', 'created_at', 'updated_at')
     list_filter = ('service_name', 'created_at', 'last_used')
-    search_fields = ('user__username', 'service_name')
+    search_fields = ('user__username', 'service_name', 'service_user_id')
     readonly_fields = ('last_used', 'created_at', 'updated_at')
+    fields = ('user', 'service_name', 'service_user_id', 'last_used', 'created_at', 'updated_at')
