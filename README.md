@@ -80,6 +80,36 @@ The application includes user authentication, profile management, and integrated
 - **Secure Storage**: Server-side API key management with masked display
 - **Platform-Specific Setup**: Guided configuration for each supported service
 
+## Screenshots
+
+### Main Dashboard
+![Dashboard](screenshots/dashboard.jpeg)
+*Main dashboard showing unified entertainment tracking across all platforms*
+
+### Gaming Dashboard
+![Games Dashboard](screenshots/games.jpeg)
+*Multi-platform gaming dashboard with achievement tracking and "Most Achieved 🏆" section*
+
+### Game Details
+![Game Details](screenshots/game-details.jpeg)
+*Detailed view of individual games with platform-specific achievement/trophy data*
+
+### Movies & TV Shows
+![Movies Dashboard](screenshots/movies.jpeg)
+*Trakt integration showing watched movies and TV shows with progress tracking*
+
+### Music Dashboard
+![Music Dashboard](screenshots/music.jpeg)
+*Music tracking with Spotify and Last.fm integration showing recent plays and scrobbling data*
+
+### Profile & API Configuration
+![Profile Settings](screenshots/profile.jpeg)
+*API key management and service configuration with connection status indicators*
+
+### Authentication
+![Authentication](screenshots/auth.jpeg)
+*JWT-based login and registration interface*
+
 ## Project Structure
 
 - **API**: Django-based backend with JWT authentication, user management, and multi-platform API integrations
