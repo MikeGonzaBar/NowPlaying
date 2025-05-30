@@ -1,5 +1,8 @@
-# Use the official PostgreSQL image as the base
-FROM postgres:alpine
+# Use the latest PostgreSQL 17 Alpine image
+FROM postgres:17.5-alpine
+
+# Update system packages to fix CVE vulnerabilities
+RUN apk update && apk upgrade && apk add --no-cache libxml2 >=2.13.4-r6 && rm -rf /var/cache/apk/*
 
 # Set environment variables for PostgreSQL
 ENV POSTGRES_DB=nowplaying

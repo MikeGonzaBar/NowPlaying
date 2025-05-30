@@ -54,51 +54,30 @@ export const useGameData = (beBaseUrl: string) => {
     const fetchGames = async () => {
         try {
             setLoading(true);
-            const [
-                steamArray,
-                psnArray,
-                retroArray,
-                xboxArray,
-                steamPlaytimeArray,
-                psnPlaytimeArray,
-                xboxPlaytimeArray,
-                steamMostAchievedArray,
-                psnMostAchievedArray,
-                retroMostAchievedArray,
-                xboxMostAchievedArray,
-            ] = await Promise.all([
+
+            // Optimize: Make only 4 API calls instead of 11
+            const [steamArray, psnArray, retroArray, xboxArray] = await Promise.all([
                 fetchGameData(`${beBaseUrl}/steam/get-game-list-stored/`),
                 fetchGameData(`${beBaseUrl}/psn/get-game-list-stored/`),
                 fetchGameData(`${beBaseUrl}/retroachievements/fetch-games/`),
                 fetchGameData(`${beBaseUrl}/xbox/get-game-list-stored/`),
-                fetchGameData(`${beBaseUrl}/steam/get-game-list-total-playtime/`),
-                fetchGameData(`${beBaseUrl}/psn/get-game-list-total-playtime/`),
-                fetchGameData(`${beBaseUrl}/xbox/get-game-list-total-playtime/`),
-                fetchGameData(`${beBaseUrl}/steam/get-game-list-most-achieved/`),
-                fetchGameData(`${beBaseUrl}/psn/get-game-list-most-achieved/`),
-                fetchGameData(`${beBaseUrl}/retroachievements/get-most-achieved-games/`),
-                fetchGameData(`${beBaseUrl}/xbox/get-game-list-most-achieved/`),
             ]);
 
+            // Process all three views from the same data
+            const allGames = [...steamArray, ...psnArray, ...retroArray, ...xboxArray];
+
+            // Latest played games
             const merged = mergeAndSortGames(steamArray, psnArray, retroArray, xboxArray);
             setLatestPlayedGames(merged);
 
-            const mergedPlaytimeGames = [
-                ...steamPlaytimeArray,
-                ...psnPlaytimeArray,
-                ...xboxPlaytimeArray,
-                // Note: RetroAchievements might not have playtime data, but we include the possibility
-            ]
-                .filter((game) => getPlaytime(game))
+            // Most played games - filter from all games instead of separate API calls
+            const mergedPlaytimeGames = allGames
+                .filter((game) => getPlaytime(game) > 0)
                 .sort((a, b) => getPlaytime(b) - getPlaytime(a));
             setMostPlayed(mergedPlaytimeGames);
 
-            const mergedMostAchievedGames = [
-                ...steamMostAchievedArray,
-                ...psnMostAchievedArray,
-                ...retroMostAchievedArray,
-                ...xboxMostAchievedArray,
-            ]
+            // Most achieved games - process from all games instead of separate API calls
+            const mergedMostAchievedGames = allGames
                 .map((game) => {
                     const percentage = calculateAchievementPercentage(game);
                     return {

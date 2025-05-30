@@ -198,6 +198,25 @@ SIMPLE_JWT = {
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+# Caching Configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': f"redis://{os.environ.get('REDIS_HOST', 'localhost')}:{os.environ.get('REDIS_PORT', '6379')}/1",
+        'TIMEOUT': 3600,  # 1 hour default timeout
+        'KEY_PREFIX': 'nowplaying',
+    }
+}
+
+# Cache timeout for different data types
+CACHE_TIMEOUTS = {
+    'STEAM_GAMES': 1800,  # 30 minutes
+    'PSN_GAMES': 1800,    # 30 minutes
+    'XBOX_GAMES': 1800,   # 30 minutes
+    'MUSIC_TRACKS': 900,  # 15 minutes
+    'MOVIES': 1800,       # 30 minutes
+}
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

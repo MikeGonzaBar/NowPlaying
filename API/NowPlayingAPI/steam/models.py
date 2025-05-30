@@ -21,6 +21,13 @@ class Game(models.Model):
 
     class Meta:
         unique_together = ('user', 'appid')  # A game can appear multiple times, but only once per user
+        indexes = [
+            models.Index(fields=['user', '-last_played']),  # For latest played games
+            models.Index(fields=['user', '-playtime_forever']),  # For most played games
+            models.Index(fields=['user', 'appid']),  # For game lookups
+            models.Index(fields=['last_played']),  # For date filtering
+            models.Index(fields=['playtime_forever']),  # For playtime sorting
+        ]
 
     def __str__(self):
         return self.name

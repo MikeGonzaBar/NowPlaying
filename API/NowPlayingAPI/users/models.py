@@ -40,6 +40,11 @@ class UserApiKey(models.Model):
     
     class Meta:
         unique_together = ('user', 'service_name')
+        indexes = [
+            models.Index(fields=['user', 'service_name']),
+            models.Index(fields=['service_name']),
+            models.Index(fields=['last_used']),
+        ]
         verbose_name = 'User API Key'
         verbose_name_plural = 'User API Keys'
     
@@ -55,7 +60,6 @@ class UserApiKey(models.Model):
     def get_key(self):
         """Decrypt and return the API key"""
         decrypted_key = decrypt_api_key(self.key_hash)
-        print(f"DEBUG: Decrypted API key for {self.service_name}: {decrypted_key}")
         return decrypted_key
     
     def update_last_used(self):

@@ -1,5 +1,6 @@
 from datetime import datetime
 from django.conf import settings
+from django.core.cache import cache
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -19,15 +20,20 @@ class SteamViewSet(viewsets.ModelViewSet):
             # Get the user's Steam ID from their stored API keys
             api_key = UserApiKey.objects.get(user=request.user, service_name='steam')
             steam_id = api_key.service_user_id
-            print(f"DEBUG: Steam ID: {steam_id}")
             steam_api_key = api_key.get_key()
-            print(f"DEBUG: Steam API Key: {steam_api_key}")
             
             if not steam_id:
                 return Response(
                     {"error": "No Steam ID found. Please update your Steam API key with your Steam ID."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+            
+            # Check cache first
+            cache_key = f"steam_games_{request.user.id}_{steam_id}"
+            cached_result = cache.get(cache_key)
+            
+            if cached_result:
+                return Response({"result": cached_result})
             
             # Call the helper method to fetch/update games and achievements.
             result = SteamAPI.get_games(steam_id, steam_api_key, user=request.user)
@@ -38,6 +44,9 @@ class SteamViewSet(viewsets.ModelViewSet):
                     total = game.get("total_achievements", 0)
                     unlocked = game.get("unlocked_achievements", 0)
                     game["locked_achievements"] = total - unlocked
+            
+            # Cache the result for 30 minutes
+            cache.set(cache_key, result, getattr(settings, 'CACHE_TIMEOUTS', {}).get('STEAM_GAMES', 1800))
             
             return Response({"result": result})
             
@@ -50,21 +59,21 @@ class SteamViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="get-game-list-stored")
     def getGameListStored(self, request):
         # Retrieve stored games and sort by last played (most recent first).
-        games = Game.objects.all().order_by("-last_played")
+        games = Game.objects.filter(user=request.user).select_related('user').order_by("-last_played")
         serializer = SteamSerializer(games, many=True)
         return Response({"result": serializer.data})
 
     @action(detail=False, methods=["get"], url_path="get-game-list-total-playtime")
     def getGameListPlaytimeForever(self, request):
         # Sorting stored games based on playtime_forever.
-        games = Game.objects.all().order_by("-playtime_forever")
+        games = Game.objects.filter(user=request.user).select_related('user').order_by("-playtime_forever")
         serializer = SteamSerializer(games, many=True)
         return Response({"result": serializer.data})
 
     @action(detail=False, methods=["get"], url_path="get-game-list-most-achieved")
     def getGameListMostAchieved(self, request):
         # Retrieve all games with their related achievements for processing.
-        games = list(Game.objects.all().prefetch_related("achievements"))
+        games = list(Game.objects.filter(user=request.user).prefetch_related("achievements").select_related('user'))
 
         # Helper function: Calculate unlocked achievement percentage.
         def achievement_percentage(game):

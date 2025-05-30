@@ -16,7 +16,7 @@ interface GameCardProps {
     game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
 }
 
-const GameCard: React.FC<GameCardProps> = ({ game }) => {
+const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
     const platformConfig = [
         {
             key: "platform",
@@ -363,6 +363,6 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
             </Box>
         </Box>
     );
-};
+});
 
 export default GameCard;
