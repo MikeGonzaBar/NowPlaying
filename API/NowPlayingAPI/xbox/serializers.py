@@ -25,8 +25,8 @@ class XboxGameSerializer(serializers.ModelSerializer):
     """
     achievements = XboxAchievementSerializer(many=True, read_only=True)
     total_achievements = serializers.SerializerMethodField()
-    unlocked_achievements_count = serializers.SerializerMethodField()
-    locked_achievements_count = serializers.SerializerMethodField()
+    unlocked_achievements = serializers.SerializerMethodField()
+    locked_achievements = serializers.SerializerMethodField()
 
     class Meta:
         model = XboxGame
@@ -41,8 +41,8 @@ class XboxGameSerializer(serializers.ModelSerializer):
             'img_icon_url',
             'achievements',
             'total_achievements',
-            'unlocked_achievements_count',
-            'locked_achievements_count',
+            'unlocked_achievements',
+            'locked_achievements',
         ]
         read_only_fields = ['id']
 
@@ -52,16 +52,16 @@ class XboxGameSerializer(serializers.ModelSerializer):
         """
         return obj.achievements.count()
 
-    def get_unlocked_achievements_count(self, obj):
+    def get_unlocked_achievements(self, obj):
         """
         Return the count of achievements that have been unlocked.
         """
         return obj.achievements.filter(unlocked=True).count()
 
-    def get_locked_achievements_count(self, obj):
+    def get_locked_achievements(self, obj):
         """
         Return the count of achievements that remain locked.
         """
         total = self.get_total_achievements(obj)
-        unlocked = self.get_unlocked_achievements_count(obj)
+        unlocked = self.get_unlocked_achievements(obj)
         return total - unlocked

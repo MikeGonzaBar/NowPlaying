@@ -74,7 +74,8 @@ export interface RetroAchievementsGame {
 
     last_played: string;
     total_achievements: number;
-    unlocked_achievements_count: number;
+    unlocked_achievements: number;
+    locked_achievements: number;
     score_achieved: number;
     achievements: RetroAchievementsAchievement[];
 }
@@ -97,6 +98,6 @@ export interface XboxGame {
     img_icon_url: string;
     achievements: XboxAchievement[];
     total_achievements: number;
-    unlocked_achievements_count: number;
-    locked_achievements_count: number;
+    unlocked_achievements: number;
+    locked_achievements: number;
 }

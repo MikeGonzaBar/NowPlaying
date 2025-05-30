@@ -1,5 +1,5 @@
-import React from "react";
-import { Box, Typography, IconButton, Card, CardMedia } from "@mui/material";
+import React, { useMemo } from "react";
+import { Box, Typography, IconButton } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { Link } from "react-router-dom";
 import {
@@ -8,6 +8,8 @@ import {
     RetroAchievementsGame,
     XboxGame,
 } from "../utils/types";
+import GameImage from "./GameImage";
+import GameInfo from "./GameInfo";
 
 interface GameHeaderProps {
     game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
@@ -57,6 +59,20 @@ const platformConfig = [
         width: "45px",
     },
     {
+        key: "console_name",
+        value: "Game Boy Advance",
+        src: "/Platforms/gameboy-advance.png",
+        alt: "Game Boy Advance Logo",
+        width: "60px",
+    },
+    {
+        key: "console_name",
+        value: "Game Boy Color",
+        src: "/Platforms/gameboy-color.png",
+        alt: "Game Boy Color Logo",
+        width: "45px",
+    },
+    {
         key: "default",
         value: "Steam",
         src: "/Platforms/steam.webp",
@@ -80,7 +96,6 @@ const getPlatformMatch = (
         return configValues.some((configVal) => gameValues.includes(configVal));
     });
 
-    // If no platform matches, use the default (Steam)
     return matchedPlatform || platformConfig.find((cfg) => cfg.key === "default");
 };
 
@@ -90,33 +105,29 @@ const isPsnGame = (
     return (game as PsnGame).platform !== undefined;
 };
 
+
 const formatDate = (
     game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame
 ): string => {
-    if ("platform" in game) {
-        const date = new Date(game.last_played);
-        const day = String(date.getDate()).padStart(2, "0");
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
-    } else {
-        const date = new Date(game.last_played);
-        const formatted = `${String(date.getDate()).padStart(2, "0")}/${String(
-            date.getMonth() + 1
-        ).padStart(2, "0")}/${date.getFullYear()}`;
-        return formatted;
-    }
+    const date = new Date(game.last_played);
+    return date.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
 };
 
 const GameHeader: React.FC<GameHeaderProps> = ({ game }) => {
-    const platform = getPlatformMatch(game);
-    const lastPlayed = formatDate(game);
-    const totalPlaytime =
+    const platform = useMemo(() => getPlatformMatch(game), [game]);
+    const lastPlayed = useMemo(() => formatDate(game), [game]);
+    const totalPlaytime = useMemo(() =>
         isPsnGame(game) && game.total_playtime
             ? game.total_playtime
             : "playtime_formatted" in game && game.playtime_formatted
                 ? game.playtime_formatted
-                : "Not Available";
+                : "Not Available",
+        [game]
+    );
 
     if (!game) {
         return <Typography variant="h6">Game not found</Typography>;
@@ -157,49 +168,15 @@ const GameHeader: React.FC<GameHeaderProps> = ({ game }) => {
                         marginRight: "735px",
                         marginleft: "0px",
                     }}
+                    loading="lazy"
                 />
             </Box>
             <Box sx={{ display: "flex", gap: 8 }}>
-                <Card>
-                    <CardMedia
-                        component="img"
-                        image={
-                            isPsnGame(game) && game.img_icon_url
-                                ? game.img_icon_url
-                                : (game as RetroAchievementsGame).console_name === "PlayStation 2"
-                                    ? (game as RetroAchievementsGame).image_title
-                                    : (game as RetroAchievementsGame).console_name === "PlayStation"
-                                        ? (game as RetroAchievementsGame).image_title
-                                        : (game as RetroAchievementsGame).console_name === "Nintendo DS"
-                                            ? (game as RetroAchievementsGame).image_title
-                                            : `https://cdn.akamai.steamstatic.com/steam/apps/${game.appid}/header.jpg`
-                        }
-                        alt={game.name}
-                        sx={{
-                            width: isPsnGame(game) ? 300 : 460,
-                            height: isPsnGame(game) ? 300 : "auto",
-                        }}
-                    />
-                </Card>
-                <Box sx={{}}>
-                    <Typography
-                        variant="subtitle1"
-                        gutterBottom
-                        sx={{ fontSize: "20px", fontFamily: "Inter, sans-serif" }}
-                    >
-                        <b>Last time played: </b> {lastPlayed}
-                    </Typography>
-                    <Typography
-                        variant="subtitle1"
-                        sx={{ fontSize: "20px", fontFamily: "Inter, sans-serif" }}
-                    >
-                        <b>Total playtime: </b>
-                        {totalPlaytime}
-                    </Typography>
-                </Box>
+                <GameImage game={game} />
+                <GameInfo lastPlayed={lastPlayed} totalPlaytime={totalPlaytime} />
             </Box>
         </Box>
     );
 };
 
-export default GameHeader;
+export default React.memo(GameHeader);

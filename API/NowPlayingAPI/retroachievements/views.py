@@ -1,8 +1,9 @@
 from rest_framework.decorators import action
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
-from .models import RetroAchievementsGame, GameAchievement
+from .models import RetroAchievementsAPI
+from users.models import UserApiKey
 
 
 class RetroAchievementsViewSet(viewsets.ViewSet):
@@ -35,95 +36,67 @@ class RetroAchievementsViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["get"], url_path="fetch-recently-played-games")
     def fetch_recently_played_games(self, request):
         """
-        Fetches and populates the latest 50 recently played games.
+        Fetches and populates the latest 50 recently played games for the authenticated user.
         """
-        RetroAchievementsGame.populate_recently_played_games()
-        return Response({"message": "Recently played games have been updated."})
+        try:
+            # Get the user's RetroAchievements credentials from their stored API keys
+            api_key = UserApiKey.objects.get(user=request.user, service_name='retroachievements')
+            ra_username = api_key.service_user_id
+            ra_api_key = api_key.get_key()
+            
+            if not ra_username:
+                return Response(
+                    {"error": "No RetroAchievements username found. Please update your RetroAchievements API key with your username."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            # Call the new API method to fetch/update games and achievements
+            result = RetroAchievementsAPI.populate_recently_played_games(
+                user=request.user,
+                ra_username=ra_username, 
+                ra_api_key=ra_api_key
+            )
+            
+            return Response({"result": result})
+            
+        except UserApiKey.DoesNotExist:
+            return Response(
+                {"error": "No RetroAchievements API key found. Please add your RetroAchievements API key in profile settings."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"An unexpected error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=False, methods=["get"], url_path="get-most-achieved-games")
     def get_most_achieved_games(self, request):
         """
         Returns the list of games ordered by the percentage of unlocked achievements.
         """
-        games = RetroAchievementsGame.get_most_achieved_games()
-        formatted_games = []
-        for game in games:
-            achievements = GameAchievement.objects.filter(game=game).order_by("display_order")
-
-            formatted_achievements = [
-                {
-                    "achievement_id": achievement.achievement_id,
-                    "name": achievement.title,
-                    "description": achievement.description,
-                    "image": "https://media.retroachievements.org/Badge/"+achievement.badge_name+".png",
-                    "points": achievement.points,
-                    "true_ratio": achievement.true_ratio,
-                    "unlock_time": achievement.date_earned,
-                    "display_order": achievement.display_order,
-                    "type": achievement.type,
-                    "unlocked": bool(achievement.date_earned),
-                }
-                for achievement in achievements
-            ]
-
-            formatted_games.append({
-                "appid": game.game_id,
-                "name": game.title,
-                "console_name": game.console_name,
-                "image_icon": "https://retroachievements.org" + game.image_icon,
-                "image_title": "https://retroachievements.org" + game.image_title,
-                "image_ingame": "https://retroachievements.org" + game.image_ingame,
-                "img_icon_url": "https://retroachievements.org" + game.image_box_art,
-                "last_played": game.last_played,
-                "total_achievements": game.achievements_total,
-                "unlocked_achievements_count": game.num_achieved,
-                "achievements": formatted_achievements,
-            })
-
-        return Response({"result": formatted_games})
+        try:
+            result = RetroAchievementsAPI.get_most_achieved_games(user=request.user)
+            return Response({"result": result})
+        except Exception as e:
+            return Response(
+                {"error": f"An error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=False, methods=["get"], url_path="fetch-games")
     def fetch_games(self, request):
         """
-        Fetches all games along with their achievements.
+        Fetches all games along with their achievements from the database.
         """
-        games = RetroAchievementsGame.fetch_games()
-        formatted_games = []
-
-        for game in games:
-            achievements = GameAchievement.objects.filter(game=game).order_by("display_order")
-
-            formatted_achievements = [
-                {
-                    "achievement_id": achievement.achievement_id,
-                    "name": achievement.title,
-                    "description": achievement.description,
-                    "image": "https://media.retroachievements.org/Badge/"+achievement.badge_name+".png",
-                    "points": achievement.points,
-                    "true_ratio": achievement.true_ratio,
-                    "unlock_time": achievement.date_earned,
-                    "display_order": achievement.display_order,
-                    "type": achievement.type,
-                    "unlocked": bool(achievement.date_earned),
-                }
-                for achievement in achievements
-            ]
-
-            formatted_games.append({
-                "appid": game.game_id,
-                "name": game.title,
-                "console_name": game.console_name,
-                "image_icon": "https://retroachievements.org" + game.image_icon,
-                "image_title": "https://retroachievements.org" + game.image_title,
-                "image_ingame": "https://retroachievements.org" + game.image_ingame,
-                "img_icon_url": "https://retroachievements.org" + game.image_box_art,
-                "last_played": game.last_played,
-                "total_achievements": game.achievements_total,
-                "unlocked_achievements_count": game.num_achieved,
-                "achievements": formatted_achievements,
-            })
-
-        return Response({"result": formatted_games})
+        try:
+            result = RetroAchievementsAPI.fetch_games(user=request.user)
+            return Response({"result": result})
+        except Exception as e:
+            return Response(
+                {"error": f"An error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=False, methods=["get"], url_path="fetch-game-details")
     def fetch_game_details(self, request):
@@ -141,40 +114,13 @@ class RetroAchievementsViewSet(viewsets.ViewSet):
         except ValueError:
             raise ValidationError({"detail": "The 'game_id' parameter must be an integer."})
 
-        game, achievements = GameAchievement.fetch_game_details(game_id)
-        if game:
-            ordered_achievements = sorted(
-            achievements, key=lambda achievement: achievement.display_order
-        )
-            formatted_achievements = [
-                {
-                    "achievement_id": achievement.achievement_id,
-                    "title": achievement.title,
-                    "description": achievement.description,
-                    "image": achievement.badge_name,
-                    "points": achievement.points,
-                    "true_ratio": achievement.true_ratio,
-                    "date_earned": achievement.date_earned,
-                    "display_order": achievement.display_order,
-                    "type": achievement.type,
-                }
-                for achievement in ordered_achievements
-            ]
+        try:
+            result = RetroAchievementsAPI.fetch_game_details(user=request.user, game_id=game_id)
+            if result:
+                return Response({"result": result})
+            return Response({"error": "Game not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
             return Response(
-                {
-                    "game": {
-                        "appid": game.game_id,
-                        "title": game.title,
-                        "console_name": game.console_name,
-                        "image_icon": game.image_icon,
-                        "image_title": game.image_title,
-                        "image_ingame": game.image_ingame,
-                        "image_box_art": game.image_box_art,
-                        "achievements_total": game.achievements_total,
-                        "num_achieved": game.num_achieved,
-                        "score_achieved": game.score_achieved,
-                    },
-                    "achievements": formatted_achievements,
-                }
+                {"error": f"An error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-        return Response({"message": "Game not found."}, status=404)

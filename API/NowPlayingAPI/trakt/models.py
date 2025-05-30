@@ -7,6 +7,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from dateutil.parser import isoparse
 from django.db.models import Max
+from django.contrib.auth.models import User
 
 # Create your models here.
 
@@ -20,21 +21,25 @@ class TraktToken(models.Model):
     """
     Stores your Trakt access token and refresh token along with the expiry date.
     """
-
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trakt_tokens')
     access_token = models.CharField(max_length=255)
     refresh_token = models.CharField(max_length=255)
     expires_at = models.DateTimeField()  # When the token expires
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        unique_together = ('user',)  # Each user can have only one token
+
     def is_expired(self):
         return timezone.now() >= self.expires_at
 
     def __str__(self):
-        return f"TraktToken(expiring at {self.expires_at})"
+        return f"TraktToken for {self.user.username} (expiring at {self.expires_at})"
 
 
 class Movie(models.Model):
-    trakt_id = models.CharField(max_length=255, unique=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trakt_movies')
+    trakt_id = models.CharField(max_length=255)
     title = models.CharField(max_length=255)
     year = models.IntegerField(null=True, blank=True)
     image_url = models.URLField(null=True, blank=True)
@@ -49,8 +54,11 @@ class Movie(models.Model):
     tmdb_id = models.CharField(max_length=255, null=True, blank=True)  # TMDb ID
     slug = models.CharField(max_length=255, null=True, blank=True)  # Trakt slug
 
+    class Meta:
+        unique_together = ('user', 'trakt_id')  # Each user can have their own copy of the same movie
+
     def __str__(self):
-        return self.title
+        return f"{self.title} ({self.user.username})"
 
 
 class MovieWatch(models.Model):
@@ -65,15 +73,15 @@ class MovieWatch(models.Model):
     )  # Percentage watched (100 means finished)
 
     def __str__(self):
-        return f"{self.movie.title} watched at {self.watched_at}"
+        return f"{self.movie.title} watched by {self.movie.user.username} at {self.watched_at}"
 
 
 class Show(models.Model):
     """
     Stores TV show details.
     """
-
-    trakt_id = models.CharField(max_length=100, unique=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trakt_shows')
+    trakt_id = models.CharField(max_length=100)
     slug = models.CharField(max_length=255, null=True, blank=True)  # Trakt slug
     tmdb_id = models.CharField(max_length=255, null=True, blank=True)
     title = models.CharField(max_length=255)
@@ -84,8 +92,11 @@ class Show(models.Model):
         null=True, blank=True
     )  # Last watched timestamp
 
+    class Meta:
+        unique_together = ('user', 'trakt_id')  # Each user can have their own copy of the same show
+
     def __str__(self):
-        return self.title
+        return f"{self.title} ({self.user.username})"
 
 
 class Season(models.Model):
@@ -103,7 +114,7 @@ class Season(models.Model):
         unique_together = ("show", "season_number")
 
     def __str__(self):
-        return f"{self.show.title} - Season {self.season_number}"
+        return f"{self.show.title} - Season {self.season_number} ({self.show.user.username})"
 
 
 class Episode(models.Model):
@@ -141,7 +152,7 @@ class Episode(models.Model):
         unique_together = ("show", "season", "episode_number")
 
     def __str__(self):
-        return f"{self.show.title} S{self.season.season_number}E{self.episode_number}"
+        return f"{self.show.title} S{self.season.season_number}E{self.episode_number} ({self.show.user.username})"
 
 
 class EpisodeWatch(models.Model):
@@ -161,16 +172,38 @@ class EpisodeWatch(models.Model):
         return f"{self.episode} watched at {self.watched_at}"
 
 
+def get_trakt_api_credentials(user):
+    """
+    Get Trakt API credentials for a specific user from UserApiKey model.
+    """
+    from users.models import UserApiKey
+    
+    try:
+        api_key_obj = UserApiKey.objects.get(user=user, service_name='trakt')
+        client_id = api_key_obj.service_user_id  # client_id is stored in service_user_id
+        client_secret = api_key_obj.get_key()    # client_secret is stored in api_key
+        
+        if not client_id or not client_secret:
+            raise Exception(f"Trakt API credentials incomplete for user {user.username}. Please update your Trakt API settings.")
+        
+        return client_id, client_secret
+        
+    except UserApiKey.DoesNotExist:
+        raise Exception(f"Trakt API credentials not found for user {user.username}. Please add your Trakt API credentials.")
+
+
 def refresh_trakt_token(token_instance):
     """
     Refreshes the Trakt access token using the stored refresh token.
     """
+    client_id, client_secret = get_trakt_api_credentials(token_instance.user)
+    
     url = "https://api.trakt.tv/oauth/token"
     data = {
         "refresh_token": token_instance.refresh_token,
-        "client_id": settings.TRAKT_CLIENT_ID,
-        "client_secret": settings.TRAKT_CLIENT_SECRET,
-        "redirect_uri": settings.TRAKT_REDIRECT_URI,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "redirect_uri": settings.TRAKT_REDIRECT_URI,  # This can stay in settings as it's app-level config
         "grant_type": "refresh_token",
     }
     response = requests.post(url, json=data)
@@ -185,32 +218,35 @@ def refresh_trakt_token(token_instance):
     return token_instance
 
 
-def get_trakt_headers():
+def get_trakt_headers(user):
     """
-    Retrieves the latest token and returns headers for Trakt API requests.
+    Retrieves the latest token for a specific user and returns headers for Trakt API requests.
     Refreshes the token if it is expired.
     """
     try:
-        token = TraktToken.objects.latest("updated_at")
-
+        token = TraktToken.objects.filter(user=user).latest("updated_at")
     except TraktToken.DoesNotExist:
-        raise Exception("Trakt token not found. Please authenticate first.")
+        raise Exception(f"Trakt token not found for user {user.username}. Please authenticate first.")
+    
     if token.is_expired():
         token = refresh_trakt_token(token)
+    
+    client_id, _ = get_trakt_api_credentials(user)
+    
     return {
         "Content-Type": "application/json",
         "trakt-api-version": "2",
-        "trakt-api-key": settings.TRAKT_CLIENT_ID,
+        "trakt-api-key": client_id,
         "Authorization": f"Bearer {token.access_token}",
     }
 
 
-def fetch_latest_watched_movies():
+def fetch_latest_watched_movies(user):
     """
-    Fetches the latest watched movies from Trakt and updates/creates records in the database.
+    Fetches the latest watched movies from Trakt and updates/creates records in the database for a specific user.
     """
     url = "https://api.trakt.tv/users/me/watched/movies"
-    headers = get_trakt_headers()
+    headers = get_trakt_headers(user)
     response = requests.get(url, headers=headers)
     data = response.json()
     sorted_data = sorted(data, key=lambda x: x.get("last_updated_at"), reverse=True)
@@ -220,7 +256,7 @@ def fetch_latest_watched_movies():
         trakt_id = str(movie_data.get("ids", {}).get("trakt"))
         api_last_updated = isoparse(item["last_updated_at"])
         try:
-            movie_obj = Movie.objects.get(trakt_id=trakt_id)
+            movie_obj = Movie.objects.get(trakt_id=trakt_id, user=user)
         except Movie.DoesNotExist:
             movie_obj = None
         if movie_obj and movie_obj.last_updated_at and api_last_updated <= movie_obj.last_updated_at:
@@ -240,6 +276,7 @@ def fetch_latest_watched_movies():
         # Update or create the movie record
         movie_obj, _ = Movie.objects.update_or_create(
             trakt_id=trakt_id,
+            user=user,
             defaults={
                 "title": title,
                 "year": year,
@@ -261,13 +298,13 @@ def fetch_latest_watched_movies():
     return sorted_data
 
 
-def fetch_latest_watched_shows():
+def fetch_latest_watched_shows(user):
     """
     Fetches the latest watched TV shows from Trakt and updates/creates records for shows,
-    seasons, episodes, and watch events.
+    seasons, episodes, and watch events for a specific user.
     """
     url = "https://api.trakt.tv/users/me/watched/shows"
-    headers = get_trakt_headers()
+    headers = get_trakt_headers(user)
     response = requests.get(url, headers=headers)
     data = response.json()
     sorted_data = sorted(data, key=lambda x: x.get("last_watched_at"), reverse=True)
@@ -275,7 +312,7 @@ def fetch_latest_watched_shows():
         show_data = item.get("show", {})
         trakt_id = str(show_data.get("ids", {}).get("trakt"))
         try:
-            existing = Show.objects.get(trakt_id=trakt_id)
+            existing = Show.objects.get(trakt_id=trakt_id, user=user)
         except Show.DoesNotExist:
             existing = None
         title = show_data.get("title")
@@ -285,7 +322,7 @@ def fetch_latest_watched_shows():
             last_db = existing.last_watched_at
         else:
             last_db = None
-        print(f"Recieved Show: {title}\tAPI Last: {api_last}\tDB Last: {last_db}")
+        print(f"Received Show: {title}\tAPI Last: {api_last}\tDB Last: {last_db}")
         if ((last_db is not None) and (api_last <= last_db)):
             continue
         year = show_data.get("year")
@@ -296,6 +333,7 @@ def fetch_latest_watched_shows():
         # Update or create the show record
         show_obj, _ = Show.objects.update_or_create(
             trakt_id=trakt_id,
+            user=user,
             defaults={
                 "title": title,
                 "year": year,

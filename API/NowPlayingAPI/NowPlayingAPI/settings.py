@@ -13,25 +13,32 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 import os
 from pathlib import Path
 from dotenv import load_dotenv, find_dotenv
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(find_dotenv())
 
-STEAM_API_KEY = os.environ["STEAM_API_KEY"]
-STEAM_ID = os.environ["STEAM_ID"]
-PLAY_STATION_NPSSO = os.environ["PLAY_STATION_NPSSO"]
-PLAY_STATION_ID = os.environ["PLAY_STATION_ID"]
-TRAKT_CLIENT_ID = os.environ["TRAKT_CLIENT_ID"]
-TRAKT_CLIENT_SECRET = os.environ["TRAKT_CLIENT_SECRET"]
+# STEAM_API_KEY = os.environ["STEAM_API_KEY"]
+# STEAM_ID = os.environ["STEAM_ID"]
+# PLAY_STATION_NPSSO = os.environ["PLAY_STATION_NPSSO"]
+# PLAY_STATION_ID = os.environ["PLAY_STATION_ID"]
+# TRAKT_CLIENT_ID = os.environ["TRAKT_CLIENT_ID"]
+# TRAKT_CLIENT_SECRET = os.environ["TRAKT_CLIENT_SECRET"]
 TRAKT_REDIRECT_URI = os.environ["TRAKT_REDIRECT_URI"]
 TRAKT_AUTH_CODE = os.environ["TRAKT_AUTH_CODE"]
 TMDB_API_KEY = os.environ["TMDB_API_KEY"]
 SPOTIFY_ACCESS_TOKEN = os.environ["SPOTIFY_ACCESS_TOKEN"]
-RETROACHIEVEMENTS_API_KEY = os.environ["RETROACHIEVEMENTS_API_KEY"]
-RETROACHIEVEMENTS_USER = os.environ["RETROACHIEVEMENTS_USER"]
-OPEN_XBL_API = os.environ["OPEN_XBL_API"]
-XUID = os.environ["XUID"]
+# RETROACHIEVEMENTS_API_KEY = os.environ["RETROACHIEVEMENTS_API_KEY"]
+# RETROACHIEVEMENTS_USER = os.environ["RETROACHIEVEMENTS_USER"]
+# OPEN_XBL_API = os.environ["OPEN_XBL_API"]
+# XUID = os.environ["XUID"]
+
+# API Key encryption
+# In production, use a strong key stored in environment
+# This key is used to encrypt/decrypt user's API keys
+API_KEY_ENCRYPTION_KEY = os.environ.get('API_KEY_ENCRYPTION_KEY', 'C3fygP72WNfaeLgDXCwPRgxSzWQctoCY7fHB3DNOZPM=')
+# The above is a properly formatted Fernet key for development only. In production, always set this in the environment.
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -61,7 +68,9 @@ INSTALLED_APPS = [
     "trakt",
     "music",
     "retroachievements",
-    "xbox"
+    "xbox",
+    "users",
+    "rest_framework_simplejwt",
 ]
 
 MIDDLEWARE = [
@@ -99,13 +108,22 @@ WSGI_APPLICATION = "NowPlayingAPI.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
+#     }
+# }
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('POSTGRES_DB', 'nowplaying'),
+        'USER': os.environ.get('POSTGRES_USER', 'nowplaying_user'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'nowplaying_password'),
+        'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
+        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -152,6 +170,30 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
+    # JWT Authentication
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    # Default permission is authenticated only
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
+
+# JWT settings
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": False,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": SECRET_KEY,
+    "VERIFYING_KEY": None,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+    "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
+    "TOKEN_TYPE_CLAIM": "token_type",
 }
 
 CORS_ALLOW_ALL_ORIGINS = True

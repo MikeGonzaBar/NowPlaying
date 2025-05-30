@@ -1,13 +1,17 @@
 import { Link } from 'react-router-dom';
-import { Container, Box, Typography, Paper } from '@mui/material';
+import { Container, Box, Typography, Paper, Button } from '@mui/material';
 import Grid from '@mui/material/Grid';
+import PersonIcon from '@mui/icons-material/Person';
 import nowPlayingIcon from '../assets/now-playing-icon.png';
+import { useAuth } from '../hooks/useAuth';
+
 interface CategoryCardProps {
     title: string;
     emoji: string;
     gradient: string;
     route: string;
 }
+
 const CategoryCard: React.FC<CategoryCardProps> = ({ title, emoji, gradient, route }) => (
     <Paper
         component={Link}
@@ -40,7 +44,10 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ title, emoji, gradient, rou
         </Typography>
     </Paper>
 );
+
 function LandingPage() {
+    const { logout } = useAuth();
+
     const categories = [
         {
             title: 'Games',
@@ -61,6 +68,7 @@ function LandingPage() {
             route: '/music',
         },
     ];
+
     return (
         <Container
             maxWidth="md"
@@ -73,8 +81,41 @@ function LandingPage() {
                 minHeight: '100vh',
                 minWidth: '100vw',
                 backgroundColor: '#0E0022',
+                position: 'relative',
             }}
         >
+            {/* Top right buttons */}
+            <Box sx={{ position: 'absolute', top: 20, right: 20, display: 'flex', gap: 2 }}>
+                <Button
+                    component={Link}
+                    to="/profile"
+                    startIcon={<PersonIcon />}
+                    sx={{
+                        color: '#fff',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                        '&:hover': {
+                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                            border: '1px solid rgba(255, 255, 255, 0.5)',
+                        },
+                    }}
+                >
+                    Profile
+                </Button>
+                <Button
+                    onClick={logout}
+                    sx={{
+                        color: '#fff',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                        '&:hover': {
+                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                            border: '1px solid rgba(255, 255, 255, 0.5)',
+                        },
+                    }}
+                >
+                    Logout
+                </Button>
+            </Box>
+
             <Box
                 component="img"
                 src={nowPlayingIcon}

@@ -9,7 +9,7 @@ const MovieDetails: React.FC = () => {
 
     return (
         <Box sx={{ paddingLeft: 2.5 }}>
-            <SideBar activeItem="Games" />
+            <SideBar activeItem="Movies" />
             <Box
                 component="main"
                 sx={{ marginLeft: 20, mt: 2, display: 'flex', height: '98vh', width: '85vw' }}

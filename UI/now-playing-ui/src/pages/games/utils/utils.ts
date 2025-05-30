@@ -1,4 +1,5 @@
-import { SteamGame, PsnGame } from "./types"; // Adjust the import path as necessary
+import { SteamGame, PsnGame, RetroAchievementsGame, XboxGame } from "./types"; // Adjust the import path as necessary
+import { isPsnGame, isXboxGame, isRetroAchievementsGame, isSteamGame } from "./typeGuards";
 
 export const parseDate = (dateString: string): Date => {
     if (!dateString) {
@@ -29,7 +30,7 @@ export const getPlaytime = (game: any): number => {
         return isNaN(mins) ? 0 : mins;
     }
 
-    // 3) PSN / other “X days, HH:MM:SS” strings
+    // 3) PSN / other "X days, HH:MM:SS" strings
     if ("total_playtime" in game && typeof game.total_playtime === "string") {
         const parts = game.total_playtime.split(/[:, ]+/);
         const hasDays = parts.includes("days");
@@ -62,7 +63,7 @@ export const formatPlaytime = (game: any): string => {
         if (remHours > 0) parts.push(`${pad2(remHours)}h`);
         if (minutes > 0) parts.push(`${pad2(minutes)}m`);
 
-        // if it was all zero, show “0m”
+        // if it was all zero, show "0m"
         return parts.length > 0 ? parts.join(" ") : "0m";
     }
 
@@ -91,10 +92,10 @@ export const formatPlaytime = (game: any): string => {
         if (minutes > 0) parts.push(`${minutes}m`);
         if (seconds > 0) parts.push(`${seconds}s`);
 
-        // if it was zero minutes, show “0m”
+        // if it was zero minutes, show "0m"
         return parts.length > 0 ? parts.join(" ") : "0m";
     }
-    // // 3) PSN / other “X days, HH:MM:SS” strings
+    // // 3) PSN / other "X days, HH:MM:SS" strings
     if ("total_playtime" in game && typeof game.total_playtime === "string") {
         return `${game.total_playtime}`;
     }
@@ -103,18 +104,13 @@ export const formatPlaytime = (game: any): string => {
     return "Unknown playtime";
 };
 
-function isSteamGame(game: SteamGame | PsnGame): game is SteamGame {
-    // SteamGame doesn’t have a `platform` field
-    return !("platform" in game);
-}
-
-export const calculateAchievementPercentage = (game: SteamGame | PsnGame) => {
-    if (isSteamGame(game)) {
-        return (game.unlocked_achievements_count / game.total_achievements) * 100;
-    } else if (
-        typeof game.unlocked_achievements === "object" &&
-        typeof game.total_achievements === "object"
-    ) {
+export const calculateAchievementPercentage = (
+    game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame
+): number => {
+    if (isXboxGame(game)) {
+        const percentage = (game.unlocked_achievements / game.total_achievements) * 100;
+        return percentage;
+    } else if (isPsnGame(game)) {
         const trophyValues = { bronze: 15, silver: 30, gold: 90, platinum: 300 };
 
         const unlockedPoints =
@@ -128,16 +124,16 @@ export const calculateAchievementPercentage = (game: SteamGame | PsnGame) => {
             (game.total_achievements.silver || 0) * trophyValues.silver +
             (game.total_achievements.gold || 0) * trophyValues.gold +
             (game.total_achievements.platinum || 0) * trophyValues.platinum;
-        return (unlockedPoints / totalPoints) * 100;
+
+        const percentage = totalPoints > 0 ? (unlockedPoints / totalPoints) * 100 : 0;
+        return percentage;
+    } else if (isRetroAchievementsGame(game)) {
+        const percentage = (game.unlocked_achievements / game.total_achievements) * 100;
+        return percentage;
+    } else if (isSteamGame(game)) {
+        const percentage = (game.unlocked_achievements_count / game.total_achievements) * 100;
+        return percentage;
     }
+
     return 0;
 };
-
-export function isPsnGame(game: any): game is PsnGame {
-    return (
-        typeof game === "object" &&
-        game !== null &&
-        "unlocked_achievements" in game &&
-        typeof (game as PsnGame).unlocked_achievements === "object"
-    );
-}

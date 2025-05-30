@@ -1,13 +1,12 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import EventIcon from '@mui/icons-material/Event';
 import { Movie, Show } from '../utils/types';
-import { Box, Card, CardMedia, IconButton, Typography, Chip, Accordion, AccordionDetails, AccordionSummary, CardContent, Avatar } from '@mui/material';
+import { Box, Card, CardMedia, IconButton, Typography } from '@mui/material';
 import { Link } from 'react-router-dom';
-import GradeIcon from '@mui/icons-material/Grade';
-import ReplayIcon from '@mui/icons-material/Replay';
 import { useEffect, useState } from 'react';
+import { InfoChipSection, MediaStats, TrailerSection } from './MediaInfoSections';
+import { ShowEpisodes } from './ShowEpisodes';
+import { authenticatedFetch } from '../../../utils/auth';
+import { getApiUrl, API_CONFIG } from '../../../config/api';
 
 interface MovieHeaderProps {
     media: Movie | Show;
@@ -44,26 +43,28 @@ interface WatchedSeasonsEpisodesResponse {
     }[];
 }
 
-
-
 const MovieHeader: React.FC<MovieHeaderProps> = ({ media, mediaType, mediaDetails }) => {
-    const beBaseUrl = `http://${window.location.hostname}:8080`;
-    // const beBaseUrl = `https://UPDATE FOR YOUR BACKEND URL`;
     const mediaTitle = mediaType === "movie" ? (media as Movie).movie.title : (media as Show).show.title;
     const mediaImage = mediaDetails?.poster_path
         ? `https://image.tmdb.org/t/p/w1280${mediaDetails.backdrop_path}`
         : '';
     const traktId = mediaType === "movie" ? (media as Movie).movie.ids.trakt : (media as Show).show.ids.trakt;
     const [trailerKey, setTrailerKey] = useState<string | null>(null);
-    const [data, setData] = useState<WatchedSeasonsEpisodesResponse | null>(null);
-
+    const [watchedData, setWatchedData] = useState<WatchedSeasonsEpisodesResponse | null>(null);
 
     const fetchWatchedSeasonsEpisodes = async () => {
         try {
-            const response = await fetch(`${beBaseUrl}/trakt/get-watched-seasons-episodes/?trakt_id=${traktId}`);
-            const result = await response.json();
-            console.log("Fetched watched seasons and episodes:", result);
-            setData(result);
+            const response = await authenticatedFetch(
+                getApiUrl(`${API_CONFIG.TRAKT_ENDPOINT}/get-watched-seasons-episodes/?trakt_id=${traktId}`)
+            );
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log("Fetched watched seasons and episodes:", result);
+                setWatchedData(result);
+            } else {
+                console.error("Failed to fetch watched seasons and episodes:", response.status);
+            }
         } catch (error) {
             console.error("Error fetching watched seasons and episodes:", error);
         }
@@ -100,7 +101,7 @@ const MovieHeader: React.FC<MovieHeaderProps> = ({ media, mediaType, mediaDetail
         if (mediaType === "show") {
             console.log("Fetching watched seasons and episodes for show:", mediaTitle);
             fetchWatchedSeasonsEpisodes();
-            console.log("Fetched watched seasons and episodes:", data);
+            console.log("Fetched watched seasons and episodes:", watchedData);
         }
     }, [media, mediaType]);
     return (
@@ -144,241 +145,31 @@ const MovieHeader: React.FC<MovieHeaderProps> = ({ media, mediaType, mediaDetail
                     <Typography variant="body2" sx={{ fontSize: '20px', fontFamily: 'Inter, sans-serif' }}>
                         {mediaDetails.overview}
                     </Typography>
-                    <Box sx={{ display: 'flex', marginTop: 0.5, marginBottom: 0.5 }}>
-                        <GradeIcon sx={{ fontSize: 21, marginTop: 0.4, marginRight: 0.5 }}></GradeIcon>
-                        <Typography
-                            variant="body2"
-                            sx={{
-                                fontFamily: 'Inter, sans-serif',
-                                fontWeight: 400,
-                                fontSize: 20,
-
-                            }}
-                        >
-                            {mediaDetails?.vote_average || 'N/A'}
-                        </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', marginTop: 0.5, marginBottom: 0.5 }}>
-                        <AccessTimeIcon sx={{ fontSize: 21, marginTop: 0.8, marginRight: 0.5 }} />
-                        <Typography variant="subtitle1" sx={{ fontSize: '20px', fontFamily: 'Inter, sans-serif' }}>
-                            {mediaDetails.runtime} minutes
-                        </Typography>
-                    </Box>
+                    <MediaStats
+                        voteAverage={mediaDetails?.vote_average}
+                        runtime={mediaDetails?.runtime}
+                        lastWatchedAt={(media as Movie).last_watched_at}
+                        plays={mediaType === "movie" ? (media as Movie).plays : undefined}
+                    />
                 </Box>
             </Box>
             <Box sx={{ display: 'flex', gap: 6, marginTop: 2, width: '100%' }}>
-                <Box>
-                    <Typography variant="body2" sx={{ fontSize: '20px', fontFamily: 'Inter, sans-serif' }}>
-                        <b>Genres</b>
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, }}>
-                        {mediaDetails?.genres?.map((genre: { id: number; name: string }) => (
-                            <Chip
-                                key={genre.id}
-                                label={genre.name}
-                                sx={{
-                                    fontFamily: 'Inter, sans-serif',
-                                    fontWeight: 400,
-
-                                    backgroundColor: '#f5f5f5',
-                                    color: '#333',
-                                }}
-                            />
-                        ))}
-                    </Box>
-                </Box>
-                <Box>
-
-                    <Typography variant="body2" sx={{ fontSize: '20px', fontFamily: 'Inter, sans-serif', }}>
-                        <b>Companies</b>
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, }}>
-                        {mediaDetails?.production_companies?.map((company: { id: number; name: string }) => (
-                            <Chip
-                                key={company.id}
-                                label={company.name}
-                                sx={{
-                                    fontFamily: 'Inter, sans-serif',
-                                    fontWeight: 400,
-                                    backgroundColor: '#f5f5f5',
-                                    color: '#333',
-                                }}
-                            />
-                        ))}
-                    </Box>
-                </Box>
-                <Box sx={{}}>
-                    <Typography variant="body2" sx={{ fontSize: '20px', fontFamily: 'Inter, sans-serif' }}>
-                        <b>Languages</b>
-                    </Typography>
-                    {mediaDetails?.spoken_languages?.map((language: { id: number; name: string }) => (
-                        <Chip
-                            key={language.id}
-                            label={language.name}
-                            sx={{
-                                fontFamily: 'Inter, sans-serif',
-                                fontWeight: 400,
-                                backgroundColor: '#f5f5f5',
-                                color: '#333',
-                            }}
-                        />
-                    ))}
-                </Box>
-                <Box sx={{}}>
-                    <Typography variant="body2" sx={{ fontSize: '20px', fontFamily: 'Inter, sans-serif' }}>
-                        <b>Countries</b>
-                    </Typography>
-                    {mediaDetails?.production_countries?.map((country: { id: number; name: string }) => (
-                        <Chip
-                            key={country.id}
-                            label={country.name}
-                            sx={{
-                                fontFamily: 'Inter, sans-serif',
-                                fontWeight: 400,
-                                backgroundColor: '#f5f5f5',
-                                color: '#333',
-                            }}
-                        />
-                    ))}
-                </Box>
-                <Box>
-                    <Typography variant="body2" sx={{ fontSize: '20px', fontFamily: 'Inter, sans-serif' }}>
-                        <b>Last time watched</b>
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontSize: '20px', fontFamily: 'Inter, sans-serif' }}>
-                        {new Date((media as Movie).last_watched_at).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                        })}
-                    </Typography>
-                </Box>
+                <InfoChipSection items={mediaDetails?.genres || []} title="Genres" />
+                <InfoChipSection items={mediaDetails?.production_companies || []} title="Companies" />
+                <InfoChipSection items={mediaDetails?.spoken_languages || []} title="Languages" />
+                <InfoChipSection items={mediaDetails?.production_countries || []} title="Countries" />
             </Box>
             {mediaType === "movie" && (
-                <>
-
-                    <Box sx={{ display: 'flex', gap: 10, marginTop: 2 }}>
-                        <Box>
-                            <Typography variant="body2" sx={{ fontSize: '20px', fontFamily: 'Inter, sans-serif' }}>
-                                <b>Replays</b>
-                            </Typography>
-                            <Typography variant="body2" sx={{ fontSize: '20px', fontFamily: 'Inter, sans-serif' }}>
-                                <ReplayIcon sx={{ fontSize: 19, mb: -0.25 }} /> {(media as Movie).plays}
-                            </Typography>
-                        </Box>
-                    </Box>
-                    {/* Embed YouTube Trailer */}
-                    {trailerKey && (
-                        <Box sx={{ marginTop: 2 }}>
-                            <Typography variant="h6" sx={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, marginBottom: 1 }}>
-                                Watch Trailer
-                            </Typography>
-                            <Box
-                                component="iframe"
-                                src={`https://www.youtube.com/embed/${trailerKey}`}
-                                title="YouTube Trailer"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowFullScreen
-                                sx={{
-                                    width: '100%',
-                                    aspectRatio: '16 / 9',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    maxWidth: '800px',
-                                }}
-                            />
-                        </Box>
-                    )}
-                </>
+                <TrailerSection trailerKey={trailerKey} />
             )}
-            {mediaType === "show" && (
-                <>
-                    <Box sx={{ display: 'flex', gap: 10, marginTop: 2, backgroundColor: '#f5f5f5', }}>
-                        <Box sx={{ width: '60%' }}>
-                            <Typography variant="body2" sx={{ fontSize: '20px', fontFamily: 'Inter, sans-serif' }}>
-                                <b>Episodes watched</b>
-                            </Typography>
-
-                            {data?.seasons.map((season) => (
-                                <Accordion key={season.id}>
-                                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                        <Typography sx={{ fontWeight: 600 }} >
-                                            Season {season.season_number}
-                                        </Typography>
-                                    </AccordionSummary>
-                                    <AccordionDetails>
-                                        {data.episodes
-                                            .filter((episode) => episode.season__id === season.id)
-                                            .map((episode) => (
-                                                <Card key={episode.id} sx={{ display: "flex", marginBottom: 2 }}>
-                                                    {/* Left: Episode Image */}
-                                                    <Avatar
-                                                        variant="square"
-                                                        src={episode.image_url}
-                                                        alt={episode.title}
-                                                        sx={{ width: 150, height: 150 }}
-                                                    />
-                                                    {/* Right: Episode Details */}
-                                                    <CardContent sx={{ flex: 1 }}>
-                                                        <Typography variant="h6" sx={{ fontWeight: 600 }} >
-                                                            Episode {episode.episode_number}: {episode.title}
-                                                        </Typography>
-                                                        <Typography variant="body2" sx={{ color: "gray", marginBottom: 1 }} >
-                                                            {episode.overview}
-                                                        </Typography>
-                                                        <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: 1 }}>
-                                                            <Typography variant="body2" sx={{ fontWeight: 500 }} >
-                                                                <GradeIcon sx={{ mb: -1 }}></GradeIcon> {episode.rating.toFixed(2)}
-                                                            </Typography>
-                                                            <Typography variant="body2" sx={{ fontWeight: 500 }} >
-                                                                Progress: {episode.progress}%
-                                                            </Typography>
-                                                            <Typography variant="body2" sx={{ fontWeight: 500 }} >
-                                                                <EventIcon sx={{ mb: -1 }} />
-                                                                {new Date(episode.last_watched_at).toLocaleDateString("en-US", {
-                                                                    year: "numeric",
-                                                                    month: "long",
-                                                                    day: "numeric",
-                                                                })}
-                                                            </Typography>
-                                                        </Box>
-                                                    </CardContent>
-                                                </Card>
-                                            ))}
-                                    </AccordionDetails>
-                                </Accordion>
-                            ))}
-                        </Box>
-
-                        {/* Embed YouTube Trailer */}
-                        {trailerKey && (
-                            <Box sx={{ marginTop: 2, width: '50%' }}>
-                                <Typography variant="h6" sx={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, marginBottom: 1 }}>
-                                    Watch Trailer
-                                </Typography>
-                                <Box
-                                    component="iframe"
-                                    src={`https://www.youtube.com/embed/${trailerKey}`}
-                                    title="YouTube Trailer"
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                    sx={{
-                                        width: '100%',
-                                        height: '550px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                    }}
-                                />
-                            </Box>
-                        )}
-                    </Box>
-                </>
+            {mediaType === "show" && watchedData && (
+                <Box sx={{ display: 'flex', gap: 10, marginTop: 2, backgroundColor: '#f5f5f5' }}>
+                    <ShowEpisodes seasons={watchedData.seasons} episodes={watchedData.episodes} />
+                    <TrailerSection trailerKey={trailerKey} />
+                </Box>
             )}
         </Box>
     );
 };
-
-
-
 
 export default MovieHeader;

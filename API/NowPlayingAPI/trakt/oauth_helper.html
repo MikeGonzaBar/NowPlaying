@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Trakt OAuth Helper</title>
+		<style>
+			body {
+				font-family: Arial, sans-serif;
+				max-width: 600px;
+				margin: 50px auto;
+				padding: 20px;
+				line-height: 1.6;
+			}
+			.success {
+				color: green;
+			}
+			.error {
+				color: red;
+			}
+			.info {
+				color: blue;
+			}
+			pre {
+				background: #f4f4f4;
+				padding: 10px;
+				border-radius: 5px;
+				overflow-x: auto;
+			}
+			button {
+				background: #007cba;
+				color: white;
+				padding: 10px 20px;
+				border: none;
+				border-radius: 5px;
+				cursor: pointer;
+			}
+			button:hover {
+				background: #005a8b;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Trakt OAuth Helper</h1>
+		<div id="status"></div>
+
+		<script>
+			const statusDiv = document.getElementById("status");
+
+			function setStatus(message, type = "info") {
+				statusDiv.innerHTML = `<div class="${type}">${message}</div>`;
+			}
+
+			function getUrlParameter(name) {
+				const urlParams = new URLSearchParams(window.location.search);
+				return urlParams.get(name);
+			}
+
+			async function handleOAuthCallback() {
+				const code = getUrlParameter("code");
+				const state = getUrlParameter("state");
+				const error = getUrlParameter("error");
+
+				if (error) {
+					setStatus(`OAuth error: ${error}`, "error");
+					return;
+				}
+
+				if (!code) {
+					setStatus(
+						"No authorization code found in URL. This page should be accessed after authorizing with Trakt.",
+						"error"
+					);
+					return;
+				}
+
+				setStatus("Authorization code received! Sending to backend...", "info");
+
+				try {
+					// You'll need to update this URL to match your backend
+					const response = await fetch("/trakt/oauth-callback/", {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							// Add your authentication token here
+							Authorization: "Bearer YOUR_JWT_TOKEN_HERE",
+						},
+						body: JSON.stringify({
+							code: code,
+							state: state,
+						}),
+					});
+
+					const data = await response.json();
+
+					if (response.ok && data.success) {
+						setStatus(
+							`
+                        <h3>✅ Success!</h3>
+                        <p>Successfully authenticated with Trakt!</p>
+                        <p>Token expires at: ${new Date(
+																									data.expires_at
+																								).toLocaleString()}</p>
+                        <p>You can now close this window and use the Trakt API endpoints.</p>
+                    `,
+							"success"
+						);
+					} else {
+						setStatus(
+							`
+                        <h3>❌ Error</h3>
+                        <p>Failed to complete authentication: ${
+																									data.error || "Unknown error"
+																								}</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `,
+							"error"
+						);
+					}
+				} catch (error) {
+					setStatus(
+						`
+                    <h3>❌ Network Error</h3>
+                    <p>Failed to send authorization code to backend: ${error.message}</p>
+                    <p>Please check your network connection and backend URL.</p>
+                `,
+						"error"
+					);
+				}
+			}
+
+			// Check if we have URL parameters indicating an OAuth callback
+			if (window.location.search) {
+				handleOAuthCallback();
+			} else {
+				setStatus(
+					`
+                <h3>Trakt OAuth Helper</h3>
+                <p>This page helps complete the Trakt OAuth flow.</p>
+                <h4>How to use:</h4>
+                <ol>
+                    <li>Get your authentication URL from <code>/trakt/authenticate/</code></li>
+                    <li>Visit the URL and authorize your Trakt account</li>
+                    <li>You'll be redirected back here with the authorization code</li>
+                    <li>This page will automatically send the code to your backend</li>
+                </ol>
+                <p><strong>Note:</strong> Make sure to update the backend URL and authentication token in this page's JavaScript.</p>
+            `,
+					"info"
+				);
+			}
+		</script>
+	</body>
+</html>

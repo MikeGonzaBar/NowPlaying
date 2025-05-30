@@ -5,7 +5,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Game, SteamAPI  # Using the new Game model instead of a JSON-field-based model.
 from .serializers import SteamSerializer
- # This is our helper that wraps fetching/updating logic.
+from rest_framework import status
+from users.models import UserApiKey  # Import UserApiKey from the correct location
+# This is our helper that wraps fetching/updating logic.
 
 class SteamViewSet(viewsets.ModelViewSet):
     queryset = Game.objects.all()
@@ -13,19 +15,37 @@ class SteamViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="get-game-list")
     def getGameList(self, request):
-        # Extract user_id (steam_id) from request query parameters.
-        steam_id = request.query_params.get("user_id") or settings.STEAM_ID
-        # Call the helper method to fetch/update games and achievements.
-        result = SteamAPI.get_games(steam_id)
-        
-        # Ensure that every game dictionary now includes locked achievements.
-        if "games" in result:
-            for game in result["games"]:
-                total = game.get("total_achievements", 0)
-                unlocked = game.get("unlocked_achievements", 0)
-                game["locked_achievements"] = total - unlocked
-        
-        return Response({"result": result})
+        try:
+            # Get the user's Steam ID from their stored API keys
+            api_key = UserApiKey.objects.get(user=request.user, service_name='steam')
+            steam_id = api_key.service_user_id
+            print(f"DEBUG: Steam ID: {steam_id}")
+            steam_api_key = api_key.get_key()
+            print(f"DEBUG: Steam API Key: {steam_api_key}")
+            
+            if not steam_id:
+                return Response(
+                    {"error": "No Steam ID found. Please update your Steam API key with your Steam ID."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Call the helper method to fetch/update games and achievements.
+            result = SteamAPI.get_games(steam_id, steam_api_key, user=request.user)
+            
+            # Ensure that every game dictionary now includes locked achievements.
+            if "games" in result:
+                for game in result["games"]:
+                    total = game.get("total_achievements", 0)
+                    unlocked = game.get("unlocked_achievements", 0)
+                    game["locked_achievements"] = total - unlocked
+            
+            return Response({"result": result})
+            
+        except UserApiKey.DoesNotExist:
+            return Response(
+                {"error": "No Steam API key found. Please add your Steam API key in profile settings."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
     @action(detail=False, methods=["get"], url_path="get-game-list-stored")
     def getGameListStored(self, request):
