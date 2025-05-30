@@ -15,11 +15,13 @@ import {
     Dialog,
     DialogTitle,
     DialogContent,
-    DialogActions
+    DialogActions,
+    Tooltip
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import SideBar from '../../components/sideBar';
 import { authenticatedFetch } from '../../utils/auth';
 import { getApiUrl, API_CONFIG } from '../../config/api';
@@ -107,6 +109,43 @@ const SERVICES: ServiceConfig[] = [
         imagePath: '/Platforms/lastfm.png'
     },
 ];
+
+const getServiceTooltipContent = (serviceName: string): string => {
+    const tooltips: { [key: string]: string } = {
+        steam: `Steam Setup:
+• API Key: steamcommunity.com/dev/apikey
+• Steam ID: Use steamidfinder.com to find your 64-bit ID`,
+
+        psn: `PlayStation Setup:
+• NPSSO Token: Login to PlayStation.com → F12 Dev Tools → Find NPSSO cookie
+• User ID: Your PSN username (optional)`,
+
+        xbox: `Xbox Setup:
+• API Key: Get from OpenXBL.com
+• XUID: Your Xbox Live User ID (find via OpenXBL tools)`,
+
+        retroachievements: `RetroAchievements Setup:
+• Create account at RetroAchievements.org
+• API Key: Control Panel → API Settings → Generate key
+• Username: Your RetroAchievements username`,
+
+        trakt: `Trakt Setup:
+• Go to trakt.tv/oauth/applications
+• Create new app with redirect: localhost:8080/trakt/oauth-callback/
+• Copy Client ID and Client Secret`,
+
+        spotify: `Spotify Setup:
+• Visit developer.spotify.com/dashboard
+• Create app → Get Client ID/Secret
+• Generate OAuth2 access token`,
+
+        lastfm: `Last.fm Setup:
+• API Key: last.fm/api → Create account
+• Username: Your Last.fm username`
+    };
+
+    return (tooltips as any)[serviceName] || 'No guidance available for this service.';
+};
 
 function ProfilePage() {
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -420,6 +459,21 @@ function ProfilePage() {
                             <Typography variant="h6" sx={{ fontWeight: 'bold', mr: 2 }}>
                                 {service.displayName}
                             </Typography>
+                            <Tooltip
+                                title={getServiceTooltipContent(service.name)}
+                                placement="top"
+                                sx={{ mr: 1 }}
+                            >
+                                <IconButton size="small" sx={{
+                                    color: '#00a8cc',
+                                    '&:hover': {
+                                        color: '#0097b2',
+                                        backgroundColor: 'rgba(0, 168, 204, 0.1)'
+                                    }
+                                }}>
+                                    <HelpOutlineIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
                             {traktAuthStatus?.authenticated && !traktAuthStatus.token_expired && (
                                 <Chip
                                     label="OAuth Connected"
@@ -583,6 +637,21 @@ function ProfilePage() {
                         <Typography variant="h6" sx={{ fontWeight: 'bold', mr: 2 }}>
                             {service.displayName}
                         </Typography>
+                        <Tooltip
+                            title={getServiceTooltipContent(service.name)}
+                            placement="top"
+                            sx={{ mr: 1 }}
+                        >
+                            <IconButton size="small" sx={{
+                                color: '#00a8cc',
+                                '&:hover': {
+                                    color: '#0097b2',
+                                    backgroundColor: 'rgba(0, 168, 204, 0.1)'
+                                }
+                            }}>
+                                <HelpOutlineIcon fontSize="small" />
+                            </IconButton>
+                        </Tooltip>
                         {existingApiKey && (
                             <Chip
                                 label="Connected"

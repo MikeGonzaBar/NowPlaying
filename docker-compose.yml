@@ -12,6 +12,9 @@ services:
       - ./API/.env
     environment:
       - PORT=8080
+      - POSTGRES_HOST=db
+    depends_on:
+      - db
 
   ui:
     build:

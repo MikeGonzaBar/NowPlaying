@@ -59,20 +59,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 };
 
 function App() {
-  const [authStatus, setAuthStatus] = useState(false);
 
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      if (isAuthenticated()) {
-        setAuthStatus(true);
-      } else {
-        const refreshed = await refreshAuthToken();
-        setAuthStatus(refreshed);
-      }
-    };
-
-    checkAuthStatus();
-  }, []);
 
   return (
     <Router>

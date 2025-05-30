@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-    BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
+    BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
     USERS_ENDPOINT: '/users',
     MUSIC_ENDPOINT: '/music',
     TRAKT_ENDPOINT: '/trakt',

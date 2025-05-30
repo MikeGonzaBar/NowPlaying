@@ -9,7 +9,7 @@ djangorestframework-simplejwt==5.5.0
 django-cors-headers==4.7.0
 
 # Database
-psycopg2==2.9.10
+psycopg2-binary==2.9.10
 
 # Service Libraries
 PSNAWP==2.2.0

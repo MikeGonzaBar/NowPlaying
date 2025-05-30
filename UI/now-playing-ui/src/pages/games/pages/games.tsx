@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
     Box,
     Typography,
@@ -16,7 +16,7 @@ import GameSection from "../components/GameSection";
 import { useGameData } from "../hooks/useGameData";
 
 function Games() {
-    const beBaseUrl = `http://${window.location.hostname}:8000`;
+    const beBaseUrl = `http://${window.location.hostname}:8080`;
     const [snackbarOpen, setSnackbarOpen] = useState(false);
 
     const {
