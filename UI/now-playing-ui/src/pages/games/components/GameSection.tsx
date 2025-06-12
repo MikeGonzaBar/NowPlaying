@@ -4,10 +4,13 @@ import { Link } from 'react-router-dom';
 import GameCard from './gameCard';
 import { SteamGame, PsnGame, RetroAchievementsGame, XboxGame } from '../utils/types';
 
+
 interface GameSectionProps {
     title: string;
     games: (SteamGame | PsnGame | RetroAchievementsGame | XboxGame)[];
     loading: boolean;
+    selectedPlatforms?: string[];
+    getGamePlatform?: (game: any) => string;
 }
 
 const renderLoadingSkeletons = (count = 10) =>
@@ -19,43 +22,55 @@ const renderLoadingSkeletons = (count = 10) =>
         </Grid>
     ));
 
-const GameSection: React.FC<GameSectionProps> = ({ title, games, loading }) => (
-    <>
-        <Typography
-            variant="h5"
-            sx={{
-                mt: 2,
-                ml: 1,
-                fontFamily: "Inter, sans-serif",
-                fontWeight: 700,
-            }}
-        >
-            {title}
-        </Typography>
-        <Box
-            sx={{
-                display: "flex",
-                overflowX: "auto",
-                gap: 32,
-                py: 1,
-                px: 1,
-            }}
-        >
-            {loading
-                ? renderLoadingSkeletons()
-                : games.map((game) => (
-                    <Grid key={game.appid}>
-                        <Link
-                            to={`/game/${game.appid}`}
-                            state={{ game }}
-                            style={{ textDecoration: "none" }}
-                        >
-                            <GameCard game={game} />
-                        </Link>
-                    </Grid>
-                ))}
-        </Box>
-    </>
-);
+
+
+const GameSection: React.FC<GameSectionProps> = ({ title, games, loading, selectedPlatforms = [], getGamePlatform }) => {
+    // Filter games based on selected platforms using the provided platform detection function
+    const filteredGames = selectedPlatforms.length === 0 || !getGamePlatform
+        ? games
+        : games.filter(game => {
+            const gamePlatform = getGamePlatform(game);
+            return selectedPlatforms.includes(gamePlatform);
+        });
+
+    return (
+        <>
+            <Typography
+                variant="h5"
+                sx={{
+                    mt: 2,
+                    ml: 1,
+                    fontFamily: "Inter, sans-serif",
+                    fontWeight: 700,
+                }}
+            >
+                {title} {selectedPlatforms.length > 0 && `(${filteredGames.length})`}
+            </Typography>
+            <Box
+                sx={{
+                    display: "flex",
+                    overflowX: "auto",
+                    gap: 32,
+                    py: 1,
+                    px: 1,
+                }}
+            >
+                {loading
+                    ? renderLoadingSkeletons()
+                    : filteredGames.map((game) => (
+                        <Grid key={game.appid}>
+                            <Link
+                                to={`/game/${game.appid}`}
+                                state={{ game }}
+                                style={{ textDecoration: "none" }}
+                            >
+                                <GameCard game={game} />
+                            </Link>
+                        </Grid>
+                    ))}
+            </Box>
+        </>
+    );
+};
 
 export default React.memo(GameSection); 

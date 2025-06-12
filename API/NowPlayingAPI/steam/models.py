@@ -133,27 +133,39 @@ class SteamAPI:
         unlocked_count = 0
 
         # Loop through each global achievement and update/create related achievement records
-        for achievement in global_achievements:
-            apiname = achievement["name"]
-            player_ach = player_achievements.get(apiname)
-            unlocked = bool(player_ach and player_ach.get("achieved", 0))
-            if unlocked:
-                unlocked_count += 1
-            unlock_time = (datetime.fromtimestamp(
-                                player_ach["unlocktime"], timezone.utc)
-                           if unlocked and player_ach.get("unlocktime")
-                           else None)
-            
-            Achievement.objects.update_or_create(
-                game=game_instance,
-                name=achievement.get("displayName"),
-                defaults={
-                    "description": achievement.get("description", ""),
-                    "image": achievement["icon"] if unlocked else achievement.get("icongray", ""),
-                    "unlocked": unlocked,
-                    "unlock_time": unlock_time,
-                }
-            )
+        from django.db import transaction
+        
+        try:
+            with transaction.atomic():
+                for achievement in global_achievements:
+                    try:
+                        apiname = achievement["name"]
+                        player_ach = player_achievements.get(apiname)
+                        unlocked = bool(player_ach and player_ach.get("achieved", 0))
+                        if unlocked:
+                            unlocked_count += 1
+                        unlock_time = (datetime.fromtimestamp(
+                                            player_ach["unlocktime"], timezone.utc)
+                                       if unlocked and player_ach.get("unlocktime")
+                                       else None)
+                        
+                        Achievement.objects.update_or_create(
+                            game=game_instance,
+                            name=achievement.get("displayName"),
+                            defaults={
+                                "description": achievement.get("description", ""),
+                                "image": achievement["icon"] if unlocked else achievement.get("icongray", ""),
+                                "unlocked": unlocked,
+                                "unlock_time": unlock_time,
+                            }
+                        )
+                    except Exception as e:
+                        logger.error(f"Error updating achievement {achievement.get('displayName', 'Unknown')}: {str(e)}")
+                        # Continue with next achievement instead of failing completely
+                        continue
+        except Exception as e:
+            logger.error(f"Critical database error during achievement update: {str(e)}")
+            return {"message": f"Database error: {str(e)}"}
 
         return {
             "message": "Game and achievements updated successfully.",

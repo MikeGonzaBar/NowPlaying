@@ -169,17 +169,21 @@ class XboxAPI:
                             if is_unlocked:
                                 unlocked_count += 1
                                 
-                            XboxAchievement.objects.update_or_create(
-                                game=game_instance,
-                                name=ach["name"],
-                                defaults={
-                                    "description": ach.get("lockedDescription", "") + ". " + ach.get("description", ""),
-                                    "image": icon_asset,
-                                    "unlocked": is_unlocked,
-                                    "unlock_time": None if time_unlocked == "0001-01-01T00:00:00.0000000Z" else datetime.fromisoformat(time_unlocked.replace("Z", "+00:00")),
-                                    "achievement_value": achievement_value
-                                }
-                            )
+                            try:
+                                XboxAchievement.objects.update_or_create(
+                                    game=game_instance,
+                                    name=ach["name"],
+                                    defaults={
+                                        "description": ach.get("lockedDescription", "") + ". " + ach.get("description", ""),
+                                        "image": icon_asset,
+                                        "unlocked": is_unlocked,
+                                        "unlock_time": None if time_unlocked == "0001-01-01T00:00:00.0000000Z" else datetime.fromisoformat(time_unlocked.replace("Z", "+00:00")),
+                                        "achievement_value": achievement_value
+                                    }
+                                )
+                            except Exception as e:
+                                logger.error(f"Error updating Xbox achievement {ach.get('name', 'Unknown')}: {str(e)}")
+                                continue
                         
                         # Get fresh data from database
                         achievements = game_instance.achievements.all()

@@ -15,4 +15,4 @@ ENV DJANGO_SETTINGS_MODULE=NowPlayingAPI.settings
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "cd NowPlayingAPI && gunicorn --bind 0.0.0.0:$PORT --workers 2  --timeout 120 --log-level info NowPlayingAPI.wsgi:application"]
+CMD ["sh", "-c", "cd NowPlayingAPI && gunicorn --bind 0.0.0.0:$PORT --workers 2 --worker-class sync --worker-connections 1000 --timeout 300 --keep-alive 5 --max-requests 1000 --max-requests-jitter 100 --preload --log-level info NowPlayingAPI.wsgi:application"]

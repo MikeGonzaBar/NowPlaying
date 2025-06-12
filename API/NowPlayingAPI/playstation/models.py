@@ -138,20 +138,24 @@ class PSN:
                         unlocked_count += 1
                         
                     # We assume the combination of game and achievement name uniquely identifies a trophy.
-                    PSNAchievement.objects.update_or_create(
-                        game=game,
-                        name=ach["name"],
-                        defaults={
-                            "description": ach["description"],
-                            "image": ach["image"],
-                            "unlocked": ach["unlocked"],
-                            # Convert the ISO string to a datetime object if necessary.
-                            "unlock_time": (
-                                datetime.fromisoformat(ach["unlock_time"]) if ach["unlock_time"] else None
-                            ),
-                            "trophy_type": ach["type"],
-                        },
-                    )
+                    try:
+                        PSNAchievement.objects.update_or_create(
+                            game=game,
+                            name=ach["name"],
+                            defaults={
+                                "description": ach["description"],
+                                "image": ach["image"],
+                                "unlocked": ach["unlocked"],
+                                # Convert the ISO string to a datetime object if necessary.
+                                "unlock_time": (
+                                    datetime.fromisoformat(ach["unlock_time"]) if ach["unlock_time"] else None
+                                ),
+                                "trophy_type": ach["type"],
+                            },
+                        )
+                    except Exception as e:
+                        logger.error(f"Error updating PSN achievement {ach.get('name', 'Unknown')}: {str(e)}")
+                        continue
                 
                 # Prepare the game info with achievements for the response
                 achievements_qs = game.achievements.all()
