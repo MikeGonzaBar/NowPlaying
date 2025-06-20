@@ -60,7 +60,6 @@ const MovieHeader: React.FC<MovieHeaderProps> = ({ media, mediaType, mediaDetail
 
             if (response.ok) {
                 const result = await response.json();
-                console.log("Fetched watched seasons and episodes:", result);
                 setWatchedData(result);
             } else {
                 console.error("Failed to fetch watched seasons and episodes:", response.status);
@@ -94,14 +93,9 @@ const MovieHeader: React.FC<MovieHeaderProps> = ({ media, mediaType, mediaDetail
     };
     useEffect(() => {
 
-        console.log("Fetching trailer for media:", mediaTitle);
-        console.log("Media Type:", mediaType);
-        console.log("Media Details:", mediaDetails);
         fetchTrailer();
         if (mediaType === "show") {
-            console.log("Fetching watched seasons and episodes for show:", mediaTitle);
             fetchWatchedSeasonsEpisodes();
-            console.log("Fetched watched seasons and episodes:", watchedData);
         }
     }, [media, mediaType]);
     return (

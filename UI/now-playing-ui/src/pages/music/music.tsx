@@ -1,26 +1,24 @@
 import { useEffect, useState } from "react";
 import {
-    Alert,
     Box,
+    Button,
     Card,
     CardContent,
     CardMedia,
-    IconButton,
-    Typography,
-    Snackbar,
-    Button,
     Chip,
+    CircularProgress,
+    Snackbar,
     ToggleButton,
     ToggleButtonGroup,
     Tooltip,
-    CircularProgress,
+    Typography,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import FavoriteIcon from "@mui/icons-material/Favorite";
-import CloseIcon from "@mui/icons-material/Close";
-import SideBar from "../../components/sideBar";
 import { authenticatedFetch } from "../../utils/auth";
 import { getApiUrl, API_CONFIG } from "../../config/api";
+import PaginationControls from "../../components/PaginationControls";
+import SideBar from "../../components/sideBar";
 
 interface MusicItem {
     id: number;
@@ -28,41 +26,57 @@ interface MusicItem {
     artist: string;
     album: string;
     played_at: string;
-    album_thumbnail: string;
-    track_url: string;
-    artists_url: string;
     duration_ms: number;
+    track_url: string;
+    album_thumbnail: string;
     source: 'spotify' | 'lastfm';
-    // Last.fm specific fields
-    artist_lastfm_url?: string;
-    track_mbid?: string;
-    artist_mbid?: string;
-    album_mbid?: string;
-    loved?: boolean;
-    streamable?: boolean;
-    album_thumbnail_small?: string;
-    album_thumbnail_medium?: string;
-    album_thumbnail_large?: string;
-    album_thumbnail_extralarge?: string;
+    loved: boolean;
+    streamable: boolean;
+    artist_lastfm_url: string;
 }
 
+const getSourceColor = (source: 'spotify' | 'lastfm') => {
+    switch (source) {
+        case 'spotify':
+            return '#1DB954'; // Spotify green
+        case 'lastfm':
+            return '#D51007'; // Last.fm red
+        default:
+            return '#FFFFFF'; // Default to white
+    }
+};
+
+const formatDuration = (ms: number) => {
+    if (!ms) return "N/A";
+    const minutes = Math.floor(ms / 60000);
+    const seconds = ((ms % 60000) / 1000).toFixed(0);
+    return `${minutes}:${(parseInt(seconds) < 10 ? '0' : '')}${seconds}`;
+};
+
 function Music() {
-    // State to store the tracks
     const [tracks, setTracks] = useState<MusicItem[]>([]);
+    const [loadingSpotify, setLoadingSpotify] = useState(false);
+    const [loadingLastfm, setLoadingLastfm] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [snackbarOpen, setSnackbarOpen] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState("");
-    const [sourceFilter, setSourceFilter] = useState<string>("all");
-    const [refreshing, setRefreshing] = useState<{ spotify: boolean; lastfm: boolean }>({
-        spotify: false,
-        lastfm: false
-    });
+    const [sourceFilter, setSourceFilter] = useState('all');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
 
-    const fetchStoredSongs = async (source?: string) => {
+    const fetchStoredSongs = async (source?: string, page: number = 1, append: boolean = false) => {
+        if (!append) {
+            setTracks([]);
+        }
+        setLoadingMore(true);
+
         try {
-            const url = source ?
-                getApiUrl(`${API_CONFIG.MUSIC_ENDPOINT}/get-stored-songs/?source=${source}`) :
-                getApiUrl(`${API_CONFIG.MUSIC_ENDPOINT}/get-stored-songs/`);
+            const url = source && source !== 'all' ?
+                getApiUrl(`${API_CONFIG.MUSIC_ENDPOINT}/get-stored-songs/?source=${source}&page=${page}&page_size=50`) :
+                getApiUrl(`${API_CONFIG.MUSIC_ENDPOINT}/get-stored-songs/?page=${page}&page_size=50`);
 
             const res = await authenticatedFetch(url);
 
@@ -73,81 +87,82 @@ function Music() {
 
             const data = await res.json();
 
-            if (data.results.length === 0) {
-                setError("No stored songs available.");
-                return;
-            }
+            setTracks(prevTracks => append ? [...prevTracks, ...data.results] : data.results);
 
-            setTracks(data.results);
-            setError(null);
+            setTotalItems(data.total_items);
+            setTotalPages(data.total_pages);
+            setHasMore(data.has_next);
+            setCurrentPage(data.page);
+
         } catch (error) {
-            console.error("Error fetching stored songs:", error);
-            setError("An error occurred while fetching stored songs.");
+            console.error("Error fetching stored songs: ", error);
+            setError("Error fetching stored songs.");
+        } finally {
+            setLoadingMore(false);
+        }
+    };
+
+    const loadMoreSongs = () => {
+        if (hasMore && !loadingMore) {
+            fetchStoredSongs(sourceFilter, currentPage + 1, true);
         }
     };
 
     const fetchSpotifyRecentlyPlayed = async () => {
+        setLoadingSpotify(true);
+        setError(null);
         try {
-            setRefreshing(prev => ({ ...prev, spotify: true }));
-            setSnackbarMessage("Fetching Spotify tracks...");
-            setSnackbarOpen(true);
-
-            const res = await authenticatedFetch(
-                getApiUrl(`${API_CONFIG.MUSIC_ENDPOINT}/fetch-recently-played/`)
-            );
-
+            const res = await authenticatedFetch(getApiUrl(`${API_CONFIG.MUSIC_ENDPOINT}/fetch-spotify-recently-played/`), {
+                method: "POST"
+            });
+            const data = await res.json();
             if (!res.ok) {
-                const errorData = await res.json();
-                setError(errorData.error || "Failed to fetch Spotify recently played tracks.");
-                setSnackbarOpen(false);
+                setError(data.error || "Failed to fetch from Spotify");
                 return;
             }
-
-            // Refresh stored songs after successful fetch
-            await fetchStoredSongs(sourceFilter === "all" ? undefined : sourceFilter);
-
-            setError(null);
-            setSnackbarMessage("Spotify tracks updated successfully!");
-            setTimeout(() => setSnackbarOpen(false), 2000);
+            setSnackbarMessage("Successfully fetched latest Spotify listens!");
+            setSnackbarOpen(true);
+            await fetchStoredSongs(sourceFilter, 1, false);
         } catch (error) {
-            console.error("Error fetching Spotify recently played tracks:", error);
-            setError("An error occurred while fetching Spotify recently played tracks.");
-            setSnackbarOpen(false);
+            console.error("Error fetching from Spotify: ", error);
+            setError("Error fetching from Spotify");
         } finally {
-            setRefreshing(prev => ({ ...prev, spotify: false }));
+            setLoadingSpotify(false);
         }
     };
 
     const fetchLastfmRecent = async () => {
+        setLoadingLastfm(true);
+        setError(null);
+        setSnackbarMessage("Fetching complete Last.fm history. This may take a moment...");
+        setSnackbarOpen(true);
         try {
-            setRefreshing(prev => ({ ...prev, lastfm: true }));
-            setSnackbarMessage("Fetching Last.fm tracks...");
-            setSnackbarOpen(true);
-
-            const res = await authenticatedFetch(
-                getApiUrl(`${API_CONFIG.MUSIC_ENDPOINT}/fetch-lastfm-recent/`)
-            );
-
+            const res = await authenticatedFetch(getApiUrl(`${API_CONFIG.MUSIC_ENDPOINT}/fetch-lastfm-recent-tracks/`), {
+                method: "POST"
+            });
+            const data = await res.json();
             if (!res.ok) {
-                const errorData = await res.json();
-                setError(errorData.error || "Failed to fetch Last.fm recent tracks.");
+                setError(data.error || "Failed to fetch from Last.fm");
                 setSnackbarOpen(false);
                 return;
             }
-
-            // Refresh stored songs after successful fetch
-            await fetchStoredSongs(sourceFilter === "all" ? undefined : sourceFilter);
-
-            setError(null);
-            setSnackbarMessage("Last.fm tracks updated successfully!");
-            setTimeout(() => setSnackbarOpen(false), 2000);
+            setSnackbarMessage("Successfully fetched and updated Last.fm listens!");
+            setSnackbarOpen(true);
+            await fetchStoredSongs(sourceFilter, 1, false);
         } catch (error) {
-            console.error("Error fetching Last.fm recent tracks:", error);
-            setError("An error occurred while fetching Last.fm recent tracks.");
+            console.error("Error fetching from Last.fm: ", error);
+            setError("Error fetching from Last.fm");
             setSnackbarOpen(false);
         } finally {
-            setRefreshing(prev => ({ ...prev, lastfm: false }));
+            setLoadingLastfm(false);
         }
+    };
+
+    const handleSnackbarClose = (_event?: React.SyntheticEvent | Event, reason?: string) => {
+        if (reason === 'clickaway') {
+            return;
+        }
+        setSnackbarOpen(false);
     };
 
     const handleSourceFilterChange = (
@@ -156,175 +171,75 @@ function Music() {
     ) => {
         if (newFilter !== null) {
             setSourceFilter(newFilter);
-            fetchStoredSongs(newFilter === "all" ? undefined : newFilter);
+            setCurrentPage(1);
+            fetchStoredSongs(newFilter, 1, false);
         }
     };
 
     useEffect(() => {
-        fetchStoredSongs();
+        fetchStoredSongs(sourceFilter);
     }, []);
 
-    const handleSnackbarClose = () => {
-        setSnackbarOpen(false);
-    };
-
-    const handleErrorDismiss = () => {
-        setError(null);
-    };
-
-    // Helper function to format duration in minutes and seconds
-    const formatDuration = (ms: number) => {
-        if (ms === 0) return "N/A";
-        const minutes = Math.floor(ms / 60000);
-        const seconds = Math.floor((ms % 60000) / 1000);
-        return `${minutes}:${seconds < 10 ? "0" + seconds : seconds}`;
-    };
-
-    const getSourceColor = (source: string) => {
-        switch (source) {
-            case 'spotify':
-                return '#1DB954';
-            case 'lastfm':
-                return '#D51007';
-            default:
-                return '#666';
-        }
-    };
-
     return (
-        <div>
-            <Box sx={{ display: "flex", paddingLeft: 2.5 }}>
-                <SideBar activeItem="Music" />
-                <Box
-                    component="main"
-                    sx={{
-                        width: '89vw',
-                        minHeight: '100vh',
-                        padding: 3
-                    }}
-                >
-                    <Box
+        <Box sx={{ display: 'flex' }}>
+            <SideBar activeItem="Music" />
+            <Box component="main" sx={{ flexGrow: 1, p: 3, color: '#333' }}>
+                <Typography variant="h4" gutterBottom sx={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, color: '#333' }}>
+                    Now Listening
+                </Typography>
+                <Typography variant="body1" sx={{ fontFamily: 'Inter, sans-serif', mb: 3, color: '#666' }}>
+                    A log of all my music listens from Spotify and Last.fm
+                </Typography>
+
+                <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+                    <Typography variant="h6" sx={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, color: '#333' }}>
+                        Update Music Lists:
+                    </Typography>
+                    <Button
+                        variant="contained"
+                        onClick={fetchSpotifyRecentlyPlayed}
+                        disabled={loadingSpotify}
+                        startIcon={loadingSpotify ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
                         sx={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            mb: 3
+                            backgroundColor: '#1DB954',
+                            color: 'white',
+                            '&:hover': { backgroundColor: '#1aa34a' },
+                            '&:disabled': { backgroundColor: '#1DB954', opacity: 0.6 }
                         }}
                     >
-                        <Typography
-                            variant="h4"
-                            sx={{
-                                fontFamily: 'Montserrat, sans-serif',
-                                fontWeight: 'bold'
-                            }}
-                        >
-                            Now Listening 🎧
-                        </Typography>
+                        {loadingSpotify ? 'Updating...' : 'Update Spotify'}
+                    </Button>
+                    <Button
+                        variant="contained"
+                        onClick={fetchLastfmRecent}
+                        disabled={loadingLastfm}
+                        startIcon={loadingLastfm ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
+                        sx={{
+                            backgroundColor: '#D51007',
+                            color: 'white',
+                            '&:hover': { backgroundColor: '#b70e05' },
+                            '&:disabled': { backgroundColor: '#D51007', opacity: 0.6 }
+                        }}
+                    >
+                        {loadingLastfm ? 'Updating...' : 'Update Last.fm'}
+                    </Button>
+                </Box>
 
-                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                            <Button
-                                variant="outlined"
-                                startIcon={refreshing.spotify ? <CircularProgress size={16} /> : <RefreshIcon />}
-                                onClick={fetchSpotifyRecentlyPlayed}
-                                disabled={refreshing.spotify}
-                                sx={{
-                                    color: '#1DB954',
-                                    borderColor: '#1DB954',
-                                    '&:hover': {
-                                        backgroundColor: 'rgba(29, 185, 84, 0.1)',
-                                        borderColor: '#1DB954'
-                                    },
-                                    '&:disabled': {
-                                        color: 'rgba(29, 185, 84, 0.5)',
-                                        borderColor: 'rgba(29, 185, 84, 0.3)'
-                                    }
-                                }}
-                            >
-                                {refreshing.spotify ? 'Fetching...' : ''}
-                            </Button>
+                <Box>
+                    <ToggleButtonGroup
+                        value={sourceFilter}
+                        exclusive
+                        onChange={handleSourceFilterChange}
+                        aria-label="source filter"
+                        sx={{ mb: 2 }}
+                    >
+                        <ToggleButton value="all" aria-label="all sources">All Sources</ToggleButton>
+                        <ToggleButton value="spotify" aria-label="spotify">Spotify</ToggleButton>
+                        <ToggleButton value="lastfm" aria-label="last.fm">Last.fm</ToggleButton>
+                    </ToggleButtonGroup>
 
-                            <Button
-                                variant="outlined"
-                                startIcon={refreshing.lastfm ? <CircularProgress size={16} /> : <RefreshIcon />}
-                                onClick={fetchLastfmRecent}
-                                disabled={refreshing.lastfm}
-                                sx={{
-                                    color: '#D51007',
-                                    borderColor: '#D51007',
-                                    '&:hover': {
-                                        backgroundColor: 'rgba(213, 16, 7, 0.1)',
-                                        borderColor: '#D51007'
-                                    },
-                                    '&:disabled': {
-                                        color: 'rgba(213, 16, 7, 0.5)',
-                                        borderColor: 'rgba(213, 16, 7, 0.3)'
-                                    }
-                                }}
-                            >
-                                {refreshing.lastfm ? 'Fetching...' : ''}
-                            </Button>
-                        </Box>
-                    </Box>
+                    {error && <p style={{ color: "red" }}>{error}</p>}
 
-                    {/* Source Filter */}
-                    <Box sx={{ mb: 3 }}>
-                        <ToggleButtonGroup
-                            value={sourceFilter}
-                            exclusive
-                            onChange={handleSourceFilterChange}
-                            aria-label="music source filter"
-                            sx={{
-                                '& .MuiToggleButton-root': {
-                                    color: 'rgba(136, 136, 136, 0.8)',
-                                    borderColor: 'rgba(255, 255, 255, 0.3)',
-                                    '&:hover': {
-                                        color: '#000000',
-                                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                                    },
-                                    '&.Mui-selected': {
-                                        backgroundColor: 'rgba(0, 168, 204, 0.2)',
-                                        color: '#00a8cc',
-                                        borderColor: '#00a8cc',
-                                        '&:hover': {
-                                            backgroundColor: 'rgba(0, 168, 204, 0.3)',
-                                        }
-                                    }
-                                }
-                            }}
-                        >
-                            <ToggleButton value="all" aria-label="all sources">
-                                All Sources
-                            </ToggleButton>
-                            <ToggleButton value="spotify" aria-label="spotify">
-                                🎵 Spotify
-                            </ToggleButton>
-                            <ToggleButton value="lastfm" aria-label="lastfm">
-                                🎧 Last.fm
-                            </ToggleButton>
-                        </ToggleButtonGroup>
-                    </Box>
-
-                    {/* Display error banner if there is an error */}
-                    {error && (
-                        <Alert
-                            severity="error"
-                            sx={{ mb: 2 }}
-                            action={
-                                <IconButton
-                                    aria-label="close"
-                                    color="inherit"
-                                    size="small"
-                                    onClick={handleErrorDismiss}
-                                >
-                                    <CloseIcon fontSize="inherit" />
-                                </IconButton>
-                            }
-                        >
-                            {error}
-                        </Alert>
-                    )}
-
-                    {/* Flex container for the cards */}
                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
                         {tracks.map((item, index) => {
                             const handleCardClick = () => {
@@ -357,7 +272,7 @@ function Music() {
                                 >
                                     <CardMedia
                                         component="img"
-                                        image={item.album_thumbnail || '/placeholder-album.png'}
+                                        image={item.album_thumbnail || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjgwIiBoZWlnaHQ9IjI4MCIgdmlld0JveD0iMCAwIDI4MCAyODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyODAiIGhlaWdodD0iMjgwIiBmaWxsPSIjMzMzMzMzIi8+CjxwYXRoIGQ9Ik0xNDAgMTQwTDE0MCAxNDBMMTQwIDE0MFYxNDBaIiBmaWxsPSIjNjY2NjY2Ii8+Cjx0ZXh0IHg9IjE0MCIgeT0iMTgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTk5OTk5IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiPk5vIEltYWdlPC90ZXh0Pgo8L3N2Zz4K'}
                                         alt={item.album}
                                         sx={{
                                             width: "100%",
@@ -367,7 +282,7 @@ function Music() {
                                             borderTopRightRadius: "4px",
                                         }}
                                         onError={(e) => {
-                                            (e.target as HTMLImageElement).src = '/placeholder-album.png';
+                                            (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjgwIiBoZWlnaHQ9IjI4MCIgdmlld0JveD0iMCAwIDI4MCAyODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyODAiIGhlaWdodD0iMjgwIiBmaWxsPSIjMzMzMzMzIi8+CjxwYXRoIGQ9Ik0xNDAgMTQwTDE0MCAxNDBMMTQwIDE0MFYxNDBaIiBmaWxsPSIjNjY2NjY2Ii8+Cjx0ZXh0IHg9IjE0MCIgeT0iMTgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTk5OTk5IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiPk5vIEltYWdlPC90ZXh0Pgo8L3N2Zz4K';
                                         }}
                                     />
                                     <CardContent sx={{ flexGrow: 1 }}>
@@ -438,20 +353,30 @@ function Music() {
                             );
                         })}
                     </Box>
+
+                    <PaginationControls
+                        tracksCount={tracks.length}
+                        totalItems={totalItems}
+                        totalPages={totalPages}
+                        currentPage={currentPage}
+                        hasMore={hasMore}
+                        loadingMore={loadingMore}
+                        onLoadMore={loadMoreSongs}
+                    />
                 </Box>
+                <Snackbar
+                    open={snackbarOpen}
+                    autoHideDuration={6000}
+                    onClose={handleSnackbarClose}
+                    message={snackbarMessage}
+                    action={
+                        <Button color="secondary" size="small" onClick={handleSnackbarClose}>
+                            Close
+                        </Button>
+                    }
+                />
             </Box>
-            <Snackbar
-                open={snackbarOpen}
-                autoHideDuration={null}
-                onClose={handleSnackbarClose}
-                message={snackbarMessage}
-                action={
-                    <Button color="secondary" size="small" onClick={handleSnackbarClose}>
-                        Close
-                    </Button>
-                }
-            />
-        </div>
+        </Box>
     );
 }
 

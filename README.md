@@ -8,11 +8,31 @@ NowPlaying is a comprehensive portfolio project designed to showcase your latest
 - **Movie & TV Shows**: Movies and shows you've watched with detailed progress tracking
 - **Music**: Songs you've listened to with scrobbling data and listening history
 
-The application includes user authentication, profile management, and integrated API key configuration for seamless service connectivity.
+The application includes user authentication, profile management, integrated API key configuration for seamless service connectivity, and **advanced search functionality** across all entertainment categories.
 
 ## Recent Updates & Fixes
 
-### Xbox Achievement Tracking Fix (Latest)
+### Advanced Search Functionality (Latest)
+
+- **Cross-Platform Game Search**: Real-time search across Steam, PlayStation, Xbox, and RetroAchievements platforms
+  - **Autocomplete Suggestions**: Shows game title, platform, and cover image
+  - **Debounced Search**: Optimized API calls with intelligent input handling
+  - **Seamless Navigation**: Direct navigation to game details page on selection
+  - **Platform Recognition**: Visual platform indicators in search results
+
+- **Movie & Show Search**: Comprehensive search across Trakt movies and TV shows
+  - **TMDB Integration**: Automatic poster image fetching for search results
+  - **Dual Platform Search**: Searches both movies and shows simultaneously
+  - **Rich Metadata**: Displays title, year, and poster in search suggestions
+  - **Smart Navigation**: Routes to appropriate details page based on media type
+
+- **Enhanced User Experience**:
+  - **Loading States**: Visual feedback during search operations
+  - **Error Handling**: Graceful handling of API failures and network issues
+  - **Responsive Design**: Mobile-friendly search interface
+  - **Keyboard Navigation**: Full keyboard support for accessibility
+
+### Xbox Achievement Tracking Fix
 
 - **Issue**: Xbox games were not appearing in the "Most Achieved 🏆" section despite having high achievement percentages
 - **Root Cause**: TypeScript type guard logic incorrectly identified Xbox games as PSN games, causing wrong calculation methods
@@ -62,6 +82,14 @@ The application includes user authentication, profile management, and integrated
 - **Protected Routes**: All application features require authentication
 - **User Profile Management**: Comprehensive account settings and service configuration
 
+### Advanced Search System
+
+- **Cross-Platform Game Search**: Real-time search across all gaming platforms with autocomplete
+- **Movie & Show Search**: Unified search for movies and TV shows with TMDB poster integration
+- **Smart Navigation**: Direct routing to appropriate detail pages with full data context
+- **Debounced API Calls**: Optimized performance with intelligent request throttling
+- **Platform Recognition**: Visual indicators for different platforms and media types
+
 ### Gaming Dashboard
 
 - **Multi-Platform Support**: Unified view across Steam, PlayStation, Xbox, and RetroAchievements
@@ -83,30 +111,37 @@ The application includes user authentication, profile management, and integrated
 ## Screenshots
 
 ### Main Dashboard
+
 ![Dashboard](screenshots/dashboard.jpeg)
 *Main dashboard showing unified entertainment tracking across all platforms*
 
 ### Gaming Dashboard
+
 ![Games Dashboard](screenshots/games.jpeg)
 *Multi-platform gaming dashboard with achievement tracking and "Most Achieved 🏆" section*
 
 ### Game Details
+
 ![Game Details](screenshots/game-details.jpeg)
 *Detailed view of individual games with platform-specific achievement/trophy data*
 
 ### Movies & TV Shows
+
 ![Movies Dashboard](screenshots/movies.jpeg)
 *Trakt integration showing watched movies and TV shows with progress tracking*
 
 ### Music Dashboard
+
 ![Music Dashboard](screenshots/music.jpeg)
 *Music tracking with Spotify and Last.fm integration showing recent plays and scrobbling data*
 
 ### Profile & API Configuration
+
 ![Profile Settings](screenshots/profile.jpeg)
 *API key management and service configuration with connection status indicators*
 
 ### Authentication
+
 ![Authentication](screenshots/auth.jpeg)
 *JWT-based login and registration interface*
 
@@ -149,6 +184,38 @@ To set up the UI for this project, refer to the [UI Configuration Guide](./UI/RE
 - **React Router**: Protected routing system
 
 ## Changelog
+
+### Version 1.2.0 - Advanced Search Functionality
+
+#### 🔍 Cross-Platform Search System
+
+- **Game Search**: Real-time search across Steam, PlayStation, Xbox, and RetroAchievements
+  - Autocomplete with game title, platform, and cover image
+  - Debounced API calls for optimal performance
+  - Direct navigation to game details page
+  - Visual platform indicators in search results
+
+- **Movie & Show Search**: Unified search for Trakt movies and TV shows
+  - TMDB poster integration for rich visual results
+  - Simultaneous search across both media types
+  - Smart navigation to appropriate details page
+  - Complete data fetching on selection
+
+#### 🎯 Enhanced User Experience
+
+- **Loading States**: Visual feedback during search operations
+- **Error Handling**: Graceful handling of API failures and network issues
+- **Responsive Design**: Mobile-friendly search interface
+- **Keyboard Navigation**: Full accessibility support
+- **Debounced Input**: Optimized performance with intelligent request throttling
+
+#### 🔧 Technical Improvements
+
+- **New Components**: `GameSearch` and `MovieShowSearch` components with autocomplete
+- **Backend Endpoints**: New search endpoints for games and media
+- **API Integration**: Enhanced backend search functionality across all platforms
+- **Data Handling**: Improved data structure management for cross-platform compatibility
+- **Navigation**: Enhanced routing with proper state management
 
 ### Version 1.1.0 - Gaming Platform Fixes & Enhancements
 

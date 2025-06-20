@@ -58,7 +58,7 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="fetch-lastfm-recent")
     def fetchLastfmRecent(self, request):
         """
-        Fetches recent tracks from Last.fm for the authenticated user,
+        Fetches ALL recent tracks from Last.fm for the authenticated user,
         stores them in the database, and returns the fetched data.
         """
         try:
@@ -86,14 +86,11 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Get limit parameter (default 50, max 200 as per Last.fm API)
-            # Allow override via query parameter if needed
-            limit = min(int(request.query_params.get('limit', 50)), 200)
-
-            result = Song.fetch_lastfm_recent_tracks(request.user, lastfm_api_key, lastfm_username, limit)
+            # Fetch ALL tracks (no limit)
+            result = Song.fetch_lastfm_recent_tracks(request.user, lastfm_api_key, lastfm_username, limit=None)
             return Response(
                 {
-                    "message": f"Last.fm recent tracks fetched and stored successfully for user '{lastfm_username}'.",
+                    "message": f"Last.fm ALL recent tracks fetched and stored successfully for user '{lastfm_username}'.",
                     "data": result,
                     "count": len(result)
                 }
@@ -107,8 +104,8 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="get-stored-songs")
     def getStoredSongs(self, request):
         """
-        Retrieves all stored songs from the database for the authenticated user,
-        sorted by played_at in descending order.
+        Retrieves stored songs from the database for the authenticated user,
+        sorted by played_at in descending order with pagination support.
         """
         # Optional filter by source (spotify, lastfm, or all)
         source = request.query_params.get('source')
@@ -118,5 +115,29 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
             songs = songs.filter(source=source)
             
         songs = songs.order_by("-played_at")
-        serializer = StreamedSongSerializer(songs, many=True)
-        return Response({"results": serializer.data})
+        
+        # Pagination parameters
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 50))
+        
+        # Calculate offset and limit
+        offset = (page - 1) * page_size
+        limit = offset + page_size
+        
+        # Get total count for pagination info
+        total_count = songs.count()
+        
+        # Apply pagination
+        paginated_songs = songs[offset:limit]
+        
+        serializer = StreamedSongSerializer(paginated_songs, many=True)
+        
+        return Response({
+            "results": serializer.data,
+            "page": page,
+            "page_size": page_size,
+            "total_items": total_count,
+            "total_pages": (total_count + page_size - 1) // page_size,
+            "has_next": page * page_size < total_count,
+            "has_previous": page > 1
+        })

@@ -114,37 +114,74 @@ class Song(models.Model):
         return result
 
     @staticmethod
-    def fetch_lastfm_recent_tracks(user, lastfm_api_key, lastfm_username, limit=50):
+    def fetch_lastfm_recent_tracks(user, lastfm_api_key, lastfm_username, limit=None):
         """
-        Fetches recent tracks from Last.fm using the user.getRecentTracks API method,
+        Fetches ALL recent tracks from Last.fm using the user.getRecentTracks API method,
         stores them in the database for a specific user, and returns the data.
+        If limit is specified, only fetches that many tracks. If None, fetches ALL tracks.
         """
         url = "http://ws.audioscrobbler.com/2.0/"
-        params = {
-            "method": "user.getRecentTracks",
-            "user": lastfm_username,
-            "api_key": lastfm_api_key,
-            "format": "json",
-            "limit": limit,
-            "extended": 1  # Get additional info like album art and loved status
-        }
-
-        response = requests.get(url, params=params)
-        if response.status_code != 200:
-            raise Exception(f"Failed to fetch Last.fm recent tracks: {response.text}")
-
-        data = response.json()
+        page = 1
+        total_fetched = 0
+        all_tracks = []
         
-        if "error" in data:
-            raise Exception(f"Last.fm API error: {data.get('message', 'Unknown error')}")
+        # If no limit specified, we'll fetch all tracks (Last.fm max is 1000 per page)
+        if limit is None:
+            tracks_per_page = 1000  # Maximum allowed by Last.fm API
+        else:
+            tracks_per_page = min(limit, 1000)  # Don't exceed Last.fm's limit
+        
+        while True:
+            params = {
+                "method": "user.getRecentTracks",
+                "user": lastfm_username,
+                "api_key": lastfm_api_key,
+                "format": "json",
+                "limit": tracks_per_page,
+                "page": page,
+                "extended": 1  # Get additional info like album art and loved status
+            }
 
-        tracks = data.get("recenttracks", {}).get("track", [])
-        if not isinstance(tracks, list):
-            tracks = [tracks]  # Handle single track response
+            response = requests.get(url, params=params)
+            if response.status_code != 200:
+                raise Exception(f"Failed to fetch Last.fm recent tracks: {response.text}")
+
+            data = response.json()
+            
+            if "error" in data:
+                raise Exception(f"Last.fm API error: {data.get('message', 'Unknown error')}")
+
+            recenttracks = data.get("recenttracks", {})
+            tracks = recenttracks.get("track", [])
+            
+            if not isinstance(tracks, list):
+                tracks = [tracks]  # Handle single track response
+
+            # If no tracks returned, we've reached the end
+            if not tracks:
+                break
+
+            all_tracks.extend(tracks)
+            total_fetched += len(tracks)
+            
+            # Check if we've reached the limit
+            if limit and total_fetched >= limit:
+                all_tracks = all_tracks[:limit]  # Trim to exact limit
+                break
+            
+            # Check if we've reached the end (Last.fm returns empty page when done)
+            if len(tracks) < tracks_per_page:
+                break
+                
+            page += 1
+            
+            # Safety check to prevent infinite loops
+            if page > 100:  # Maximum 100 pages (100,000 tracks)
+                break
 
         result = []
 
-        for track in tracks:
+        for track in all_tracks:
             # Skip currently playing tracks (they don't have a date)
             if "@attr" in track and track["@attr"].get("nowplaying") == "true":
                 continue

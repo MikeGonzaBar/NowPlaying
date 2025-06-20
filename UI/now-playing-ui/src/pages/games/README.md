@@ -1,6 +1,6 @@
 # Games Feature Documentation
 
-This folder contains the comprehensive gaming dashboard for the NowPlaying application, supporting multiple gaming platforms with platform-specific features and unified data display.
+This folder contains the comprehensive gaming dashboard for the NowPlaying application, supporting multiple gaming platforms with platform-specific features, unified data display, and **advanced search functionality**.
 
 ## Supported Platforms
 
@@ -31,6 +31,36 @@ This folder contains the comprehensive gaming dashboard for the NowPlaying appli
 - **Multi-Console Support**: PS1, PS2, Nintendo DS, Game Boy Color/Advance, and more
 - **Community Features**: Points-based achievement system with TrueRatio scoring
 - **Detailed Metadata**: Console-specific information and achievement categorization
+
+## Advanced Search Functionality
+
+### Cross-Platform Game Search
+
+The games dashboard now features **real-time search functionality** that searches across all gaming platforms simultaneously:
+
+#### Features
+
+- **Autocomplete Interface**: Shows game title, platform, and cover image in search suggestions
+- **Debounced Search**: Optimized API calls with intelligent input handling to reduce server load
+- **Seamless Navigation**: Direct navigation to game details page with full game data context
+- **Platform Recognition**: Visual platform indicators in search results for easy identification
+- **Loading States**: Visual feedback during search operations with skeleton loading
+- **Keyboard Navigation**: Full accessibility support (arrow keys, enter, escape)
+
+#### Search Behavior
+
+- **Real-time Suggestions**: Search results update as you type with debounced API calls
+- **Cross-Platform Results**: Searches Steam, PlayStation, Xbox, and RetroAchievements simultaneously
+- **Rich Metadata**: Each search result displays game title, platform icon, and cover image
+- **Smart Filtering**: Results are filtered by game title with case-insensitive matching
+- **Error Handling**: Graceful handling of API failures and network issues
+
+#### Technical Implementation
+
+- **Backend Integration**: New `/games/search/` endpoint that queries all gaming platforms
+- **Frontend Component**: `GameSearch` component with Material-UI Autocomplete
+- **Data Handling**: Proper data structure management for cross-platform compatibility
+- **Performance Optimization**: Debounced input with configurable delay (300ms default)
 
 ## Components
 
@@ -86,6 +116,34 @@ Reusable component for individual trophy/achievement icons:
 - **Configurable Display**: Supports both trophy counts and achievement ratios
 - **Visual States**: Grayscale and color modes
 - **Flexible Sizing**: Consistent icon sizing across components
+
+### Search Components
+
+#### `GameSearch.tsx` (Global Component)
+
+Advanced search component with autocomplete functionality:
+
+**Features:**
+
+- **Material-UI Autocomplete**: Rich autocomplete interface with custom styling
+- **Debounced Input**: Optimized API calls with configurable delay
+- **Loading States**: Skeleton loading during search operations
+- **Error Handling**: Graceful error display and recovery
+- **Keyboard Navigation**: Full accessibility support
+- **Platform Icons**: Visual platform indicators in search results
+- **Cover Images**: Game cover art display in search suggestions
+
+**Props:**
+
+- `onGameSelect`: Callback function when a game is selected
+- `placeholder`: Customizable placeholder text
+- `debounceDelay`: Configurable debounce delay (default: 300ms)
+
+**API Integration:**
+
+- **Endpoint**: `GET /games/search/?query={searchTerm}`
+- **Response Format**: Array of game objects with platform-specific data
+- **Error Handling**: Network errors and API failures gracefully handled
 
 ### Utility Components
 

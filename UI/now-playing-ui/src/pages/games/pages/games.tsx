@@ -12,6 +12,7 @@ import SideBar from "../../../components/sideBar";
 import GameSection from "../components/GameSection";
 import PlatformFilter from "../components/PlatformFilter";
 import PlatformUpdateButtons from "../components/PlatformUpdateButtons";
+import GameSearch from "../components/GameSearch";
 import { useGameData } from "../hooks/useGameData";
 
 function Games() {
@@ -54,11 +55,15 @@ function Games() {
                         sx={{
                             mb: 3,
                             fontFamily: 'Montserrat, sans-serif',
-                            fontWeight: 'bold'
+                            fontWeight: 'bold',
+                            color: '#333'
                         }}
                     >
                         Games
                     </Typography>
+
+                    {/* Game Search Component */}
+                    <GameSearch />
 
                     {error && (
                         <Alert severity="error" sx={{ mb: 2 }}>

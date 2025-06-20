@@ -570,3 +570,101 @@ curl -X POST \\<br>
                 {"error": f"Unexpected error: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @action(detail=False, methods=["get"], url_path="search")
+    def search(self, request):
+        """
+        Search for movies and shows by title for the authenticated user.
+        Only returns items that the user has actually watched.
+        """
+        query = request.GET.get('q', '').strip()
+        if not query or len(query) < 2:
+            return Response({'results': []})
+        
+        results = []
+        
+        # Search in movies that the user has watched
+        try:
+            from django.db.models import Q
+            movies = Movie.objects.filter(
+                Q(user=request.user) & 
+                (Q(title__icontains=query) | Q(title__istartswith=query))
+            )[:10]
+            
+            print(f"Found {movies.count()} movies matching '{query}' for user {request.user.id}")
+            
+            for movie in movies:
+                # Get movie poster from TMDB if available
+                cover_image = ''
+                if movie.tmdb_id:
+                    try:
+                        tmdb_response = requests.get(
+                            f"https://api.themoviedb.org/3/movie/{movie.tmdb_id}",
+                            params={
+                                'api_key': settings.TMDB_API_KEY,
+                                'append_to_response': 'images'
+                            }
+                        )
+                        if tmdb_response.ok:
+                            tmdb_data = tmdb_response.json()
+                            if tmdb_data.get('poster_path'):
+                                cover_image = f"https://image.tmdb.org/t/p/w500{tmdb_data['poster_path']}"
+                    except Exception as e:
+                        print(f"Error fetching TMDB data for movie {movie.tmdb_id}: {e}")
+                
+                results.append({
+                    'id': movie.id,
+                    'title': movie.title,
+                    'type': 'movie',
+                    'cover_image': cover_image,
+                    'year': movie.year,
+                    'tmdb_id': movie.tmdb_id
+                })
+        except Exception as e:
+            print(f"Movie search error: {e}")
+        
+        # Search in shows that the user has watched
+        try:
+            shows = Show.objects.filter(
+                Q(user=request.user) & 
+                (Q(title__icontains=query) | Q(title__istartswith=query))
+            )[:10]
+            
+            print(f"Found {shows.count()} shows matching '{query}' for user {request.user.id}")
+            
+            for show in shows:
+                # Use existing image_url or fetch from TMDB
+                cover_image = show.image_url or ''
+                if not cover_image and show.tmdb_id:
+                    try:
+                        tmdb_response = requests.get(
+                            f"https://api.themoviedb.org/3/tv/{show.tmdb_id}",
+                            params={
+                                'api_key': settings.TMDB_API_KEY,
+                                'append_to_response': 'images'
+                            }
+                        )
+                        if tmdb_response.ok:
+                            tmdb_data = tmdb_response.json()
+                            if tmdb_data.get('poster_path'):
+                                cover_image = f"https://image.tmdb.org/t/p/w500{tmdb_data['poster_path']}"
+                    except Exception as e:
+                        print(f"Error fetching TMDB data for show {show.tmdb_id}: {e}")
+                
+                results.append({
+                    'id': show.id,
+                    'title': show.title,
+                    'type': 'show',
+                    'cover_image': cover_image,
+                    'year': show.year,
+                    'tmdb_id': show.tmdb_id
+                })
+        except Exception as e:
+            print(f"Show search error: {e}")
+        
+        # Sort results by title and limit to 20 total
+        results.sort(key=lambda x: x['title'].lower())
+        results = results[:20]
+        
+        print(f"Trakt search results for '{query}': {len(results)} items found")
+        return Response({'results': results})

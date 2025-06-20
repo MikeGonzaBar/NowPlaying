@@ -11,6 +11,7 @@ import MovieDetails from './pages/movies/pages/movieDetails';
 import AuthPage from './pages/auth/AuthPage';
 import ProfilePage from './pages/profile/ProfilePage';
 import { isAuthenticated, refreshAuthToken } from './utils/auth';
+import Footer from './components/Footer';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -63,51 +64,56 @@ function App() {
 
   return (
     <Router>
-      <Routes>
-        <Route path="/auth" element={<AuthPage />} />
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <div style={{ flex: 1 }}>
+          <Routes>
+            <Route path="/auth" element={<AuthPage />} />
 
-        <Route path="/" element={
-          <ProtectedRoute>
-            <LandingPage />
-          </ProtectedRoute>
-        } />
+            <Route path="/" element={
+              <ProtectedRoute>
+                <LandingPage />
+              </ProtectedRoute>
+            } />
 
-        <Route path="/games" element={
-          <ProtectedRoute>
-            <Games />
-          </ProtectedRoute>
-        } />
+            <Route path="/games" element={
+              <ProtectedRoute>
+                <Games />
+              </ProtectedRoute>
+            } />
 
-        <Route path="/movies" element={
-          <ProtectedRoute>
-            <Movies />
-          </ProtectedRoute>
-        } />
+            <Route path="/movies" element={
+              <ProtectedRoute>
+                <Movies />
+              </ProtectedRoute>
+            } />
 
-        <Route path="/music" element={
-          <ProtectedRoute>
-            <Music />
-          </ProtectedRoute>
-        } />
+            <Route path="/music" element={
+              <ProtectedRoute>
+                <Music />
+              </ProtectedRoute>
+            } />
 
-        <Route path="/profile" element={
-          <ProtectedRoute>
-            <ProfilePage />
-          </ProtectedRoute>
-        } />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            } />
 
-        <Route path="/game/:id" element={
-          <ProtectedRoute>
-            <GameDetails />
-          </ProtectedRoute>
-        } />
+            <Route path="/game" element={
+              <ProtectedRoute>
+                <GameDetails />
+              </ProtectedRoute>
+            } />
 
-        <Route path="/movieDetails" element={
-          <ProtectedRoute>
-            <MovieDetails />
-          </ProtectedRoute>
-        } />
-      </Routes>
+            <Route path="/movieDetails" element={
+              <ProtectedRoute>
+                <MovieDetails />
+              </ProtectedRoute>
+            } />
+          </Routes>
+        </div>
+        <Footer />
+      </div>
     </Router>
   );
 }

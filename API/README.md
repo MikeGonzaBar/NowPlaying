@@ -182,15 +182,17 @@ The system uses encrypted storage for all external service credentials. See the 
 | `GET /trakt/fetch-latest-shows/` | Fetch recent TV shows |
 | `GET /trakt/get-stored-movies/` | Get stored movies (paginated) |
 | `GET /trakt/get-stored-shows/` | Get stored shows (paginated) |
+| `GET /trakt/search/` | **Search movies and shows** with TMDB poster integration |
 
 ### Gaming Endpoints
 
-| Service | Fetch Library | Get Stored | By Playtime | By Achievements |
-|---------|---------------|------------|-------------|-----------------|
-| **Steam** | `GET /steam/get-game-list/` | `GET /steam/get-game-list-stored/` | `GET /steam/get-game-list-total-playtime/` | `GET /steam/get-game-list-most-achieved/` |
-| **PlayStation** | `GET /psn/get-game-list/` | `GET /psn/get-game-list-stored/` | `GET /psn/get-game-list-total-playtime/` | `GET /psn/get-game-list-most-achieved/` |
-| **Xbox** | `GET /xbox/get-game-list/` | `GET /xbox/get-game-list-stored/` | `GET /xbox/get-game-list-total-playtime/` | `GET /xbox/get-game-list-most-achieved/` |
-| **RetroAchievements** | `GET /retroachievements/fetch-recently-played-games/` | `GET /retroachievements/fetch-games/` | - | `GET /retroachievements/get-most-achieved-games/` |
+| Service | Fetch Library | Get Stored | By Playtime | By Achievements | Search |
+|---------|---------------|------------|-------------|-----------------|---------|
+| **Steam** | `GET /steam/get-game-list/` | `GET /steam/get-game-list-stored/` | `GET /steam/get-game-list-total-playtime/` | `GET /steam/get-game-list-most-achieved/` | - |
+| **PlayStation** | `GET /psn/get-game-list/` | `GET /psn/get-game-list-stored/` | `GET /psn/get-game-list-total-playtime/` | `GET /psn/get-game-list-most-achieved/` | - |
+| **Xbox** | `GET /xbox/get-game-list/` | `GET /xbox/get-game-list-stored/` | `GET /xbox/get-game-list-total-playtime/` | `GET /xbox/get-game-list-most-achieved/` | - |
+| **RetroAchievements** | `GET /retroachievements/fetch-recently-played-games/` | `GET /retroachievements/fetch-games/` | - | `GET /retroachievements/get-most-achieved-games/` | - |
+| **Cross-Platform** | - | - | - | - | `GET /games/search/` |
 
 ### User Management Endpoints
 

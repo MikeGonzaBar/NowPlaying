@@ -4,6 +4,7 @@ export const API_CONFIG = {
     USERS_ENDPOINT: '/users',
     MUSIC_ENDPOINT: '/music',
     TRAKT_ENDPOINT: '/trakt',
+    GAMES_ENDPOINT: '/games',
     TIMEOUT: 10000, // 10 seconds
 };
 
