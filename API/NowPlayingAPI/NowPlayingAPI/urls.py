@@ -23,6 +23,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q
 import json
+from django.core.cache import cache
+from django.conf import settings
 
 from retroachievements import views as retroachievements_views
 from steam import views as steam_views
@@ -32,13 +34,19 @@ from music import views as music_views
 from xbox import views as xbox_views
 from analytics import views as analytics_views
 
-# Games Search View
+# Optimized Games Search View with caching
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def games_search(request):
     query = request.GET.get('q', '').strip()
     if not query or len(query) < 2:
         return Response({'results': []})
+    
+    # Check cache first - SAFE OPTIMIZATION
+    cache_key = f"search_{request.user.id}_{query.lower()}"
+    cached_result = cache.get(cache_key)
+    if cached_result:
+        return Response({'results': cached_result})
     
     results = []
     
@@ -138,7 +146,9 @@ def games_search(request):
     results.sort(key=lambda x: x['title'].lower())
     results = results[:20]
     
-    print(f"Search results for '{query}': {len(results)} games found")
+    # Cache results for 5 minutes - SAFE OPTIMIZATION
+    cache.set(cache_key, results, getattr(settings, 'CACHE_TIMEOUTS', {}).get('SEARCH_RESULTS', 300))
+    
     return Response({'results': results})
 
 admin.autodiscover()

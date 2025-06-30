@@ -1,128 +1,109 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import React, { Suspense } from 'react';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { useAuth } from './hooks/useAuth';
+import './App.css';
 
-import LandingPage from './pages/LandingPage';
-import Games from './pages/games/pages/games';
-import Movies from './pages/movies/pages/movies';
-import Music from './pages/music/music';
-import GameDetails from './pages/games/pages/gameDetails';
-import './App.css'
-import MovieDetails from './pages/movies/pages/movieDetails';
-import AuthPage from './pages/auth/AuthPage';
-import ProfilePage from './pages/profile/ProfilePage';
-import AnalyticsPage from './pages/analytics/AnalyticsPage';
-import { isAuthenticated, refreshAuthToken } from './utils/auth';
-import Footer from './components/Footer';
+// Lazy load all page components - SAFE OPTIMIZATION
+const LandingPage = React.lazy(() => import('./pages/LandingPage'));
+const AuthPage = React.lazy(() => import('./pages/auth/AuthPage'));
+const GamesPage = React.lazy(() => import('./pages/games/pages/games'));
+const GameDetails = React.lazy(() => import('./pages/games/pages/gameDetails'));
+const MoviesPage = React.lazy(() => import('./pages/movies/pages/movies'));
+const MovieDetails = React.lazy(() => import('./pages/movies/pages/movieDetails'));
+const MusicPage = React.lazy(() => import('./pages/music/music'));
+const ProfilePage = React.lazy(() => import('./pages/profile/ProfilePage'));
+const AnalyticsPage = React.lazy(() => import('./pages/analytics/AnalyticsPage'));
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-}
+// Loading component for Suspense fallbacks
+const LoadingSpinner = () => (
+  <div style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '200px',
+    fontSize: '18px',
+    color: '#666'
+  }}>
+    Loading...
+  </div>
+);
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const [isChecking, setIsChecking] = useState(true);
-  const [authenticated, setAuthenticated] = useState(false);
+// App Routes component that uses useAuth inside Router context
+const AppRoutes = () => {
+  const { authenticated, isLoading } = useAuth();
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      if (isAuthenticated()) {
-        setAuthenticated(true);
-      } else {
-        // Try to refresh the token
-        const refreshed = await refreshAuthToken();
-        setAuthenticated(refreshed);
-      }
-      setIsChecking(false);
-    };
-
-    checkAuth();
-  }, []);
-
-  if (isChecking) {
-    // Show loading spinner or placeholder while checking authentication
-    return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        backgroundColor: '#0E0022',
-        color: '#fff'
-      }}>
-        <div>Checking authentication...</div>
-      </div>
-    );
+  if (isLoading) {
+    return <LoadingSpinner />;
   }
 
-  if (!authenticated) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  return <>{children}</>;
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <Routes>
+        <Route
+          path="/"
+          element={authenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />}
+        />
+        <Route
+          path="/auth"
+          element={authenticated ? <Navigate to="/dashboard" replace /> : <AuthPage />}
+        />
+        <Route
+          path="/dashboard"
+          element={authenticated ? <LandingPage /> : <Navigate to="/auth" replace />}
+        />
+        <Route
+          path="/games"
+          element={authenticated ? <GamesPage /> : <Navigate to="/auth" replace />}
+        />
+        <Route
+          path="/games/:platform/:id"
+          element={authenticated ? <GameDetails /> : <Navigate to="/auth" replace />}
+        />
+        <Route
+          path="/game"
+          element={authenticated ? <GameDetails /> : <Navigate to="/auth" replace />}
+        />
+        <Route
+          path="/game/:id"
+          element={authenticated ? <GameDetails /> : <Navigate to="/auth" replace />}
+        />
+        <Route
+          path="/movies"
+          element={authenticated ? <MoviesPage /> : <Navigate to="/auth" replace />}
+        />
+        <Route
+          path="/movies/:id"
+          element={authenticated ? <MovieDetails /> : <Navigate to="/auth" replace />}
+        />
+        <Route
+          path="/movieDetails"
+          element={authenticated ? <MovieDetails /> : <Navigate to="/auth" replace />}
+        />
+        <Route
+          path="/music"
+          element={authenticated ? <MusicPage /> : <Navigate to="/auth" replace />}
+        />
+        <Route
+          path="/profile"
+          element={authenticated ? <ProfilePage /> : <Navigate to="/auth" replace />}
+        />
+        <Route
+          path="/analytics"
+          element={authenticated ? <AnalyticsPage /> : <Navigate to="/auth" replace />}
+        />
+      </Routes>
+    </Suspense>
+  );
 };
 
 function App() {
-
-
   return (
     <Router>
-      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <div style={{ flex: 1 }}>
-          <Routes>
-            <Route path="/auth" element={<AuthPage />} />
-
-            <Route path="/" element={
-              <ProtectedRoute>
-                <LandingPage />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/games" element={
-              <ProtectedRoute>
-                <Games />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/movies" element={
-              <ProtectedRoute>
-                <Movies />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/music" element={
-              <ProtectedRoute>
-                <Music />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/analytics" element={
-              <ProtectedRoute>
-                <AnalyticsPage />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <ProfilePage />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/game" element={
-              <ProtectedRoute>
-                <GameDetails />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/movieDetails" element={
-              <ProtectedRoute>
-                <MovieDetails />
-              </ProtectedRoute>
-            } />
-          </Routes>
-        </div>
-        <Footer />
+      <div className="App">
+        <AppRoutes />
       </div>
     </Router>
   );
 }
 
-export default App
+export default App;

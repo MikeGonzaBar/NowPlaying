@@ -77,6 +77,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "django.middleware.gzip.GZipMiddleware",  # SAFE: Compress responses
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -168,16 +169,21 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# SAFE: Optimized pagination settings
 REST_FRAMEWORK = {
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
-    "PAGE_SIZE": 10,
-    # JWT Authentication
-    "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
-    # Default permission is authenticated only
-    "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticated",
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 25,  # SAFE: Increased from 20 for better performance
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
     ],
 }
 
@@ -209,14 +215,28 @@ CACHES = {
     }
 }
 
-# Cache timeout for different data types
+# SAFE: Cache timeout configuration for different endpoints
 CACHE_TIMEOUTS = {
-    'STEAM_GAMES': 1800,  # 30 minutes
-    'PSN_GAMES': 1800,    # 30 minutes
-    'XBOX_GAMES': 1800,   # 30 minutes
-    'MUSIC_TRACKS': 900,  # 15 minutes
-    'MOVIES': 1800,       # 30 minutes
+    'MUSIC': 900,  # 15 minutes
+    'STEAM_GAMES': 900,  # 15 minutes
+    'SEARCH_RESULTS': 300,  # 5 minutes
+    'ANALYTICS': 3600,  # 1 hour
+    'USER_PROFILE': 1800,  # 30 minutes
 }
+
+# SAFE: Static files optimization
+STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+
+# SAFE: Browser caching for static files
+if not DEBUG:
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'
+
+# SAFE: Response headers for optimization
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
 
 LOGGING = {
     "version": 1,

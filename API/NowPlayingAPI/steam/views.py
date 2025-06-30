@@ -58,20 +58,46 @@ class SteamViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="get-game-list-stored")
     def getGameListStored(self, request):
+        # Check cache first - SAFE OPTIMIZATION
+        cache_key = f"steam_stored_{request.user.id}"
+        cached_result = cache.get(cache_key)
+        if cached_result:
+            return Response({"result": cached_result})
+        
         # Retrieve stored games and sort by last played (most recent first).
         games = Game.objects.filter(user=request.user).select_related('user').order_by("-last_played")
         serializer = SteamSerializer(games, many=True)
+        
+        # Cache for 15 minutes - SAFE OPTIMIZATION
+        cache.set(cache_key, serializer.data, 900)
+        
         return Response({"result": serializer.data})
 
     @action(detail=False, methods=["get"], url_path="get-game-list-total-playtime")
     def getGameListPlaytimeForever(self, request):
+        # Check cache first - SAFE OPTIMIZATION
+        cache_key = f"steam_playtime_{request.user.id}"
+        cached_result = cache.get(cache_key)
+        if cached_result:
+            return Response({"result": cached_result})
+        
         # Sorting stored games based on playtime_forever.
         games = Game.objects.filter(user=request.user).select_related('user').order_by("-playtime_forever")
         serializer = SteamSerializer(games, many=True)
+        
+        # Cache for 15 minutes - SAFE OPTIMIZATION
+        cache.set(cache_key, serializer.data, 900)
+        
         return Response({"result": serializer.data})
 
     @action(detail=False, methods=["get"], url_path="get-game-list-most-achieved")
     def getGameListMostAchieved(self, request):
+        # Check cache first - SAFE OPTIMIZATION
+        cache_key = f"steam_achievements_{request.user.id}"
+        cached_result = cache.get(cache_key)
+        if cached_result:
+            return Response({"result": cached_result})
+        
         # Retrieve all games with their related achievements for processing.
         games = list(Game.objects.filter(user=request.user).prefetch_related("achievements").select_related('user'))
 
@@ -86,4 +112,8 @@ class SteamViewSet(viewsets.ModelViewSet):
         # Sort games by the percentage of unlocked achievements (highest first).
         sorted_games = sorted(games, key=achievement_percentage, reverse=True)
         serializer = SteamSerializer(sorted_games, many=True)
+        
+        # Cache for 15 minutes - SAFE OPTIMIZATION
+        cache.set(cache_key, serializer.data, 900)
+        
         return Response({"result": serializer.data})

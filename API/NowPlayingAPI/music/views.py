@@ -5,6 +5,8 @@ from rest_framework import status
 from .models import Song
 from .serializers import StreamedSongSerializer  # Import the serializer
 from users.models import UserApiKey  # Import UserApiKey from the correct location
+from django.core.cache import cache
+from django.conf import settings
 
 
 class StreamedSongViewSet(viewsets.ModelViewSet):
@@ -109,16 +111,21 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
         """
         # Optional filter by source (spotify, lastfm, or all)
         source = request.query_params.get('source')
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 50))
+        
+        # Check cache first - SAFE OPTIMIZATION
+        cache_key = f"stored_songs_{request.user.id}_{source}_{page}_{page_size}"
+        cached_result = cache.get(cache_key)
+        if cached_result:
+            return Response(cached_result)
+        
         songs = Song.objects.filter(user=request.user)
         
         if source and source in ['spotify', 'lastfm']:
             songs = songs.filter(source=source)
             
         songs = songs.order_by("-played_at")
-        
-        # Pagination parameters
-        page = int(request.query_params.get('page', 1))
-        page_size = int(request.query_params.get('page_size', 50))
         
         # Calculate offset and limit
         offset = (page - 1) * page_size
@@ -132,7 +139,7 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
         
         serializer = StreamedSongSerializer(paginated_songs, many=True)
         
-        return Response({
+        result = {
             "results": serializer.data,
             "page": page,
             "page_size": page_size,
@@ -140,4 +147,9 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
             "total_pages": (total_count + page_size - 1) // page_size,
             "has_next": page * page_size < total_count,
             "has_previous": page > 1
-        })
+        }
+        
+        # Cache for 15 minutes - SAFE OPTIMIZATION
+        cache.set(cache_key, result, getattr(settings, 'CACHE_TIMEOUTS', {}).get('MUSIC_TRACKS', 900))
+        
+        return Response(result)

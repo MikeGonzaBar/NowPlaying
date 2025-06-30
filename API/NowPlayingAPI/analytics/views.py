@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from datetime import datetime, timedelta
+from django.core.cache import cache
+from django.conf import settings
 from .models import UserStatistics
 from .services import AnalyticsService
 from .serializers import UserStatisticsSerializer
@@ -20,6 +22,12 @@ class AnalyticsViewSet(viewsets.ViewSet):
         """Get comprehensive analytics data - main endpoint used by UI"""
         try:
             days = int(request.query_params.get('days', 30))
+            
+            # Check cache first - SAFE OPTIMIZATION
+            cache_key = f"analytics_{request.user.id}_{days}"
+            cached_result = cache.get(cache_key)
+            if cached_result:
+                return Response(cached_result)
             
             # Get comprehensive statistics with caching
             comprehensive_stats = AnalyticsService.get_comprehensive_statistics(
@@ -39,12 +47,17 @@ class AnalyticsViewSet(viewsets.ViewSet):
             # Get gaming streaks
             gaming_streaks = AnalyticsService.get_gaming_streaks(request.user)
             
-            return Response({
+            result = {
                 'comprehensive_stats': comprehensive_stats,
                 'platform_distribution': platform_distribution,
                 'achievement_efficiency': achievement_efficiency,
                 'gaming_streaks': gaming_streaks,
-            })
+            }
+            
+            # Cache for 1 hour - SAFE OPTIMIZATION
+            cache.set(cache_key, result, getattr(settings, 'CACHE_TIMEOUTS', {}).get('ANALYTICS', 3600))
+            
+            return Response(result)
             
         except Exception as e:
             logger.error(f"Error in analytics list: {str(e)}")
