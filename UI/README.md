@@ -44,6 +44,7 @@ The NowPlaying UI is a modern React application that provides:
 - **JWT Authentication**: Secure login/registration with automatic token refresh
 - **Multi-Platform Gaming**: Steam, PlayStation, Xbox, and RetroAchievements integration
 - **Entertainment Tracking**: Trakt integration for movies and TV shows
+- **Analytics Dashboard**: Comprehensive statistics and insights across all entertainment platforms with performance-optimized caching
 - **Music Integration**: Spotify and Last.fm scrobbling
 - **Advanced Search**: Cross-platform search functionality across all entertainment categories
 - **Responsive Design**: Mobile-friendly interface using Material-UI
@@ -131,6 +132,7 @@ now-playing-ui/
 │   ├── pages/             # Page components
 │   │   ├── auth/          # Authentication pages
 │   │   ├── profile/       # User profile and settings
+│   │   ├── analytics/     # Analytics dashboard with performance optimization
 │   │   ├── games/         # Games-related pages
 │   │   ├── movies/        # Movies-related pages
 │   │   └── music/         # Music-related pages
@@ -150,6 +152,16 @@ now-playing-ui/
 
 - **GameSearch**: Cross-platform game search with autocomplete
 - **MovieShowSearch**: Movie and show search with TMDB integration
+
+### Analytics Components
+
+- **AnalyticsPage**: Main analytics dashboard with comprehensive statistics
+- **GamingStats**: Gaming statistics across all platforms with achievement tracking
+- **MusicStats**: Music listening patterns and statistics from Spotify and Last.fm
+- **MediaStats**: Movie and TV show watching statistics from Trakt
+- **DailyActivity**: Daily activity tracking and visualization
+- **PlatformComparison**: Cross-platform gaming comparison and insights
+- **AchievementProgress**: Achievement progress tracking across gaming platforms
 
 ### Gaming Components
 

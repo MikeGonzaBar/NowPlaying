@@ -30,6 +30,7 @@ from playstation import views as psn_views
 from trakt import views as trakt_views
 from music import views as music_views
 from xbox import views as xbox_views
+from analytics import views as analytics_views
 
 # Games Search View
 @api_view(['GET'])
@@ -149,6 +150,7 @@ router.register(r"trakt", trakt_views.TraktViewSet, basename="trakt")
 router.register(r"music", music_views.StreamedSongViewSet, basename="music")
 router.register(r'retroachievements', retroachievements_views.RetroAchievementsViewSet, basename='retroachievements')
 router.register(r'xbox', xbox_views.XBOXViewSet, basename='xbox')
+router.register(r'analytics', analytics_views.AnalyticsViewSet, basename='analytics')
 
 
 urlpatterns = [

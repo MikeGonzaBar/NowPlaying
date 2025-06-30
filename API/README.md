@@ -148,6 +148,30 @@ The system uses encrypted storage for all external service credentials. See the 
 
 ---
 
+### 📊 Analytics & Insights
+
+#### Analytics System
+
+**Endpoints**: `/analytics/`
+
+- **Comprehensive Statistics**: Cross-platform analytics combining gaming, music, and movie data
+- **Performance Optimized**: Cached results with intelligent query aggregation
+- **Multi-Platform Gaming Stats**: Unified statistics across Steam, PlayStation, Xbox, and RetroAchievements
+- **Entertainment Insights**: Music listening patterns and movie/show watching trends
+- **Gaming Streaks**: Achievement and activity streak tracking
+- **Efficient Caching**: Redis-backed caching with 1-hour TTL for optimal performance
+
+**Key Features**:
+
+- Bulk database aggregation for fast response times
+- Smart cache invalidation based on user activity
+- Consolidated statistics from all entertainment platforms
+- Gaming streak detection and maintenance
+
+📖 **[Complete Analytics Documentation](./NowPlayingAPI/analytics/README_ANALYTICS.md)**
+
+---
+
 ### 👤 User Management
 
 #### Users & API Keys
@@ -193,6 +217,13 @@ The system uses encrypted storage for all external service credentials. See the 
 | **Xbox** | `GET /xbox/get-game-list/` | `GET /xbox/get-game-list-stored/` | `GET /xbox/get-game-list-total-playtime/` | `GET /xbox/get-game-list-most-achieved/` | - |
 | **RetroAchievements** | `GET /retroachievements/fetch-recently-played-games/` | `GET /retroachievements/fetch-games/` | - | `GET /retroachievements/get-most-achieved-games/` | - |
 | **Cross-Platform** | - | - | - | - | `GET /games/search/` |
+
+### Analytics Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /analytics/` | **Comprehensive analytics dashboard** with gaming, music, and movie statistics |
+| `GET /analytics/calculate-today/` | Calculate and update today's activity statistics |
 
 ### User Management Endpoints
 
@@ -286,6 +317,8 @@ API/
 │   │   └── README_TRAKT.md  # Detailed Trakt service documentation
 │   ├── users/               # User management & API keys
 │   │   └── README_USERS.md  # Detailed user management documentation
+│   ├── analytics/           # Analytics & insights system
+│   │   └── README_ANALYTICS.md # Detailed analytics documentation
 │   ├── steam/               # Steam integration
 │   │   └── README_STEAM.md  # Detailed Steam service documentation
 │   ├── playstation/         # PlayStation integration

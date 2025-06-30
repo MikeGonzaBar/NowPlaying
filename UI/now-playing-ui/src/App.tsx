@@ -10,6 +10,7 @@ import './App.css'
 import MovieDetails from './pages/movies/pages/movieDetails';
 import AuthPage from './pages/auth/AuthPage';
 import ProfilePage from './pages/profile/ProfilePage';
+import AnalyticsPage from './pages/analytics/AnalyticsPage';
 import { isAuthenticated, refreshAuthToken } from './utils/auth';
 import Footer from './components/Footer';
 
@@ -90,6 +91,12 @@ function App() {
             <Route path="/music" element={
               <ProtectedRoute>
                 <Music />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/analytics" element={
+              <ProtectedRoute>
+                <AnalyticsPage />
               </ProtectedRoute>
             } />
 

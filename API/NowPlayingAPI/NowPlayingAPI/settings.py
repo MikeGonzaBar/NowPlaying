@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     "retroachievements",
     "xbox",
     "users",
+    "analytics",
     "rest_framework_simplejwt",
 ]
 

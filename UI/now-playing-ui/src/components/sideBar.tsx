@@ -4,6 +4,7 @@ import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
 import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 import HeadsetIcon from '@mui/icons-material/Headset';
 import PersonIcon from '@mui/icons-material/Person';
+import AnalyticsIcon from '@mui/icons-material/Analytics';
 import nowPlayingIcon from '../assets/now-playing-icon.png';
 
 interface SideBarProps {
@@ -39,6 +40,7 @@ function SideBar({ activeItem }: SideBarProps) {
                 { text: 'Games', icon: <SportsEsportsIcon />, route: '/games' },
                 { text: 'Movies', icon: <OndemandVideoIcon />, route: '/movies' },
                 { text: 'Music', icon: <HeadsetIcon />, route: '/music' },
+                { text: 'Analytics', icon: <AnalyticsIcon />, route: '/analytics' },
                 { text: 'Profile', icon: <PersonIcon />, route: '/profile' },
             ].map((item) => (
                 <ListItem key={item.text} disablePadding>

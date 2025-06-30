@@ -67,6 +67,12 @@ function LandingPage() {
             gradient: 'linear-gradient(to bottom, #1ED760, #107132)',
             route: '/music',
         },
+        {
+            title: 'Analytics',
+            emoji: '📊',
+            gradient: 'linear-gradient(to bottom, #667eea, #764ba2)',
+            route: '/analytics',
+        },
     ];
 
     return (

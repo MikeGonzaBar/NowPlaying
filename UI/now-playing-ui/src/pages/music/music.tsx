@@ -137,8 +137,8 @@ function Music() {
         setSnackbarMessage("Fetching complete Last.fm history. This may take a moment...");
         setSnackbarOpen(true);
         try {
-            const res = await authenticatedFetch(getApiUrl(`${API_CONFIG.MUSIC_ENDPOINT}/fetch-lastfm-recent-tracks/`), {
-                method: "POST"
+            const res = await authenticatedFetch(getApiUrl(`${API_CONFIG.MUSIC_ENDPOINT}/fetch-lastfm-recent/`), {
+                method: "GET"
             });
             const data = await res.json();
             if (!res.ok) {
