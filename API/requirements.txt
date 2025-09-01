@@ -1,5 +1,5 @@
 # Core Django
-Django==5.1.9
+Django==5.1.10
 asgiref==3.8.1
 sqlparse==0.5.3
 
@@ -23,9 +23,9 @@ PSNAWP==2.2.0
 gunicorn==23.0.0
 
 # HTTP and API
-requests==2.32.3
+requests==2.32.4
 requests-ratelimiter==0.7.0
-urllib3==2.3.0
+urllib3==2.5.0
 certifi==2025.1.31
 charset-normalizer==3.4.1
 idna==3.10
