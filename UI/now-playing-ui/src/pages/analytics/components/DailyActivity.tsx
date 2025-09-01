@@ -202,13 +202,13 @@ const DailyActivity: React.FC<DailyActivityProps> = ({ data }) => {
                                             width: 40,
                                             borderRadius: '4px 4px 0 0',
                                             background: 'linear-gradient(to top, #ff6b6b, #ee5a24)',
-                                            opacity: day.games_played > 0 ? 1 : 0.3,
+                                            opacity: day.games_played > 0 ? 1 : 0.6,
                                             height: `${maxGames > 0 ? (day.games_played / maxGames) * 100 : 0}%`,
                                             minHeight: 5,
                                             transition: 'height 0.5s ease'
                                         }}
                                     />
-                                    <Typography variant="caption" sx={{ mt: 1, color: '#666', fontWeight: 500 }}>
+                                    <Typography variant="caption" sx={{ mt: 1, color: '#444', fontWeight: 600 }}>
                                         {new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}
                                     </Typography>
                                 </Box>
@@ -246,13 +246,13 @@ const DailyActivity: React.FC<DailyActivityProps> = ({ data }) => {
                                             width: 40,
                                             borderRadius: '4px 4px 0 0',
                                             background: 'linear-gradient(to top, #4ecdc4, #44a08d)',
-                                            opacity: day.songs_listened > 0 ? 1 : 0.3,
+                                            opacity: day.songs_listened > 0 ? 1 : 0.6,
                                             height: `${maxSongs > 0 ? (day.songs_listened / maxSongs) * 100 : 0}%`,
                                             minHeight: 5,
                                             transition: 'height 0.5s ease'
                                         }}
                                     />
-                                    <Typography variant="caption" sx={{ mt: 1, color: '#666', fontWeight: 500 }}>
+                                    <Typography variant="caption" sx={{ mt: 1, color: '#444', fontWeight: 600 }}>
                                         {new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}
                                     </Typography>
                                 </Box>
@@ -290,13 +290,13 @@ const DailyActivity: React.FC<DailyActivityProps> = ({ data }) => {
                                             width: 40,
                                             borderRadius: '4px 4px 0 0',
                                             background: 'linear-gradient(to top, #a8edea, #fed6e3)',
-                                            opacity: (day.movies_watched + day.episodes_watched) > 0 ? 1 : 0.3,
+                                            opacity: (day.movies_watched + day.episodes_watched) > 0 ? 1 : 0.6,
                                             height: `${maxMovies > 0 ? ((day.movies_watched + day.episodes_watched) / maxMovies) * 100 : 0}%`,
                                             minHeight: 5,
                                             transition: 'height 0.5s ease'
                                         }}
                                     />
-                                    <Typography variant="caption" sx={{ mt: 1, color: '#666', fontWeight: 500 }}>
+                                    <Typography variant="caption" sx={{ mt: 1, color: '#444', fontWeight: 600 }}>
                                         {new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}
                                     </Typography>
                                 </Box>
@@ -337,37 +337,37 @@ const DailyActivity: React.FC<DailyActivityProps> = ({ data }) => {
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                         <Typography>🎮</Typography>
-                                        <Typography variant="body2" color="text.secondary">Games:</Typography>
+                                        <Typography variant="body2" sx={{ color: '#555', fontWeight: 500 }}>Games:</Typography>
                                     </Box>
-                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{day.games_played}</Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>{day.games_played}</Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                         <Typography>🏆</Typography>
-                                        <Typography variant="body2" color="text.secondary">Achievements:</Typography>
+                                        <Typography variant="body2" sx={{ color: '#555', fontWeight: 500 }}>Achievements:</Typography>
                                     </Box>
-                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{day.achievements_earned}</Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>{day.achievements_earned}</Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                         <Typography>🎵</Typography>
-                                        <Typography variant="body2" color="text.secondary">Songs:</Typography>
+                                        <Typography variant="body2" sx={{ color: '#555', fontWeight: 500 }}>Songs:</Typography>
                                     </Box>
-                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{day.songs_listened}</Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>{day.songs_listened}</Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                         <Typography>🎬</Typography>
-                                        <Typography variant="body2" color="text.secondary">Movies:</Typography>
+                                        <Typography variant="body2" sx={{ color: '#555', fontWeight: 500 }}>Movies:</Typography>
                                     </Box>
-                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{day.movies_watched}</Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>{day.movies_watched}</Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                         <Typography>📺</Typography>
-                                        <Typography variant="body2" color="text.secondary">Episodes:</Typography>
+                                        <Typography variant="body2" sx={{ color: '#555', fontWeight: 500 }}>Episodes:</Typography>
                                     </Box>
-                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{day.episodes_watched}</Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>{day.episodes_watched}</Typography>
                                 </Box>
                             </Box>
 
@@ -379,7 +379,7 @@ const DailyActivity: React.FC<DailyActivityProps> = ({ data }) => {
                                 justifyContent: 'space-between',
                                 alignItems: 'center'
                             }}>
-                                <Typography variant="body2">Total Engagement:</Typography>
+                                <Typography variant="body2" sx={{ color: '#555', fontWeight: 500 }}>Total Engagement:</Typography>
                                 <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea' }}>
                                     {day.total_engagement_time}
                                 </Typography>

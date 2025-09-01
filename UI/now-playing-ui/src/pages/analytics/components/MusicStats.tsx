@@ -121,12 +121,12 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
                             </Box>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Typography variant="body2" color="text.secondary">Songs:</Typography>
-                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{platform.data.songs}</Typography>
+                                    <Typography variant="body2" sx={{ color: '#555', fontWeight: 500 }}>Songs:</Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>{platform.data.songs}</Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Typography variant="body2" color="text.secondary">Listening Time:</Typography>
-                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{platform.data.listening_time}</Typography>
+                                    <Typography variant="body2" sx={{ color: '#555', fontWeight: 500 }}>Listening Time:</Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>{platform.data.listening_time}</Typography>
                                 </Box>
                             </Box>
                         </CardContent>

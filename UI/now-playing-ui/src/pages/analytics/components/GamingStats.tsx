@@ -71,13 +71,13 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
                             <SportsEsportsIcon fontSize="large" />
                         </Box>
                         <Box sx={{ flex: 1 }}>
-                            <Typography variant="subtitle2" color="text.secondary">
+                            <Typography variant="subtitle2" sx={{ color: '#555', fontWeight: 500 }}>
                                 Games Played
                             </Typography>
                             <Typography variant="h4" sx={{ fontWeight: 700, color: '#333' }}>
                                 {comprehensive_stats.totals.total_games_played}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" sx={{ color: '#666', fontWeight: 500 }}>
                                 {comprehensive_stats.averages.avg_games_per_day.toFixed(1)} per day
                             </Typography>
                         </Box>
@@ -99,13 +99,13 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
                             <EmojiEventsIcon fontSize="large" />
                         </Box>
                         <Box sx={{ flex: 1 }}>
-                            <Typography variant="subtitle2" color="text.secondary">
+                            <Typography variant="subtitle2" sx={{ color: '#555', fontWeight: 500 }}>
                                 Achievements Earned
                             </Typography>
                             <Typography variant="h4" sx={{ fontWeight: 700, color: '#333' }}>
                                 {comprehensive_stats.totals.total_achievements_earned}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" sx={{ color: '#666', fontWeight: 500 }}>
                                 {comprehensive_stats.averages.avg_achievements_per_day.toFixed(1)} per day
                             </Typography>
                         </Box>
@@ -127,13 +127,13 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
                             <AccessTimeIcon fontSize="large" />
                         </Box>
                         <Box sx={{ flex: 1 }}>
-                            <Typography variant="subtitle2" color="text.secondary">
+                            <Typography variant="subtitle2" sx={{ color: '#555', fontWeight: 500 }}>
                                 Total Gaming Time
                             </Typography>
                             <Typography variant="h4" sx={{ fontWeight: 700, color: '#333' }}>
                                 {comprehensive_stats.totals.total_gaming_time}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" sx={{ color: '#666', fontWeight: 500 }}>
                                 {comprehensive_stats.averages.avg_gaming_time_per_day} per day
                             </Typography>
                         </Box>
@@ -155,13 +155,13 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
                             <BarChartIcon fontSize="large" />
                         </Box>
                         <Box sx={{ flex: 1 }}>
-                            <Typography variant="subtitle2" color="text.secondary">
+                            <Typography variant="subtitle2" sx={{ color: '#555', fontWeight: 500 }}>
                                 Completion Rate
                             </Typography>
                             <Typography variant="h4" sx={{ fontWeight: 700, color: '#333' }}>
                                 {completionRate.toFixed(1)}%
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" sx={{ color: '#666', fontWeight: 500 }}>
                                 {comprehensive_stats.totals.total_games_completed} of {totalGames} games
                             </Typography>
                         </Box>

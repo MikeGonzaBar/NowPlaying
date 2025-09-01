@@ -194,10 +194,11 @@ const AnalyticsPage: React.FC = () => {
 
                 <Typography
                     variant="subtitle1"
-                    color="text.secondary"
                     sx={{
                         mb: 1,
                         fontFamily: 'Inter, sans-serif',
+                        color: '#555',
+                        fontWeight: 500
                     }}
                 >
                     Your entertainment statistics for the last {analyticsData.comprehensive_stats.period.days} days
@@ -205,10 +206,11 @@ const AnalyticsPage: React.FC = () => {
 
                 <Typography
                     variant="body2"
-                    color="text.secondary"
                     sx={{
                         mb: 3,
                         fontFamily: 'Inter, sans-serif',
+                        color: '#666',
+                        fontWeight: 500
                     }}
                 >
                     {new Date(analyticsData.comprehensive_stats.period.start_date).toLocaleDateString()} -

@@ -12,7 +12,29 @@ The application includes user authentication, profile management, integrated API
 
 ## Recent Updates & Fixes
 
-### Analytics System Optimization (Latest)
+### PlayStation Achievement Display Fix (Latest)
+
+- **Issue**: PlayStation games were not appearing in the "Most Achieved" section despite having achievements
+- **Root Cause**: Two critical issues identified:
+  - **Trophy Value Mismatch**: Frontend was using different trophy point values than backend (15/30/90/300 vs 1/2/3/20)
+  - **Data Structure Mismatch**: PlayStation stored endpoint was returning simple numeric counts instead of proper trophy breakdown structure
+- **Solution**:
+  - Updated frontend trophy values to match backend calculations
+  - Fixed PlayStation `get-game-list-stored` endpoint to use proper serializer with trophy breakdowns
+  - Ensured consistent data structure across all gaming platforms
+- **Result**: PlayStation games now properly appear in Most Achieved section with correct achievement percentages
+
+### Analytics UI Contrast Improvements
+
+- **Enhanced Readability**: Significantly improved contrast and readability across all analytics components
+- **Chart Visibility**: Increased opacity of inactive chart bars from 0.3 to 0.6 for better visibility
+- **Text Contrast**: Updated text colors from light grays to darker shades for improved readability
+  - Chart labels: `#666` → `#444` with increased font weight
+  - Platform distribution text: `text.secondary` → `#555` with `fontWeight: 500`
+  - Values: Enhanced to `#333` with `fontWeight: 600`
+- **Component Updates**: Applied improvements to MediaStats, DailyActivity, GamingStats, and MusicStats components
+
+### Analytics System Optimization
 
 - **Performance Enhancement**: Completely optimized the analytics system for better performance and maintainability
   - **Endpoint Consolidation**: Reduced from 8 separate analytics endpoints to 2 streamlined endpoints

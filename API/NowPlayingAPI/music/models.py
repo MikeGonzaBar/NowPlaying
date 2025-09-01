@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.utils import timezone
 import hashlib
+from utils import parse_datetime_aware
 
 
 class Song(models.Model):
@@ -63,7 +64,8 @@ class Song(models.Model):
 
         for item in data.get("items", []):
             track = item.get("track", {})
-            played_at = datetime.strptime(item.get("played_at"), "%Y-%m-%dT%H:%M:%S.%fZ")
+            # Parse Spotify datetime and make it timezone-aware
+            played_at = parse_datetime_aware(item.get("played_at"), "%Y-%m-%dT%H:%M:%S.%fZ")
             title = track.get("name")
             artist = ", ".join([artist.get("name") for artist in track.get("artists", [])])
             album_data = track.get("album", {})
@@ -210,12 +212,9 @@ class Song(models.Model):
             date_info = track.get("date", {})
             if isinstance(date_info, dict):
                 date_text = date_info.get("#text", "")
-                try:
-                    # Last.fm date format: "01 Jan 2024, 12:00"
-                    naive_datetime = datetime.strptime(date_text, "%d %b %Y, %H:%M")
-                    # Make timezone-aware using Django's timezone support
-                    played_at = timezone.make_aware(naive_datetime)
-                except ValueError:
+                # Last.fm date format: "01 Jan 2024, 12:00"
+                played_at = parse_datetime_aware(date_text, "%d %b %Y, %H:%M")
+                if played_at is None:
                     # Fallback to current time if parsing fails
                     played_at = timezone.now()
             else:

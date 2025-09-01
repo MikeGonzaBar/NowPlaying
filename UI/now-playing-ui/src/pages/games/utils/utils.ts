@@ -111,7 +111,7 @@ export const calculateAchievementPercentage = (
         const percentage = (game.unlocked_achievements / game.total_achievements) * 100;
         return percentage;
     } else if (isPsnGame(game)) {
-        const trophyValues = { bronze: 15, silver: 30, gold: 90, platinum: 300 };
+        const trophyValues = { bronze: 1, silver: 2, gold: 3, platinum: 20 };
 
         const unlockedPoints =
             (game.unlocked_achievements.bronze || 0) * trophyValues.bronze +

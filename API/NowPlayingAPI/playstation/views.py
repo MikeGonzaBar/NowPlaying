@@ -43,8 +43,10 @@ class PSNViewSet(viewsets.ModelViewSet):
     def getGameListStored(self, request):
         # Use the stored PSNGame records filtered by the current user
         try:
-            result = PSN.get_games_stored(user=request.user)
-            return Response({"result": result})
+            # Use the serializer to get the proper data structure with trophy breakdowns
+            games = self.get_queryset().prefetch_related("achievements")
+            serializer = self.serializer_class(games, many=True)
+            return Response({"result": serializer.data})
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

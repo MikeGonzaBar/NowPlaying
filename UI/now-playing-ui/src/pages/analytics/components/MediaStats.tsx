@@ -53,7 +53,7 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
                             <MovieIcon fontSize="large" />
                         </Box>
                         <Box sx={{ flex: 1 }}>
-                            <Typography variant="subtitle2" color="text.secondary">
+                            <Typography variant="subtitle2" sx={{ color: '#555', fontWeight: 500 }}>
                                 Movies Watched
                             </Typography>
                             <Typography variant="h4" sx={{ fontWeight: 700, color: '#333' }}>
@@ -78,7 +78,7 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
                             <TvIcon fontSize="large" />
                         </Box>
                         <Box sx={{ flex: 1 }}>
-                            <Typography variant="subtitle2" color="text.secondary">
+                            <Typography variant="subtitle2" sx={{ color: '#555', fontWeight: 500 }}>
                                 Episodes Watched
                             </Typography>
                             <Typography variant="h4" sx={{ fontWeight: 700, color: '#333' }}>
@@ -103,7 +103,7 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
                             <AccessTimeIcon fontSize="large" />
                         </Box>
                         <Box sx={{ flex: 1 }}>
-                            <Typography variant="subtitle2" color="text.secondary">
+                            <Typography variant="subtitle2" sx={{ color: '#555', fontWeight: 500 }}>
                                 Total Watch Time
                             </Typography>
                             <Typography variant="h4" sx={{ fontWeight: 700, color: '#333' }}>
@@ -128,20 +128,20 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
                     </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <Typography variant="body2" color="text.secondary">Movies:</Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            <Typography variant="body2" sx={{ color: '#555', fontWeight: 500 }}>Movies:</Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>
                                 {platform_distribution.trakt?.movies || 0}
                             </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <Typography variant="body2" color="text.secondary">Episodes:</Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            <Typography variant="body2" sx={{ color: '#555', fontWeight: 500 }}>Episodes:</Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>
                                 {platform_distribution.trakt?.episodes || 0}
                             </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <Typography variant="body2" color="text.secondary">Watch Time:</Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            <Typography variant="body2" sx={{ color: '#555', fontWeight: 500 }}>Watch Time:</Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>
                                 {platform_distribution.trakt?.watch_time || '0h 0m'}
                             </Typography>
                         </Box>
@@ -177,14 +177,14 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
                                     sx={{
                                         width: 40,
                                         borderRadius: '4px 4px 0 0',
-                                        background: (day.movies_watched + day.episodes_watched) > 0 ? 'linear-gradient(to top, #a8edea, #fed6e3)' : '#e0e0e0',
-                                        opacity: (day.movies_watched + day.episodes_watched) > 0 ? 1 : 0.3,
+                                        background: (day.movies_watched + day.episodes_watched) > 0 ? 'linear-gradient(to top, #a8edea, #fed6e3)' : '#d0d0d0',
+                                        opacity: (day.movies_watched + day.episodes_watched) > 0 ? 1 : 0.6,
                                         height: `${Math.max(((day.movies_watched + day.episodes_watched) / 10) * 100, 5)}%`,
                                         minHeight: 5,
                                         transition: 'height 0.5s ease'
                                     }}
                                 />
-                                <Typography variant="caption" sx={{ mt: 1, color: '#666', fontWeight: 500 }}>
+                                <Typography variant="caption" sx={{ mt: 1, color: '#444', fontWeight: 600 }}>
                                     {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                 </Typography>
                             </Box>
