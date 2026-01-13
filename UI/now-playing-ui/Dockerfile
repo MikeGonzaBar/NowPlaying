@@ -13,6 +13,6 @@ RUN apk update && apk upgrade && apk add --no-cache libxml2 >=2.13.4-r6 && rm -r
 
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY --from=build /app/public /usr/share/nginx/html
-COPY --from=build /app/vite.config.ts /etc/nginx/vite.config.ts
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

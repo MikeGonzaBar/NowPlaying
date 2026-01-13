@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+    Alert,
     Box,
     Button,
     Card,
@@ -238,7 +239,11 @@ function Music() {
                         <ToggleButton value="lastfm" aria-label="last.fm">Last.fm</ToggleButton>
                     </ToggleButtonGroup>
 
-                    {error && <p style={{ color: "red" }}>{error}</p>}
+                    {error && (
+                        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                            {error}
+                        </Alert>
+                    )}
 
                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
                         {tracks.map((item, index) => {

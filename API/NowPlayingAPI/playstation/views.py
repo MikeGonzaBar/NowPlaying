@@ -7,9 +7,12 @@ from .models import PSNGame
 from .serializers import PSNGameSerializer
 from .models import PSN  # Import the utility class that contains get_games() and get_games_stored()
 from users.models import UserApiKey  # Import UserApiKey from users app
+from rest_framework.permissions import IsAuthenticated
+from psnawp_api import PSNAWP
 
 class PSNViewSet(viewsets.ModelViewSet):
     serializer_class = PSNGameSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         # Filter games by the authenticated user
@@ -38,6 +41,46 @@ class PSNViewSet(viewsets.ModelViewSet):
                 {"error": "No PlayStation API key found. Please add your PlayStation NPSSO in profile settings."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+    @action(detail=False, methods=["post"], url_path="exchange-npsso")
+    def exchange_npsso(self, request):
+        """
+        Accepts an NPSSO value and optional PSN user id, validates it by
+        initializing PSNAWP, and stores it encrypted in UserApiKey for the
+        authenticated user. This enables automatic token handling by PSNAWP
+        without requiring repeated logins.
+        Body: { "npsso": "...", "psn_user_id": "optional" }
+        """
+        npsso = request.data.get("npsso")
+        psn_user_id = request.data.get("psn_user_id")
+
+        if not npsso or not isinstance(npsso, str) or len(npsso.strip()) < 10:
+            return Response({"error": "Invalid or missing NPSSO."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Validate NPSSO by attempting to create a client
+            client = PSNAWP(npsso).me()
+            validated_online_id = getattr(client, "online_id", None)
+
+            api_key_obj, _created = UserApiKey.objects.get_or_create(
+                user=request.user,
+                service_name="psn",
+                defaults={
+                    "service_user_id": psn_user_id or validated_online_id or "",
+                },
+            )
+            api_key_obj.set_key(npsso, service_user_id=psn_user_id or validated_online_id or api_key_obj.service_user_id)
+            api_key_obj.save()
+
+            return Response(
+                {
+                    "message": "NPSSO stored successfully.",
+                    "service_user_id": api_key_obj.service_user_id,
+                },
+                status=status.HTTP_200_OK,
+            )
+        except Exception as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=["get"], url_path="get-game-list-stored")
     def getGameListStored(self, request):

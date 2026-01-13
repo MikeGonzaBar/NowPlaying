@@ -1,10 +1,16 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     Box,
     Typography,
     Alert,
     Button,
     Chip,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField,
+    Snackbar,
 } from "@mui/material";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { Link } from "react-router-dom";
@@ -14,10 +20,16 @@ import PlatformFilter from "../components/PlatformFilter";
 import PlatformUpdateButtons from "../components/PlatformUpdateButtons";
 import GameSearch from "../components/GameSearch";
 import { useGameData } from "../hooks/useGameData";
+import { authenticatedFetch } from "../../../utils/auth";
+import { API_CONFIG, getApiUrl } from "../../../config/api";
 
 function Games() {
     const beBaseUrl = `http://${window.location.hostname}:8080`;
     const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+    const [reconnectOpen, setReconnectOpen] = useState(false);
+    const [npsso, setNpsso] = useState("");
+    const [saving, setSaving] = useState(false);
+    const [snackbarOpen, setSnackbarOpen] = useState(false);
 
     const {
         latestPlayedGames,
@@ -25,6 +37,7 @@ function Games() {
         mostAchieved,
         loading,
         error,
+        clearError,
         refreshSteam,
         refreshPSN,
         refreshXbox,
@@ -34,6 +47,48 @@ function Games() {
         updatingPlatforms,
         getGamePlatform,
     } = useGameData(beBaseUrl);
+
+    const isPsnError = useMemo(() => {
+        if (!error) return false;
+        const msg = error.toLowerCase();
+        return msg.includes("npsso") || msg.includes("playstation");
+    }, [error]);
+
+    useEffect(() => {
+        if (isPsnError) {
+            setReconnectOpen(true);
+        }
+    }, [isPsnError]);
+
+    const handleReconnect = async () => {
+        try {
+            setSaving(true);
+            const resp = await authenticatedFetch(
+                getApiUrl(`${API_CONFIG.PSN_ENDPOINT}/exchange-npsso/`),
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ npsso: npsso.trim() }),
+                }
+            );
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) {
+                throw new Error(data?.error || data?.detail || "Failed to store NPSSO");
+            }
+            await refreshPSN();
+            clearError();
+            setReconnectOpen(false);
+            setNpsso("");
+            setSnackbarOpen(true);
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : "Failed to reconnect PlayStation";
+            // keep the alert visible; also show inline error by using TextField error/helperText
+            // We'll set a simple window alert to ensure the user sees it without adding extra state
+            alert(msg);
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const handlePlatformToggle = (platform: string) => {
         setSelectedPlatforms(prev => {
@@ -66,7 +121,18 @@ function Games() {
                     <GameSearch />
 
                     {error && (
-                        <Alert severity="error" sx={{ mb: 2 }}>
+                        <Alert
+                            severity="error"
+                            sx={{ mb: 2 }}
+                            onClose={clearError}
+                            action={
+                                isPsnError ? (
+                                    <Button color="inherit" size="small" onClick={() => setReconnectOpen(true)}>
+                                        Reconnect PlayStation
+                                    </Button>
+                                ) : null
+                            }
+                        >
                             {error}
                         </Alert>
                     )}
@@ -156,6 +222,47 @@ function Games() {
                     />
                 </Box>
             </Box>
+
+            <Dialog open={reconnectOpen} onClose={() => setReconnectOpen(false)}>
+                <DialogTitle>Reconnect PlayStation</DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" sx={{ mb: 2 }}>
+                        Your NPSSO seems expired or invalid. Paste a new NPSSO to reconnect.
+                    </Typography>
+                    <TextField
+                        autoFocus
+                        fullWidth
+                        label="NPSSO"
+                        value={npsso}
+                        onChange={(e) => setNpsso(e.target.value)}
+                        placeholder="Paste your NPSSO"
+                        disabled={saving}
+                    />
+                    <Box sx={{ mt: 1 }}>
+                        <Button
+                            component={Link}
+                            to="/profile"
+                            size="small"
+                            sx={{ textTransform: 'none' }}
+                        >
+                            How to get your NPSSO
+                        </Button>
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setReconnectOpen(false)} disabled={saving}>Cancel</Button>
+                    <Button onClick={handleReconnect} variant="contained" disabled={saving || npsso.trim().length < 10}>
+                        {saving ? 'Saving…' : 'Save'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Snackbar
+                open={snackbarOpen}
+                autoHideDuration={3000}
+                onClose={() => setSnackbarOpen(false)}
+                message="PlayStation reconnected"
+            />
         </div>
     );
 }

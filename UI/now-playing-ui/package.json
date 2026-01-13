@@ -6,6 +6,7 @@
 	"scripts": {
 		"dev": "vite",
 		"build": "tsc -b && vite build",
+		"build:analyze": "tsc -b && vite build --mode analyze",
 		"lint": "eslint .",
 		"preview": "vite preview",
 		"optimize-images": "node optimize-images.js",
@@ -40,7 +41,6 @@
 		"rollup-plugin-visualizer": "^6.0.3",
 		"typescript": "~5.7.2",
 		"typescript-eslint": "^8.24.1",
-		"vite": "^6.3.5",
-		"vite-plugin-imagemin": "^0.6.1"
+		"vite": "^6.3.5"
 	}
 }

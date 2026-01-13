@@ -19,14 +19,22 @@ export function useApi<T>() {
 
         try {
             const response = await authenticatedFetch(url, options);
-            const data = await response.json();
 
-            setState({
-                data,
-                error: null,
-                loading: false,
-            });
+            // Try to parse JSON, even on non-OK responses
+            let data: any = null;
+            try {
+                data = await response.json();
+            } catch (_e) {
+                data = null;
+            }
 
+            if (!response.ok) {
+                const backendMessage = (data && (data.detail || data.error)) ? (data.detail || data.error) : `Request failed with status ${response.status}`;
+                setState({ data: null, error: backendMessage, loading: false });
+                throw new Error(backendMessage);
+            }
+
+            setState({ data, error: null, loading: false });
             return data;
         } catch (error) {
             let errorMessage = 'An error occurred';
@@ -37,13 +45,7 @@ export function useApi<T>() {
                 errorMessage = error.message;
             }
 
-            setState({
-                data: null,
-                error: errorMessage,
-                loading: false,
-            });
-
-            // Re-throw the error with the enhanced message
+            setState({ data: null, error: errorMessage, loading: false });
             throw new Error(errorMessage);
         }
     }, []);

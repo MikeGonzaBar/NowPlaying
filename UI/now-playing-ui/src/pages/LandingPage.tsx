@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom';
 import { Container, Box, Typography, Paper, Button } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import PersonIcon from '@mui/icons-material/Person';
-import nowPlayingIcon from '../assets/now-playing-icon.png';
 import { useAuth } from '../hooks/useAuth';
 
 interface CategoryCardProps {
@@ -124,7 +123,7 @@ function LandingPage() {
 
             <Box
                 component="img"
-                src={nowPlayingIcon}
+                src={'/nowPlaying.svg'}
                 alt="Now Playing Icon"
                 sx={{
                     width: 235,

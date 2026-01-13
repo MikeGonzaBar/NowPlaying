@@ -151,7 +151,9 @@ class Song(models.Model):
             data = response.json()
             
             if "error" in data:
-                raise Exception(f"Last.fm API error: {data.get('message', 'Unknown error')}")
+                error_code = data.get("error", "Unknown")
+                error_message = data.get("message", "Unknown error")
+                raise Exception(f"Last.fm API error ({error_code}): {error_message}")
 
             recenttracks = data.get("recenttracks", {})
             tracks = recenttracks.get("track", [])

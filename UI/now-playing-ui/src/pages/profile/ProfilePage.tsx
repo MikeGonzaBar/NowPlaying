@@ -8,6 +8,8 @@ import {
 
 import SideBar from '../../components/sideBar';
 import { useProfile, useApiKeys, useTraktAuth, usePSNEdit } from './hooks';
+import { authenticatedFetch } from '../../utils/auth';
+import { getApiUrl, API_CONFIG } from '../../config/api';
 import { ServiceSection, TraktOAuthDialog } from './components';
 
 function ProfilePage() {
@@ -18,8 +20,7 @@ function ProfilePage() {
         newApiKeys,
         handleNewApiKeyChange,
         saveApiKey,
-        deleteApiKey,
-        updateApiKey
+        deleteApiKey
     } = useApiKeys();
 
     const {
@@ -71,12 +72,25 @@ function ProfilePage() {
         }
     };
 
-    const handlePSNSave = async (apiKeyId: number) => {
+    const handlePSNSave = async (_apiKeyId: number) => {
         try {
             setUpdatingPSN(true);
-            await updateApiKey(apiKeyId, { api_key: editingNPSSO.trim() });
+            const body = { npsso: editingNPSSO.trim() };
+            const response = await authenticatedFetch(
+                getApiUrl(`${API_CONFIG.PSN_ENDPOINT}/exchange-npsso/`),
+                {
+                    method: 'POST',
+                    body: JSON.stringify(body)
+                }
+            );
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.error || 'Failed to store NPSSO');
+            }
+
             cancelPSNEditing();
-            alert('PlayStation NPSSO updated successfully!');
+            alert('PlayStation NPSSO stored successfully!');
         } catch (error) {
             alert(error instanceof Error ? error.message : 'Failed to update NPSSO');
         } finally {

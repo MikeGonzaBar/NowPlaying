@@ -120,14 +120,22 @@ export const useGameData = (beBaseUrl: string) => {
 
     const refreshGames = async () => {
         try {
-            await Promise.all([
-                api.request(`${beBaseUrl}/steam/get-game-list/`),
-                api.request(`${beBaseUrl}/psn/get-game-list/`),
-                api.request(`${beBaseUrl}/retroachievements/fetch-recently-played-games/`),
-                api.request(`${beBaseUrl}/xbox/get-game-list/`)
+            const [_steamRes, psnRes, _retroRes, _xboxRes] = await Promise.all([
+                api.request(`${beBaseUrl}/steam/get-game-list/`).catch((e) => ({ __error: e })),
+                api.request(`${beBaseUrl}/psn/get-game-list/`).catch((e) => ({ __error: e })),
+                api.request(`${beBaseUrl}/retroachievements/fetch-recently-played-games/`).catch((e) => ({ __error: e })),
+                api.request(`${beBaseUrl}/xbox/get-game-list/`).catch((e) => ({ __error: e })),
             ]);
+
+            if (psnRes && !('__error' in psnRes) && psnRes.result && psnRes.result.error) {
+                setError(psnRes.result.error);
+            } else if (psnRes && '__error' in psnRes) {
+                setError('An error occurred while refreshing PSN games');
+            } else {
+                setError(null);
+            }
+
             await fetchGames();
-            setError(null);
         } catch (error) {
             console.error("Error refreshing games:", error);
             setError("An error occurred while refreshing games");
@@ -152,9 +160,13 @@ export const useGameData = (beBaseUrl: string) => {
     const refreshPSN = async () => {
         try {
             setUpdatingPlatforms(prev => ({ ...prev, psn: true }));
-            await api.request(`${beBaseUrl}/psn/get-game-list/`);
+            const resp = await api.request(`${beBaseUrl}/psn/get-game-list/`);
+            if (resp && resp.result && resp.result.error) {
+                setError(resp.result.error);
+            } else {
+                setError(null);
+            }
             await fetchGames();
-            setError(null);
         } catch (error) {
             console.error("Error refreshing PSN games:", error);
             setError("An error occurred while refreshing PSN games");
@@ -232,6 +244,7 @@ export const useGameData = (beBaseUrl: string) => {
         mostAchieved,
         loading,
         error,
+        clearError: () => setError(null),
         refreshGames,
         refreshSteam,
         refreshPSN,

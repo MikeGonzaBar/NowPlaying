@@ -7,6 +7,10 @@ from .serializers import StreamedSongSerializer  # Import the serializer
 from users.models import UserApiKey  # Import UserApiKey from the correct location
 from django.core.cache import cache
 from django.conf import settings
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class StreamedSongViewSet(viewsets.ModelViewSet):
@@ -98,8 +102,10 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                 }
             )
         except Exception as e:
+            error_msg = str(e)
+            logger.error(f"Bad Request: /music/fetch-lastfm-recent/ - {error_msg} for user {request.user.id}")
             return Response(
-                {"error": str(e)}, 
+                {"error": error_msg}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
 

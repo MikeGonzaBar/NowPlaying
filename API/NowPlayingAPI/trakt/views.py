@@ -10,6 +10,7 @@ from django.urls import reverse
 import requests
 from datetime import timedelta
 from django.utils import timezone
+import logging
 from .models import (
     Episode,
     Season,
@@ -22,6 +23,8 @@ from .models import (
     get_trakt_api_credentials,
 )
 from django.core.serializers import serialize  # For serializing data
+
+logger = logging.getLogger(__name__)
 
 
 class TraktViewSet(viewsets.ViewSet):
@@ -226,10 +229,12 @@ class TraktViewSet(viewsets.ViewSet):
         try:
             # Check if user has a Trakt token
             if not TraktToken.objects.filter(user=request.user).exists():
+                error_msg = "No Trakt token found. Please authenticate with Trakt first."
+                logger.warning(f"Bad Request: /trakt/fetch-latest-movies/ - {error_msg} for user {request.user.id}")
                 auth_url = request.build_absolute_uri("authenticate/")
                 return Response(
                     {
-                        "error": "No Trakt token found. Please authenticate with Trakt first.",
+                        "error": error_msg,
                         "auth_url": auth_url,
                         "message": f"Visit {auth_url} to start the authentication process"
                     },
@@ -240,8 +245,10 @@ class TraktViewSet(viewsets.ViewSet):
             return Response({"result": result})
             
         except Exception as e:
+            error_msg = str(e)
+            logger.error(f"Bad Request: /trakt/fetch-latest-movies/ - {error_msg} for user {request.user.id}", exc_info=True)
             return Response(
-                {"error": str(e)},
+                {"error": error_msg},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -254,10 +261,12 @@ class TraktViewSet(viewsets.ViewSet):
         try:
             # Check if user has a Trakt token
             if not TraktToken.objects.filter(user=request.user).exists():
+                error_msg = "No Trakt token found. Please authenticate with Trakt first."
+                logger.warning(f"Bad Request: /trakt/fetch-latest-shows/ - {error_msg} for user {request.user.id}")
                 auth_url = request.build_absolute_uri("authenticate/")
                 return Response(
                     {
-                        "error": "No Trakt token found. Please authenticate with Trakt first.",
+                        "error": error_msg,
                         "auth_url": auth_url,
                         "message": f"Visit {auth_url} to start the authentication process"
                     },
@@ -268,8 +277,10 @@ class TraktViewSet(viewsets.ViewSet):
             return Response({"result": result})
             
         except Exception as e:
+            error_msg = str(e)
+            logger.error(f"Bad Request: /trakt/fetch-latest-shows/ - {error_msg} for user {request.user.id}", exc_info=True)
             return Response(
-                {"error": str(e)},
+                {"error": error_msg},
                 status=status.HTTP_400_BAD_REQUEST
             )
 

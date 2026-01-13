@@ -1,35 +1,25 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import dotenv from "dotenv";
-import viteImageOptimize from 'vite-plugin-imagemin'
 import { visualizer } from 'rollup-plugin-visualizer'
 
 // https://vite.dev/config/
 dotenv.config();
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
-    // Image optimization - SAFE OPTIMIZATION
-    viteImageOptimize({
-      gifsicle: { optimizationLevel: 7 },
-      mozjpeg: { quality: 85 },
-      pngquant: { quality: [0.65, 0.8] },
-      svgo: {
-        plugins: [
-          { name: 'removeViewBox', active: false },
-          { name: 'removeEmptyAttrs', active: false }
-        ]
-      },
-      webp: { quality: 85 }
-    }),
-    // Bundle analyzer - SAFE OPTIMIZATION
-    visualizer({
-      filename: 'dist/stats.html',
-      open: true,
-      gzipSize: true,
-      brotliSize: true,
-    })
+    // Bundle analyzer (opt-in: vite build --mode analyze)
+    ...(mode === 'analyze'
+      ? [
+        visualizer({
+          filename: 'dist/stats.html',
+          open: true,
+          gzipSize: true,
+          brotliSize: true,
+        }),
+      ]
+      : []),
   ],
   build: {
     rollupOptions: {
@@ -52,4 +42,4 @@ export default defineConfig({
   define: {
     "process.env.VITE_REACT_APP_NEWS_API_KEY": JSON.stringify(process.env.VITE_REACT_APP_NEWS_API_KEY),
   },
-})
+}))

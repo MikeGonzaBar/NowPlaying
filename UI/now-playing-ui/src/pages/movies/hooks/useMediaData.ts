@@ -31,7 +31,8 @@ export const useMediaData = <T extends Movie | Show>(endpoint: string) => {
             setPage(nextPage);
         } catch (err) {
             console.error(err);
-            setError(`Failed to load more ${endpoint.includes('movies') ? 'movies' : 'shows'}.`);
+            const errorMessage = err instanceof Error ? err.message : `Failed to load more ${endpoint.includes('movies') ? 'movies' : 'shows'}.`;
+            setError(errorMessage);
         }
     };
 
@@ -48,7 +49,8 @@ export const useMediaData = <T extends Movie | Show>(endpoint: string) => {
             setError(null);
         } catch (err) {
             console.error(err);
-            setError(`Failed to refresh ${endpoint.includes('movies') ? 'movies' : 'shows'}.`);
+            const errorMessage = err instanceof Error ? err.message : `Failed to refresh ${endpoint.includes('movies') ? 'movies' : 'shows'}.`;
+            setError(errorMessage);
         }
     };
 
@@ -58,7 +60,8 @@ export const useMediaData = <T extends Movie | Show>(endpoint: string) => {
                 const initial = await fetchData(1);
                 setData(initial);
             } catch (err) {
-                setError(`Failed to load ${endpoint.includes('movies') ? 'movies' : 'shows'}.`);
+                const errorMessage = err instanceof Error ? err.message : `Failed to load ${endpoint.includes('movies') ? 'movies' : 'shows'}.`;
+                setError(errorMessage);
             } finally {
                 setLoading(false);
             }

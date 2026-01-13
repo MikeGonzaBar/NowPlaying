@@ -5,7 +5,6 @@ import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 import HeadsetIcon from '@mui/icons-material/Headset';
 import PersonIcon from '@mui/icons-material/Person';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
-import nowPlayingIcon from '../assets/now-playing-icon.png';
 
 interface SideBarProps {
     activeItem: string;
@@ -26,7 +25,7 @@ function SideBar({ activeItem }: SideBarProps) {
                 >
                     <Box
                         component="img"
-                        src={nowPlayingIcon}
+                        src={'/nowPlaying.svg'}
                         alt="Now Playing Icon"
                         sx={{
                             width: 122,

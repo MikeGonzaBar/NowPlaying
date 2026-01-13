@@ -1,8 +1,14 @@
 # Base image
 FROM python:alpine
 
-# Update system packages to fix CVE vulnerabilities
-RUN apk update && apk upgrade && apk add --no-cache libxml2 >=2.13.4-r6 && rm -rf /var/cache/apk/*
+# Install system dependencies including PostgreSQL development libraries for psycopg2
+RUN apk update && apk upgrade && apk add --no-cache \
+    libxml2>=2.13.4-r6 \
+    postgresql-dev \
+    gcc \
+    musl-dev \
+    libffi-dev \
+    && rm -rf /var/cache/apk/*
 
 WORKDIR /app
 

@@ -270,8 +270,13 @@ def fetch_latest_watched_movies(user):
         slug = movie_data.get("ids", {}).get("slug")
         imdb_id = movie_data.get("ids", {}).get("imdb")
         tmdb_id = movie_data.get("ids", {}).get("tmdb")
-        images = movie_data.get("images", {})
-        poster = images.get("poster", {}).get("full")
+        # Handle images safely - Trakt API may not return images or may return them in different formats
+        poster = None
+        images = movie_data.get("images")
+        if images and isinstance(images, dict):
+            poster_data = images.get("poster", {})
+            if isinstance(poster_data, dict):
+                poster = poster_data.get("full")
 
         # Update or create the movie record
         movie_obj, _ = Movie.objects.update_or_create(
@@ -328,8 +333,13 @@ def fetch_latest_watched_shows(user):
         year = show_data.get("year")
         slug = show_data.get("ids", {}).get("slug")
         # Extract the TMDb ID from the response
-        images = show_data.get("images", {})
-        poster = images.get("poster", {}).get("full")
+        # Handle images safely - Trakt API may not return images or may return them in different formats
+        poster = None
+        images = show_data.get("images")
+        if images and isinstance(images, dict):
+            poster_data = images.get("poster", {})
+            if isinstance(poster_data, dict):
+                poster = poster_data.get("full")
         # Update or create the show record
         show_obj, _ = Show.objects.update_or_create(
             trakt_id=trakt_id,

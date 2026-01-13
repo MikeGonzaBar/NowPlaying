@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Container, Box, Typography, TextField, Button, Paper } from '@mui/material';
-import nowPlayingIcon from '../../assets/now-playing-icon.png';
 import { getApiUrl, API_CONFIG } from '../../config/api';
 
 const AuthPage: React.FC = () => {
@@ -117,7 +116,7 @@ const AuthPage: React.FC = () => {
         >
             <Box
                 component="img"
-                src={nowPlayingIcon}
+                src={'/nowPlaying.svg'}
                 alt="Now Playing Icon"
                 sx={{
                     width: 235,
