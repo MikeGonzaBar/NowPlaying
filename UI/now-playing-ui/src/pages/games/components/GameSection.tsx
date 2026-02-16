@@ -63,8 +63,25 @@ const GameSection: React.FC<GameSectionProps> = ({ title, games, loading, select
                                 to={`/game/${game.appid}`}
                                 state={{ game }}
                                 style={{ textDecoration: "none" }}
+                                onClick={(e) => {
+                                    // Capture card position for shared element transition
+                                    const cardElement = e.currentTarget.querySelector('[data-game-card]') as HTMLElement;
+                                    if (cardElement) {
+                                        const rect = cardElement.getBoundingClientRect();
+                                        const cardPosition = {
+                                            x: rect.left,
+                                            y: rect.top,
+                                            width: rect.width,
+                                            height: rect.height,
+                                        };
+                                        // Store in sessionStorage for transition
+                                        sessionStorage.setItem('gameCardPosition', JSON.stringify(cardPosition));
+                                    }
+                                }}
                             >
-                                <GameCard game={game} />
+                                <Box data-game-card>
+                                    <GameCard game={game} />
+                                </Box>
                             </Link>
                         </Grid>
                     ))}

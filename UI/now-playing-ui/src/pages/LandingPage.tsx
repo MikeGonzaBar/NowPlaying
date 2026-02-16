@@ -1,161 +1,203 @@
-import { Link } from 'react-router-dom';
-import { Container, Box, Typography, Paper, Button } from '@mui/material';
-import Grid from '@mui/material/Grid';
-import PersonIcon from '@mui/icons-material/Person';
-import { useAuth } from '../hooks/useAuth';
+import { Link, useNavigate } from 'react-router-dom';
+import { Box, Typography, Container } from '@mui/material';
+import { Gamepad2, Film, Music, BarChart3, Search, User } from 'lucide-react';
+import { zincColors, categoryColors } from '../theme';
 
-interface CategoryCardProps {
+interface CategoryTileProps {
     title: string;
-    emoji: string;
-    gradient: string;
+    icon: React.ReactNode;
+    color: string;
     route: string;
+    lastPlayed?: string;
 }
 
-const CategoryCard: React.FC<CategoryCardProps> = ({ title, emoji, gradient, route }) => (
-    <Paper
-        component={Link}
-        to={route}
-        sx={{
-            width: 350,
-            height: 193,
-            borderRadius: 2,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: gradient,
-            color: '#ffffff',
-            cursor: 'pointer',
-            textDecoration: 'none',
-            transition: 'transform 0.2s ease, box-shadow 0.2s ease, color 0.2s ease',
-            '&:hover': {
-                transform: 'translateY(-5px)',
-                boxShadow: 3,
-                color: '#FFFFFF',
-            },
-        }}
-    >
-        <Typography variant="h6" sx={{ fontSize: '45px' }}>
-            {title}
-        </Typography>
-        <Typography variant="body1" sx={{ fontSize: '45px' }}>
-            {emoji}
-        </Typography>
-    </Paper>
-);
+const CategoryTile: React.FC<CategoryTileProps> = ({ title, icon, color, route, lastPlayed }) => {
+    const navigate = useNavigate();
+
+    return (
+        <Box
+            component="div"
+            onClick={() => navigate(route)}
+            sx={{
+                width: 200,
+                height: 140,
+                backgroundColor: zincColors.card,
+                border: `1px solid ${zincColors.border}`,
+                borderRadius: '12px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                position: 'relative',
+                '&:hover': {
+                    borderColor: color,
+                    boxShadow: `0 0 20px ${color}20`,
+                },
+            }}
+        >
+            <Box sx={{ color: zincColors.muted, mb: 1 }}>
+                {icon}
+            </Box>
+            <Typography
+                variant="h6"
+                sx={{
+                    fontSize: '16px',
+                    fontWeight: 600,
+                    color: zincColors.white,
+                    mb: 0.5,
+                }}
+            >
+                {title}
+            </Typography>
+            {lastPlayed && (
+                <Typography
+                    variant="body2"
+                    sx={{
+                        fontSize: '11px',
+                        color: zincColors.muted,
+                        position: 'absolute',
+                        bottom: 12,
+                    }}
+                >
+                    {lastPlayed}
+                </Typography>
+            )}
+        </Box>
+    );
+};
 
 function LandingPage() {
-    const { logout } = useAuth();
-
     const categories = [
         {
             title: 'Games',
-            emoji: '🎮',
-            gradient: 'linear-gradient(to bottom, #101B2F, #1782B3)',
+            icon: <Gamepad2 size={32} strokeWidth={1.5} />,
+            color: categoryColors.games,
             route: '/games',
+            lastPlayed: 'Last played 2h ago',
         },
         {
             title: 'Movies & Shows',
-            emoji: '📺',
-            gradient: 'linear-gradient(to bottom, #9e43c6, #e40e31)',
+            icon: <Film size={32} strokeWidth={1.5} />,
+            color: categoryColors.movies,
             route: '/movies',
+            lastPlayed: 'Last watched 1d ago',
         },
         {
             title: 'Music',
-            emoji: '🎧',
-            gradient: 'linear-gradient(to bottom, #1ED760, #107132)',
+            icon: <Music size={32} strokeWidth={1.5} />,
+            color: categoryColors.music,
             route: '/music',
+            lastPlayed: 'Last played 30m ago',
         },
         {
             title: 'Analytics',
-            emoji: '📊',
-            gradient: 'linear-gradient(to bottom, #667eea, #764ba2)',
+            icon: <BarChart3 size={32} strokeWidth={1.5} />,
+            color: categoryColors.analytics,
             route: '/analytics',
         },
     ];
 
     return (
         <Container
-            maxWidth="md"
+            maxWidth={false}
             sx={{
-                textAlign: 'center',
-                pt: 4,
-                alignItems: 'center',
+                minHeight: '100vh',
+                backgroundColor: zincColors.background,
                 display: 'flex',
                 flexDirection: 'column',
-                minHeight: '100vh',
-                minWidth: '100vw',
-                backgroundColor: '#0E0022',
                 position: 'relative',
             }}
         >
-            {/* Top right buttons */}
-            <Box sx={{ position: 'absolute', top: 20, right: 20, display: 'flex', gap: 2 }}>
-                <Button
-                    component={Link}
-                    to="/profile"
-                    startIcon={<PersonIcon />}
+            {/* Top Header */}
+            <Box
+                sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    px: 4,
+                    py: 2,
+                    borderBottom: `1px solid ${zincColors.border}`,
+                }}
+            >
+                <Typography
+                    variant="h6"
                     sx={{
-                        color: '#fff',
-                        border: '1px solid rgba(255, 255, 255, 0.3)',
-                        '&:hover': {
-                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                            border: '1px solid rgba(255, 255, 255, 0.5)',
-                        },
+                        fontSize: '16px',
+                        fontWeight: 600,
+                        color: zincColors.white,
                     }}
                 >
-                    Profile
-                </Button>
-                <Button
-                    onClick={logout}
-                    sx={{
-                        color: '#fff',
-                        border: '1px solid rgba(255, 255, 255, 0.3)',
-                        '&:hover': {
-                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                            border: '1px solid rgba(255, 255, 255, 0.5)',
-                        },
-                    }}
-                >
-                    Logout
-                </Button>
+                    Now Playing
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                    <Box
+                        component={Link}
+                        to="/profile"
+                        sx={{
+                            color: zincColors.muted,
+                            display: 'flex',
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            transition: 'color 0.2s',
+                            '&:hover': {
+                                color: zincColors.white,
+                            },
+                        }}
+                    >
+                        <User size={20} strokeWidth={1.5} />
+                    </Box>
+                    <Box
+                        sx={{
+                            color: zincColors.muted,
+                            display: 'flex',
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            transition: 'color 0.2s',
+                            '&:hover': {
+                                color: zincColors.white,
+                            },
+                        }}
+                    >
+                        <Search size={20} strokeWidth={1.5} />
+                    </Box>
+                </Box>
             </Box>
 
+            {/* Main Hub - Centered */}
             <Box
-                component="img"
-                src={'/nowPlaying.svg'}
-                alt="Now Playing Icon"
                 sx={{
-                    width: 235,
-                    height: 235,
-                    mb: 2,
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    py: 8,
                 }}
-            />
-
-            <Typography variant="h3" sx={{
-                color: '#fff', mb: 1, fontFamily: 'Montserrat, sans-serif',
-                fontWeight: 'bold',
-            }}>
-                Now Playing
-            </Typography>
-
-            <Typography variant="subtitle1" sx={{ color: '#ccc', fontSize: '20px', fontFamily: 'Montserrat, sans-serif', maxWidth: 420, }}>
-                Your recently played games, streamed songs, and watched movies & series—
-                all in one place.
-            </Typography>
-
-            <Grid container spacing={8} justifyContent="center" sx={{ mt: 4 }}>
-                {categories.map((category, index) => (
-                    <Grid component="div" key={index}>
-                        <CategoryCard
+            >
+                <Box
+                    sx={{
+                        display: 'flex',
+                        gap: 3,
+                        flexWrap: 'wrap',
+                        justifyContent: 'center',
+                        maxWidth: '900px',
+                        px: 4,
+                    }}
+                >
+                    {categories.map((category, index) => (
+                        <CategoryTile
+                            key={index}
                             title={category.title}
-                            emoji={category.emoji}
-                            gradient={category.gradient}
+                            icon={category.icon}
+                            color={category.color}
                             route={category.route}
+                            lastPlayed={category.lastPlayed}
                         />
-                    </Grid>
-                ))}
-            </Grid>
+                    ))}
+                </Box>
+            </Box>
         </Container>
     );
 }

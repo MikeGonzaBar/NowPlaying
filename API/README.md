@@ -1,5 +1,7 @@
 # NowPlaying API
 
+**Version 1.3.0**
+
 This folder contains the backend API for the **NowPlaying** project. The API is built using Django 5.1 and Django REST Framework to fetch and manage data from various entertainment services including Steam, PlayStation, Xbox, RetroAchievements, Spotify, Last.fm, and Trakt.
 
 ## Quick Start

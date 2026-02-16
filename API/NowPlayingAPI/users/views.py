@@ -63,7 +63,7 @@ class ApiKeyViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        return UserApiKey.objects.filter(user=self.request.user)
+        return UserApiKey.objects.filter(user=self.request.user).order_by('-updated_at')
     
     @action(detail=False, methods=['post'])
     def verify(self, request):

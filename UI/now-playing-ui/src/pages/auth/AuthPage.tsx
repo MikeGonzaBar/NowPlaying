@@ -17,6 +17,16 @@ const AuthPage: React.FC = () => {
     const navigate = useNavigate();
     const { authenticated, login } = useAuth();
 
+    // Check for auth errors when component mounts (e.g., from token refresh failure)
+    useEffect(() => {
+        const authFailure = sessionStorage.getItem('auth_failure') === 'true';
+        if (authFailure) {
+            setError('Your session has expired. Please log in again.');
+            // Clear the flag
+            sessionStorage.removeItem('auth_failure');
+        }
+    }, []);
+
     // Redirect if already authenticated
     useEffect(() => {
         if (authenticated) {

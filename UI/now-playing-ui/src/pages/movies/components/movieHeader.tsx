@@ -44,6 +44,14 @@ interface WatchedSeasonsEpisodesResponse {
 }
 
 const MovieHeader: React.FC<MovieHeaderProps> = ({ media, mediaType, mediaDetails }) => {
+    if (!media) {
+        return (
+            <Box sx={{ padding: 2 }}>
+                <Typography>No media information available.</Typography>
+            </Box>
+        );
+    }
+
     const mediaTitle = mediaType === "movie" ? (media as Movie).movie.title : (media as Show).show.title;
     const mediaImage = mediaDetails?.poster_path
         ? `https://image.tmdb.org/t/p/w1280${mediaDetails.backdrop_path}`
@@ -131,28 +139,32 @@ const MovieHeader: React.FC<MovieHeaderProps> = ({ media, mediaType, mediaDetail
                 </Card>
                 <Box sx={{ width: '60%', }}>
                     <Typography variant="body2" gutterBottom sx={{ fontSize: '20px', fontFamily: 'Inter, sans-serif' }}>
-                        <b>Release date: </b> {mediaDetails.release_date}
+                        <b>Release date: </b> {mediaDetails?.release_date || mediaDetails?.first_air_date || 'N/A'}
                     </Typography>
                     <Typography variant="body2" sx={{ fontSize: '20px', fontFamily: 'Inter, sans-serif' }}>
                         <b>Overview</b>
                     </Typography>
                     <Typography variant="body2" sx={{ fontSize: '20px', fontFamily: 'Inter, sans-serif' }}>
-                        {mediaDetails.overview}
+                        {mediaDetails?.overview || 'No overview available.'}
                     </Typography>
-                    <MediaStats
-                        voteAverage={mediaDetails?.vote_average}
-                        runtime={mediaDetails?.runtime}
-                        lastWatchedAt={(media as Movie).last_watched_at}
-                        plays={mediaType === "movie" ? (media as Movie).plays : undefined}
-                    />
+                    {mediaDetails && (
+                        <MediaStats
+                            voteAverage={mediaDetails?.vote_average}
+                            runtime={mediaDetails?.runtime}
+                            lastWatchedAt={(media as Movie).last_watched_at}
+                            plays={mediaType === "movie" ? (media as Movie).plays : undefined}
+                        />
+                    )}
                 </Box>
             </Box>
-            <Box sx={{ display: 'flex', gap: 6, marginTop: 2, width: '100%' }}>
-                <InfoChipSection items={mediaDetails?.genres || []} title="Genres" />
-                <InfoChipSection items={mediaDetails?.production_companies || []} title="Companies" />
-                <InfoChipSection items={mediaDetails?.spoken_languages || []} title="Languages" />
-                <InfoChipSection items={mediaDetails?.production_countries || []} title="Countries" />
-            </Box>
+            {mediaDetails && (
+                <Box sx={{ display: 'flex', gap: 6, marginTop: 2, width: '100%' }}>
+                    <InfoChipSection items={mediaDetails?.genres || []} title="Genres" />
+                    <InfoChipSection items={mediaDetails?.production_companies || []} title="Companies" />
+                    <InfoChipSection items={mediaDetails?.spoken_languages || []} title="Languages" />
+                    <InfoChipSection items={mediaDetails?.production_countries || []} title="Countries" />
+                </Box>
+            )}
             {mediaType === "movie" && (
                 <TrailerSection trailerKey={trailerKey} />
             )}

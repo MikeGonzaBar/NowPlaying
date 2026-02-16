@@ -7,6 +7,7 @@ export interface MovieIds {
 export interface MovieType {
     title: string;
     year: number;
+    image_url?: string | null;
     ids: MovieIds;
 }
 export interface Movie {

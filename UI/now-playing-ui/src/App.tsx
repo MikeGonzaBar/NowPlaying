@@ -8,9 +8,18 @@ const LandingPage = React.lazy(() => import('./pages/LandingPage'));
 const AuthPage = React.lazy(() => import('./pages/auth/AuthPage'));
 const GamesPage = React.lazy(() => import('./pages/games/pages/games'));
 const GameDetails = React.lazy(() => import('./pages/games/pages/gameDetails'));
-const MoviesPage = React.lazy(() => import('./pages/movies/pages/movies'));
+const AllGames = React.lazy(() => import('./pages/games/pages/allGames'));
+const MoviesPage = React.lazy(() => import('./pages/movies/pages/moviesDashboard'));
 const MovieDetails = React.lazy(() => import('./pages/movies/pages/movieDetails'));
-const MusicPage = React.lazy(() => import('./pages/music/music'));
+const ShowDetails = React.lazy(() => import('./pages/movies/pages/showDetails'));
+const WatchHistory = React.lazy(() => import('./pages/movies/pages/watchHistory'));
+const CompletedMedia = React.lazy(() => import('./pages/movies/pages/completedMedia'));
+
+const MusicDashboard = React.lazy(() => import('./pages/music/pages/musicDashboard'));
+const TopTracks = React.lazy(() => import('./pages/music/pages/topTracks'));
+const TopArtists = React.lazy(() => import('./pages/music/pages/topArtists'));
+const TopAlbums = React.lazy(() => import('./pages/music/pages/topAlbums'));
+const SongHistory = React.lazy(() => import('./pages/music/pages/songHistory'));
 const ProfilePage = React.lazy(() => import('./pages/profile/ProfilePage'));
 const AnalyticsPage = React.lazy(() => import('./pages/analytics/AnalyticsPage'));
 
@@ -56,6 +65,10 @@ const AppRoutes = () => {
           element={authenticated ? <GamesPage /> : <Navigate to="/auth" replace />}
         />
         <Route
+          path="/games/all"
+          element={authenticated ? <AllGames /> : <Navigate to="/auth" replace />}
+        />
+        <Route
           path="/games/:platform/:id"
           element={authenticated ? <GameDetails /> : <Navigate to="/auth" replace />}
         />
@@ -72,6 +85,14 @@ const AppRoutes = () => {
           element={authenticated ? <MoviesPage /> : <Navigate to="/auth" replace />}
         />
         <Route
+          path="/history"
+          element={authenticated ? <WatchHistory /> : <Navigate to="/auth" replace />}
+        />
+        <Route
+          path="/completed"
+          element={authenticated ? <CompletedMedia /> : <Navigate to="/auth" replace />}
+        />
+        <Route
           path="/movies/:id"
           element={authenticated ? <MovieDetails /> : <Navigate to="/auth" replace />}
         />
@@ -80,8 +101,32 @@ const AppRoutes = () => {
           element={authenticated ? <MovieDetails /> : <Navigate to="/auth" replace />}
         />
         <Route
+          path="/showDetails"
+          element={authenticated ? <ShowDetails /> : <Navigate to="/auth" replace />}
+        />
+        <Route
+          path="/shows/:id"
+          element={authenticated ? <ShowDetails /> : <Navigate to="/auth" replace />}
+        />
+        <Route
           path="/music"
-          element={authenticated ? <MusicPage /> : <Navigate to="/auth" replace />}
+          element={authenticated ? <MusicDashboard /> : <Navigate to="/auth" replace />}
+        />
+        <Route
+          path="/music/tracks"
+          element={authenticated ? <TopTracks /> : <Navigate to="/auth" replace />}
+        />
+        <Route
+          path="/music/artists"
+          element={authenticated ? <TopArtists /> : <Navigate to="/auth" replace />}
+        />
+        <Route
+          path="/music/albums"
+          element={authenticated ? <TopAlbums /> : <Navigate to="/auth" replace />}
+        />
+        <Route
+          path="/music/history"
+          element={authenticated ? <SongHistory /> : <Navigate to="/auth" replace />}
         />
         <Route
           path="/profile"

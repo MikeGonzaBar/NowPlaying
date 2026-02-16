@@ -1,5 +1,7 @@
 # NowPlaying UI
 
+**Version 1.3.0**
+
 This folder contains the frontend user interface for the **NowPlaying** project, built with **React**, **TypeScript**, and **Vite**, with Material-UI for styling. The application provides a comprehensive dashboard for tracking your gaming, movie, and music activities across multiple platforms with advanced search functionality.
 
 > **Note**: For the complete project overview, features, and screenshots, see the [main README](../README.md).

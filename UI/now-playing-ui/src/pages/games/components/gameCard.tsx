@@ -11,6 +11,7 @@ import {
 } from "../utils/types";
 import { formatPlaytime } from "../utils/utils";
 import { isPsnGame } from "../utils/typeGuards";
+import { zincColors } from "../../../theme";
 
 interface GameCardProps {
     game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
@@ -21,7 +22,7 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
         {
             key: "platform",
             value: "PS5",
-            src: "Platforms/playstation-5.webp",
+            src: "/Platforms/playstation-5.webp",
             alt: "PS5 Logo",
             width: "45px",
             style: { marginTop: "-10px" },
@@ -29,14 +30,14 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
         {
             key: "platform",
             value: "PS4",
-            src: "Platforms/playstation-4.png",
+            src: "/Platforms/playstation-4.png",
             alt: "PS4 Logo",
             width: "50px",
         },
         {
             key: "platform",
             value: "PC, XboxOne, XboxSeries, Xbox360",
-            src: "Platforms/xbox.svg",
+            src: "/Platforms/xbox.svg",
             alt: "XBOX Logo",
             width: "55px",
             style: { marginTop: "-5px" },
@@ -44,7 +45,7 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
         {
             key: "console_name",
             value: "PlayStation 2",
-            src: "Platforms/playstation-2.png",
+            src: "/Platforms/playstation-2.png",
             alt: "PS2 Logo",
             width: "45px",
             style: { marginTop: "8px" },
@@ -52,14 +53,14 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
         {
             key: "console_name",
             value: "PlayStation",
-            src: "Platforms/playstation.webp",
+            src: "/Platforms/playstation.webp",
             alt: "PS1 Logo",
             width: "25px",
         },
         {
             key: "console_name",
             value: "Nintendo DS",
-            src: "Platforms/nintendo-ds.png",
+            src: "/Platforms/nintendo-ds.png",
             alt: "Nintendo DS Logo",
             width: "80px",
             style: { marginTop: "8px" },
@@ -67,7 +68,7 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
         {
             key: "console_name",
             value: "Game Boy Color",
-            src: "Platforms/gameboy-color.png",
+            src: "/Platforms/gameboy-color.png",
             alt: "Game Boy Color Logo",
             width: "50px",
             style: { marginTop: "3px" },
@@ -75,7 +76,7 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
         {
             key: "console_name",
             value: "Game Boy Advance",
-            src: "Platforms/gameboy-advance.png",
+            src: "/Platforms/gameboy-advance.png",
             alt: "Game Boy Advance Logo",
             width: "85px",
             style: { marginTop: "-30px" },
@@ -109,7 +110,7 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
     ) : (
         <Box
             component="img"
-            src="Platforms/steam.webp"
+            src="/Platforms/steam.webp"
             alt="Steam Logo"
             sx={{
                 width: "22px",
@@ -122,8 +123,9 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
     );
     return (
         <Box
+            data-game-card
             sx={{
-                backgroundColor: "#FFFFFF",
+                backgroundColor: zincColors.card || "#18181b",
                 borderRadius: 2,
                 overflow: "hidden",
                 boxShadow: 6,
@@ -160,6 +162,7 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
                                 whiteSpace: "nowrap",
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
+                                color: zincColors.white,
                             }}
                         >
                             {game.name}
@@ -175,8 +178,8 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
                                 justifyContent: "flex-end",
                             }}
                         >
-                            <AccessTimeIcon sx={{ fontSize: 16, mr: 0.5 }} />
-                            <Typography variant="body2" sx={{ fontFamily: "Inter, sans-serif" }}>
+                            <AccessTimeIcon sx={{ fontSize: 16, mr: 0.5, color: zincColors.muted }} />
+                            <Typography variant="body2" sx={{ fontFamily: "Inter, sans-serif", color: zincColors.muted }}>
                                 {playMins}
                             </Typography>
                         </Box>
@@ -190,8 +193,8 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
                 >
                     <Grid>
                         <Box sx={{ display: "flex", alignItems: "center" }}>
-                            <EventIcon sx={{ fontSize: 15, mr: 0.5 }} />
-                            <Typography variant="body2" sx={{ fontFamily: "Inter, sans-serif" }}>
+                            <EventIcon sx={{ fontSize: 15, mr: 0.5, color: zincColors.muted }} />
+                            <Typography variant="body2" sx={{ fontFamily: "Inter, sans-serif", color: zincColors.muted }}>
                                 {(() => {
                                     if ("platform" in game) {
                                         const date = new Date(game.last_played);
@@ -280,7 +283,7 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
                                                 />
                                                 <Typography
                                                     variant="body2"
-                                                    sx={{ fontFamily: "Inter, sans-serif" }}
+                                                    sx={{ fontFamily: "Inter, sans-serif", color: zincColors.muted }}
                                                 >
                                                     {count}
                                                 </Typography>
@@ -293,8 +296,8 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
                                 if ("unlocked_achievements_count" in game && "total_achievements" in game) {
                                     return (
                                         <>
-                                            <EmojiEventsIcon sx={{ fontSize: 16, mr: -1 }} />
-                                            <Typography variant="body2" sx={{ fontFamily: "Inter, sans-serif" }}>
+                                            <EmojiEventsIcon sx={{ fontSize: 16, mr: -1, color: zincColors.muted }} />
+                                            <Typography variant="body2" sx={{ fontFamily: "Inter, sans-serif", color: zincColors.muted }}>
                                                 {
                                                     (
                                                         game as Pick<
@@ -321,8 +324,8 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
                                 if ("unlocked_achievements" in game && "total_achievements" in game) {
                                     return (
                                         <>
-                                            <EmojiEventsIcon sx={{ fontSize: 16, mr: -1 }} />
-                                            <Typography variant="body2" sx={{ fontFamily: "Inter, sans-serif" }}>
+                                            <EmojiEventsIcon sx={{ fontSize: 16, mr: -1, color: zincColors.muted }} />
+                                            <Typography variant="body2" sx={{ fontFamily: "Inter, sans-serif", color: zincColors.muted }}>
                                                 {
                                                     (
                                                         game as Pick<

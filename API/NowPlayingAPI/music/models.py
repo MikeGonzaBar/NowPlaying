@@ -5,7 +5,11 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.utils import timezone
 import hashlib
+import time
+import logging
 from utils import parse_datetime_aware
+
+logger = logging.getLogger(__name__)
 
 
 class Song(models.Model):
@@ -133,6 +137,9 @@ class Song(models.Model):
         else:
             tracks_per_page = min(limit, 1000)  # Don't exceed Last.fm's limit
         
+        max_retries = 3
+        retry_delay = 2  # seconds
+        
         while True:
             params = {
                 "method": "user.getRecentTracks",
@@ -144,16 +151,96 @@ class Song(models.Model):
                 "extended": 1  # Get additional info like album art and loved status
             }
 
-            response = requests.get(url, params=params)
-            if response.status_code != 200:
-                raise Exception(f"Failed to fetch Last.fm recent tracks: {response.text}")
-
-            data = response.json()
+            # Retry logic for transient errors
+            retry_count = 0
+            data = None
+            while retry_count < max_retries:
+                try:
+                    response = requests.get(url, params=params, timeout=30)
+                    
+                    # Check HTTP status code first
+                    if response.status_code != 200:
+                        # HTTP 500 is often transient - retry
+                        if response.status_code == 500 and retry_count < max_retries - 1:
+                            retry_count += 1
+                            wait_time = retry_delay * retry_count
+                            logger.warning(f"Last.fm HTTP 500 error (retry {retry_count}/{max_retries}). Waiting {wait_time}s...")
+                            time.sleep(wait_time)
+                            continue
+                        # Other non-200 status codes
+                        else:
+                            error_text = response.text[:500] if response.text else "No response body"
+                            raise Exception(f"HTTP {response.status_code}: {error_text}")
+                    
+                    # Try to parse JSON
+                    try:
+                        data = response.json()
+                    except (ValueError, requests.exceptions.JSONDecodeError):
+                        # If JSON parsing fails, it might be HTML or other format
+                        error_text = response.text[:500] if response.text else "No response body"
+                        raise Exception(f"Invalid JSON response (status {response.status_code}): {error_text}")
+                    
+                    # Check for Last.fm API errors in response
+                    if "error" in data:
+                        error_code = data.get("error", "Unknown")
+                        error_message = data.get("message", "Unknown error")
+                        
+                        # Error 8 is often transient - retry with exponential backoff
+                        if error_code == 8 and retry_count < max_retries - 1:
+                            retry_count += 1
+                            wait_time = retry_delay * retry_count
+                            logger.warning(f"Last.fm API error {error_code} (retry {retry_count}/{max_retries}): {error_message}. Waiting {wait_time}s...")
+                            time.sleep(wait_time)
+                            continue
+                        # Error 29 is rate limit exceeded - retry with longer backoff
+                        elif error_code == 29 and retry_count < max_retries - 1:
+                            retry_count += 1
+                            wait_time = retry_delay * retry_count * 2  # Longer wait for rate limits
+                            logger.warning(f"Last.fm API rate limit exceeded (retry {retry_count}/{max_retries}). Waiting {wait_time}s...")
+                            time.sleep(wait_time)
+                            continue
+                        # Error 11 is service offline - retry
+                        elif error_code == 11 and retry_count < max_retries - 1:
+                            retry_count += 1
+                            wait_time = retry_delay * retry_count
+                            logger.warning(f"Last.fm API service offline (retry {retry_count}/{max_retries}). Waiting {wait_time}s...")
+                            time.sleep(wait_time)
+                            continue
+                        # Error 16 is temporarily unavailable - retry
+                        elif error_code == 16 and retry_count < max_retries - 1:
+                            retry_count += 1
+                            wait_time = retry_delay * retry_count
+                            logger.warning(f"Last.fm API temporarily unavailable (retry {retry_count}/{max_retries}). Waiting {wait_time}s...")
+                            time.sleep(wait_time)
+                            continue
+                        else:
+                            raise Exception(f"Last.fm API error ({error_code}): {error_message}")
+                    
+                    # Success - break out of retry loop
+                    break
+                    
+                except requests.exceptions.Timeout:
+                    retry_count += 1
+                    if retry_count < max_retries:
+                        wait_time = retry_delay * retry_count
+                        logger.warning(f"Last.fm API timeout (retry {retry_count}/{max_retries}). Waiting {wait_time}s...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        raise Exception("Last.fm API request timed out after multiple retries")
+                
+                except requests.exceptions.RequestException as e:
+                    retry_count += 1
+                    if retry_count < max_retries:
+                        wait_time = retry_delay * retry_count
+                        logger.warning(f"Last.fm API request error (retry {retry_count}/{max_retries}): {str(e)}. Waiting {wait_time}s...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        raise Exception(f"Last.fm API request failed after retries: {str(e)}")
             
-            if "error" in data:
-                error_code = data.get("error", "Unknown")
-                error_message = data.get("message", "Unknown error")
-                raise Exception(f"Last.fm API error ({error_code}): {error_message}")
+            if data is None:
+                raise Exception("Failed to fetch data from Last.fm API after retries")
 
             recenttracks = data.get("recenttracks", {})
             tracks = recenttracks.get("track", [])
@@ -178,6 +265,11 @@ class Song(models.Model):
                 break
                 
             page += 1
+            
+            # Small delay between pages to avoid rate limiting
+            # Last.fm recommends not exceeding 5 requests per second
+            if page <= 100:  # Only delay if we're continuing
+                time.sleep(0.3)  # 300ms delay between requests (allows ~3 requests/sec, well under limit)
             
             # Safety check to prevent infinite loops
             if page > 100:  # Maximum 100 pages (100,000 tracks)

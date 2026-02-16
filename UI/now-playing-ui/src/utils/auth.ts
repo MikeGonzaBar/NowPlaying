@@ -38,7 +38,11 @@ export const isAuthenticated = () => {
 
 export const refreshAuthToken = async (): Promise<boolean> => {
     const refreshToken = getRefreshToken();
-    if (!refreshToken) return false;
+    if (!refreshToken) {
+        // Set flag to show error message on auth page
+        sessionStorage.setItem('auth_failure', 'true');
+        return false;
+    }
 
     try {
         const response = await fetch(getApiUrl(`${API_CONFIG.USERS_ENDPOINT}/token/refresh/`), {
@@ -54,13 +58,19 @@ export const refreshAuthToken = async (): Promise<boolean> => {
         if (response.ok) {
             const data = await response.json();
             setAuthToken(data.access);
+            // Clear any auth failure flags on successful refresh
+            sessionStorage.removeItem('auth_failure');
             return true;
         } else {
             // Refresh token is invalid, remove all tokens
+            // Set flag to show error message on auth page
+            sessionStorage.setItem('auth_failure', 'true');
             removeAuthToken();
             return false;
         }
     } catch (error) {
+        // Set flag to show error message on auth page
+        sessionStorage.setItem('auth_failure', 'true');
         removeAuthToken();
         return false;
     }
@@ -68,6 +78,9 @@ export const refreshAuthToken = async (): Promise<boolean> => {
 
 // API request wrapper that includes the auth token and handles token refresh
 export const authenticatedFetch = async (url: string, options: RequestInit = {}) => {
+    // Check if we're already on the auth page - don't redirect if we are
+    const isOnAuthPage = window.location.pathname === '/auth' || window.location.pathname.startsWith('/auth');
+
     let token = getAuthToken();
 
     // Check if token exists and is valid
@@ -75,9 +88,11 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
         // Try to refresh the token
         const refreshed = await refreshAuthToken();
         if (!refreshed) {
-            // Redirect to auth page if refresh fails
-            window.location.href = '/auth';
-            throw new Error('Authentication failed');
+            // Only redirect if we're not already on the auth page
+            if (!isOnAuthPage) {
+                window.location.href = '/auth';
+            }
+            throw new Error('Your session has expired. Please log in again.');
         }
         token = getAuthToken();
     }
@@ -109,10 +124,12 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
             });
             return retryResponse;
         } else {
-            // Token refresh failed, redirect to auth
+            // Token refresh failed, only redirect if we're not already on the auth page
             removeAuthToken();
-            window.location.href = '/auth';
-            throw new Error('Authentication failed');
+            if (!isOnAuthPage) {
+                window.location.href = '/auth';
+            }
+            throw new Error('Your session has expired. Please log in again.');
         }
     }
 

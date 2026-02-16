@@ -1,5 +1,7 @@
 # NowPlaying
 
+**Version 1.3.0**
+
 ## What is it about?
 
 NowPlaying is a comprehensive portfolio project designed to showcase your latest entertainment activities across multiple platforms. The application features JWT-based authentication and provides a centralized dashboard to track:
@@ -226,6 +228,21 @@ To set up the UI for this project, refer to the [UI Configuration Guide](./UI/RE
 - **React Router**: Protected routing system
 
 ## Changelog
+
+### Version 1.3.0 - Analytics Overview & Time Dedicated Trend
+
+#### 📊 Analytics Dashboard
+
+- **Overview alignment**: Time Dedicated Trend and Recurring Genres now use the same data sources as the Gaming, Music, and Movies & TV tabs
+  - **Time Dedicated Trend**: Built from `weekly_trend` (gaming), `music_weekly_scrobbles` (music → hours), and `media_weekly_watch` (TV) so the overview matches tab-specific charts
+  - **Recurring Genres**: Merged from content types, music genre distribution, and media genre distribution with normalized percentages and a proportional donut chart
+- **Gaming time cap**: Daily gaming hours in the trend are capped at 24h (backend and frontend) to avoid inflated estimates from achievement heuristics
+- **Music time**: Backend fallback (3.5 min per scrobble when duration is missing) so music appears in the overview when there are scrobbles
+
+#### 🔧 Technical
+
+- **API**: `get_weekly_trend` music fallback and 24h gaming cap; debug/info logging when cap is applied
+- **UI**: Overview chart data merged by date from the three weekly APIs; frontend cap for chart display; development console logs removed after verification
 
 ### Version 1.2.0 - Advanced Search Functionality
 
