@@ -281,7 +281,7 @@ function MediaSearch() {
                                                 </Box>
                                             )}
                                             <Chip
-                                                icon={getTypeIcon(result.type)}
+                                                icon={getTypeIcon(result.type) ?? undefined}
                                                 label={getTypeLabel(result.type)}
                                                 size="small"
                                                 sx={{

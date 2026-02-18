@@ -4,9 +4,9 @@ import SideBar from "../../../components/sideBar";
 interface MusicPageLayoutProps {
     children: React.ReactNode;
     maxWidth?: string;
-    paddingX?: object;
-    paddingY?: object;
-    paddingBottom?: object;
+    paddingX?: number | string | Record<string, number | string | undefined>;
+    paddingY?: number | string | Record<string, number | string | undefined>;
+    paddingBottom?: number | string | Record<string, number | string | undefined>;
 }
 
 export function MusicPageLayout({

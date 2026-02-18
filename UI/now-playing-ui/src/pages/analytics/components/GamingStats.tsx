@@ -3,7 +3,6 @@ import {
     Box,
     Typography,
     Card,
-    CardContent,
 } from '@mui/material';
 import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
@@ -263,7 +262,9 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
                                 fontSize: '1.25rem',
                                 fontWeight: 700,
                                 color: '#fff',
-                                truncate: true
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
                             }}>
                                 {formatTimeString(comprehensive_stats.totals.total_gaming_time)}
                             </Typography>

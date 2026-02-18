@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { SteamGame, PsnGame, RetroAchievementsGame, XboxGame } from '../utils/types';
 import { parsePlatforms, formatPlatformName } from '../utils/utils';
-import { zincColors } from '../../../theme';
 
 interface PlatformPillsProps {
     game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame;

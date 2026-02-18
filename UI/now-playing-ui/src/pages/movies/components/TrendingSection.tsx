@@ -15,7 +15,7 @@ function TrendingSection({ trending }: TrendingSectionProps) {
         ...(trending.trending_movies || []).map((item: any) => ({ ...item, type: 'movie' }))
     ].slice(0, 4);
 
-    const getPosterUrl = (item: any) => {
+    const getPosterUrl = (_item: any) => {
         // Note: TMDB poster URLs require fetching from API first
         // For now, return null and show placeholder
         return null;

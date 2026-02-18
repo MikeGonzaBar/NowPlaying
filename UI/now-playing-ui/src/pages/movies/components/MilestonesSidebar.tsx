@@ -1,4 +1,4 @@
-import { Box, Card, CardContent, Typography, Button } from "@mui/material";
+import { Box, Card, Typography, Button } from "@mui/material";
 import VerifiedIcon from "@mui/icons-material/Verified";
 import WorkspacePremiumIcon from "@mui/icons-material/WorkspacePremium";
 import LockIcon from "@mui/icons-material/Lock";
@@ -12,7 +12,7 @@ interface MilestonesSidebarProps {
     onSync: () => void;
 }
 
-function MilestonesSidebar({ masteryPercentage, watchedCount, totalEpisodes, onSync }: MilestonesSidebarProps) {
+function MilestonesSidebar({ masteryPercentage, watchedCount, onSync }: MilestonesSidebarProps) {
     // Determine which achievements are unlocked
     const achievements = [
         {

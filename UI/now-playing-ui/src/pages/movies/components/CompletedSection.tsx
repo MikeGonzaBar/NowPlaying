@@ -9,7 +9,7 @@ interface CompletedSectionProps {
     movies: any[];
 }
 
-function CompletedSection({ shows, movies }: CompletedSectionProps) {
+function CompletedSection({ shows }: CompletedSectionProps) {
     const navigate = useNavigate();
 
     // Only show completed shows (most recent first - already sorted by API)

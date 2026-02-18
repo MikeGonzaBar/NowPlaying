@@ -1,6 +1,5 @@
 import { Box, Card, CardContent, Typography, IconButton, Button, CircularProgress } from "@mui/material";
 import SettingsIcon from "@mui/icons-material/Settings";
-import SyncIcon from "@mui/icons-material/Sync";
 import MovieIcon from "@mui/icons-material/Movie";
 import TvIcon from "@mui/icons-material/Tv";
 import { useState } from "react";
