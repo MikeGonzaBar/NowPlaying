@@ -1,6 +1,6 @@
 # NowPlaying
 
-**Version 1.3.0**
+**Version 1.4.0**
 
 ## What is it about?
 
@@ -14,7 +14,18 @@ The application includes user authentication, profile management, integrated API
 
 ## Recent Updates & Fixes
 
-### PlayStation Achievement Display Fix (Latest)
+### Analytics Genre & Metadata Refresh (Latest)
+
+- **Music genres now work**: Last.fm sync enriches songs with normalized artist top-tags and stores them in `Song.genre_tags`.
+- **Existing music history backfilled**: `backfill_music_genres` can populate genre tags for existing scrobbles without waiting for a fresh full sync.
+- **Movies & TV genres now work**: Trakt sync stores TMDB genre, runtime, rating, director, studio, network, and status metadata for watched media.
+- **Analytics now uses real metadata**:
+  - Music tab shows genre distribution and genre of the week.
+  - Movies & TV tab shows recurring genres, binge streak, favorite director, and top studio/network.
+  - Overview recurring genres combines content type, music tags, and media genres.
+- **Current Docker stack updated**: API defaults to `http://localhost:8001`, UI defaults to `http://localhost:3200`, PostgreSQL to `5433`, and Redis to `6380`.
+
+### PlayStation Achievement Display Fix
 
 - **Issue**: PlayStation games were not appearing in the "Most Achieved" section despite having achievements
 - **Root Cause**: Two critical issues identified:
@@ -109,12 +120,13 @@ The application includes user authentication, profile management, integrated API
 ### Movies & TV Shows
 
 - **Trakt**: ✅ Supported - Complete integration for both movies and TV shows with detailed watch history
+  - TMDB metadata enriches posters, genres, directors, studios, networks, runtime, and ratings
   - ⚠️ No direct streaming platform integrations are available
 
 ### Music
 
 - **Spotify**: ✅ Supported - Recently played tracks with enhanced metadata
-- **Last.fm**: ✅ Supported - Music scrobbling with MusicBrainz integration, loved tracks, and listening history
+- **Last.fm**: ✅ Supported - Music scrobbling with MusicBrainz integration, loved tracks, listening history, and genre tag analytics
 - **Apple Music**: ❌ Not supported
 - **YouTube Music**: ❌ Not supported
 
@@ -152,36 +164,48 @@ The application includes user authentication, profile management, integrated API
 - **Secure Storage**: Server-side API key management with masked display
 - **Platform-Specific Setup**: Guided configuration for each supported service
 
+### Analytics Dashboard
+
+- **Overview**: Total engagement, time dedicated trend, and recurring genres across games, music, movies, and TV.
+- **Gaming**: Platform activity, achievements, time investment, and progress insights.
+- **Music**: Top artist/track, discoveries, scrobbles per day, Last.fm genre distribution, and genre of the week.
+- **Movies & TV**: Watch counts, screen time, recurring TMDB genres, binge streaks, favorite director, and top studio/network.
+
 ## Screenshots
 
 ### Main Dashboard
 
-![Dashboard](screenshots/dashboard.jpeg)
+![Dashboard](screenshots/dashboard.png)
 *Main dashboard showing unified entertainment tracking across all platforms*
 
 ### Gaming Dashboard
 
-![Games Dashboard](screenshots/games.jpeg)
-*Multi-platform gaming dashboard with achievement tracking and "Most Achieved 🏆" section*
+![Games Dashboard](screenshots/games.png)
+*Multi-platform gaming dashboard with recent activity, achievements, platform summaries, and completion highlights*
 
 ### Game Details
 
-![Game Details](screenshots/game-details.jpeg)
+![Game Details](screenshots/game-details.png)
 *Detailed view of individual games with platform-specific achievement/trophy data*
 
 ### Movies & TV Shows
 
-![Movies Dashboard](screenshots/movies.jpeg)
-*Trakt integration showing watched movies and TV shows with progress tracking*
+![Movies Dashboard](screenshots/movies.png)
+*Trakt integration showing recent watches, check-ins, profile stats, and sync controls*
 
 ### Music Dashboard
 
-![Music Dashboard](screenshots/music.jpeg)
-*Music tracking with Spotify and Last.fm integration showing recent plays and scrobbling data*
+![Music Dashboard](screenshots/music.png)
+*Music tracking with Spotify and Last.fm integration showing listening trends, top artists, top tracks, and recent scrobbles*
+
+### Analytics Dashboard
+
+![Analytics Dashboard](screenshots/analytics.png)
+*Cross-platform analytics with engagement totals, time trends, recurring genres, and tab-specific insights*
 
 ### Profile & API Configuration
 
-![Profile Settings](screenshots/profile.jpeg)
+![Profile Settings](screenshots/profile.png)
 *API key management and service configuration with connection status indicators*
 
 ### Authentication
@@ -221,13 +245,27 @@ To set up the UI for this project, refer to the [UI Configuration Guide](./UI/RE
 
 ### Frontend (UI)
 
-- **React 18**: Modern UI components and state management
+- **React 19**: Modern UI components and state management
 - **TypeScript**: Type safety and enhanced developer experience
 - **Material-UI**: Responsive design system
 - **JWT Authentication**: Secure token-based authentication
 - **React Router**: Protected routing system
 
 ## Changelog
+
+### Version 1.4.0 - Real Analytics Metadata & Screenshot Refresh
+
+#### 📊 Analytics Data
+
+- **Music genres**: Added `Song.genre_tags`, Last.fm artist top-tag enrichment, and a backfill command for existing scrobbles.
+- **Media genres**: Added TMDB-backed metadata to movies and shows, including genres, directors, studios, networks, runtime, rating, and status.
+- **Cache freshness**: Music and Trakt syncs now invalidate analytics caches after data changes so dashboards stop showing stale zero states.
+- **Completion progress**: Movies & TV completion displays `—` when reliable episode catalog completion cannot be computed instead of showing a misleading `0%`.
+
+#### 🖼️ Documentation
+
+- Refreshed screenshots for dashboard, games, game details, movies, music, analytics, and profile.
+- Updated setup information for the current Docker Compose ports and current analytics behavior.
 
 ### Version 1.3.0 - Analytics Overview & Time Dedicated Trend
 

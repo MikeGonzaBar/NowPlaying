@@ -4,7 +4,16 @@
 
 The Analytics system provides comprehensive statistics and insights across all entertainment platforms integrated into the NowPlaying application. This system has been heavily optimized for performance with caching, efficient database queries, and streamlined endpoints.
 
-## Recent Optimizations (Latest)
+## Recent Updates (Latest)
+
+### Metadata-backed Genre Analytics
+
+- **Music Genres**: Aggregates `Song.genre_tags`, populated from Last.fm artist top-tags during sync/backfill.
+- **Genre of the Week**: Uses the top music genre from the recent 7-day listening window.
+- **Media Genres**: Aggregates TMDB-backed `Movie.genres` and `Show.genres` from Trakt watch history.
+- **Media Insights**: Uses stored directors, studios, and networks for favorite director and top studio/network.
+- **Completion Progress**: Returns `null` when complete episode catalog data is unavailable, allowing the UI to show `—` instead of a false `0%`.
+- **Cache Invalidation**: Music and Trakt syncs call `AnalyticsService.invalidate_user_cache()` after source data changes.
 
 ### Performance Improvements
 
@@ -33,43 +42,42 @@ The Analytics system provides comprehensive statistics and insights across all e
 
 - `days` (optional): Number of days to include in statistics (default: 30)
 
-**Response**:
+**Response Shape**:
 
 ```json
 {
-  "user_statistics": {
-    "gaming": {
-      "total_games": 150,
-      "total_achievements": 1250,
-      "total_playtime_hours": 480.5,
-      "platform_breakdown": {
-        "steam": {"games": 80, "achievements": 800, "playtime_hours": 320.0},
-        "psn": {"games": 45, "trophies": 280, "playtime_hours": 120.5},
-        "xbox": {"games": 20, "achievements": 150, "playtime_hours": 30.0},
-        "retroachievements": {"games": 5, "achievements": 20, "playtime_hours": 10.0}
-      }
-    },
-    "music": {
-      "total_tracks": 1520,
-      "unique_artists": 340,
-      "unique_albums": 180,
-      "total_listening_hours": 95.5,
-      "platform_breakdown": {
-        "spotify": {"tracks": 1200, "hours": 75.0},
-        "lastfm": {"tracks": 320, "hours": 20.5}
-      }
-    },
-    "movies": {
-      "total_movies": 85,
-      "total_shows": 25,
-      "total_episodes": 420,
-      "total_watch_hours": 180.5
+  "comprehensive_stats": {
+    "totals": {
+      "total_games_played": 8,
+      "total_songs_listened": 552,
+      "total_movies_watched": 3,
+      "total_episodes_watched": 17,
+      "total_engagement_time": "5 days, 7 hours and 45 minutes"
     }
   },
-  "gaming_streak": {
-    "current_streak": 5,
-    "best_streak": 12,
-    "last_activity_date": "2024-01-15"
+  "platform_distribution": {},
+  "weekly_trend": [],
+  "music_genre_distribution": {
+    "genres": [
+      {"name": "Rock", "count": 280, "percentage": 11},
+      {"name": "Pop", "count": 256, "percentage": 10}
+    ],
+    "total_count": 253,
+    "tagged_songs": 545
+  },
+  "genre_of_the_week": "Pop",
+  "media_genre_distribution": {
+    "genres": [
+      {"name": "Action & Adventure", "count": 15, "percentage": 26}
+    ],
+    "total_count": 11,
+    "total_items": 20
+  },
+  "media_completion_rate": null,
+  "media_insights": {
+    "binge_streak": "3 days",
+    "favorite_director": "Sam Liu",
+    "top_studio": "Netflix"
   }
 }
 ```
@@ -128,6 +136,7 @@ The analytics system implements intelligent caching to provide optimal performan
 ### Cache Keys
 
 - Format: `analytics_{user.id}_{days}_{current_date}`
+- Platform distribution: `platform_dist_{user.id}_{days}_{current_date}`
 - Includes user ID for security
 - Includes days parameter for different time ranges
 - Includes current date for daily cache invalidation
@@ -187,9 +196,9 @@ The analytics system automatically aggregates data from:
 
 ### Entertainment Platforms
 
-- **Trakt**: Movies, TV shows, episodes, watch time
+- **Trakt**: Movies, TV shows, episodes, watch time, TMDB genres, directors, studios, and networks
 - **Spotify**: Recently played tracks, listening time
-- **Last.fm**: Scrobbled tracks, listening history
+- **Last.fm**: Scrobbled tracks, listening history, MusicBrainz metadata, and normalized artist genre tags
 
 ## Performance Monitoring
 

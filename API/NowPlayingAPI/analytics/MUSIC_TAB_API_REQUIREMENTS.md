@@ -1,62 +1,49 @@
-# Music Tab API – Implemented & Optional
+# Music Tab API
 
-This document describes what the Music Analytics tab uses from the API and what is left as placeholder for future work.
+This document describes the API fields used by the Music Analytics tab.
 
-## Implemented (in analytics response)
+## Implemented
 
-All of the following are returned by `GET /analytics/?days=30` and used by the Music tab UI.
+All fields below are returned by `GET /analytics/?days=30` and used by `MusicStats.tsx`.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `top_artist` | `object \| null` | `{ name, scrobbles, top_album? }` – top artist in period by scrobble count |
-| `top_track` | `object \| null` | `{ title, artist, plays, recently_played? }` – top track in period |
-| `new_discoveries` | `object` | `{ new_artists_count, change_percentage? }` – artists first seen in period; optional % vs previous period |
-| `music_listening_insights` | `object \| null` | `{ morning_vs_evening, evening_percentage, scrobble_milestone: { current, target, percentage } }` |
-| `music_genre_distribution` | `object` | `{ genres: [], total_count: 0 }` – structure ready; genres empty until source has tags |
-| `music_weekly_scrobbles` | `array` | Last 7 days: `{ date, day_name, scrobbles }` for the “Scrobbles per Day” chart |
-| `genre_of_the_week` | `string \| null` | Placeholder; currently always `null` (no genre data) |
+| `top_artist` | `object \| null` | `{ name, scrobbles, top_album? }` from songs in the selected period |
+| `top_track` | `object \| null` | `{ title, artist, plays, recently_played? }` from songs in the selected period |
+| `new_discoveries` | `object` | `{ new_artists_count, change_percentage? }` for artists first seen in the period |
+| `music_listening_insights` | `object \| null` | `{ morning_vs_evening, evening_percentage, scrobble_milestone }` |
+| `music_genre_distribution` | `object` | `{ genres, total_count, tagged_songs }` aggregated from `Song.genre_tags` |
+| `music_weekly_scrobbles` | `array` | Last 7 days: `{ date, day_name, scrobbles }` for the chart |
+| `genre_of_the_week` | `string \| null` | Top genre from the recent 7-day listening window |
 
 Existing analytics fields used by the Music tab:
 
-- `comprehensive_stats.totals.total_songs_listened`, `total_listening_time`
+- `comprehensive_stats.totals.total_songs_listened`
+- `comprehensive_stats.totals.total_listening_time`
 - `comprehensive_stats.averages.avg_listening_time_per_day`
 - `comprehensive_stats.period.days`
-- `comprehensive_stats.daily_stats` (fallback for scrobbles per day if `music_weekly_scrobbles` missing)
 - `last_played_time`
-- `platform_distribution.spotify` / `platform_distribution.lastfm` (available for future use)
+- `platform_distribution.spotify`
+- `platform_distribution.lastfm`
 
-## Service methods (analytics)
+## Genre Tags
 
-- `get_top_artist(user, days)` – from `Song` in period.
-- `get_top_track(user, days)` – from `Song` in period; `recently_played` via `_format_time_ago`.
-- `get_new_discoveries(user, days)` – artists in period that were not played before period start; optional % change vs previous period.
-- `get_music_listening_insights(user, days)` – morning (05–12) vs evening (18–24) from `played_at`; all-time scrobble milestone (next 50k).
-- `get_music_genre_distribution(user, days)` – returns `{ genres: [], total_count: 0 }` (no genre on `Song`).
-- `get_music_weekly_scrobbles(user, days)` – last 7 days scrobble counts.
-- `get_genre_of_the_week(user, days=7)` – returns `None` (placeholder).
+Music genres are populated from Last.fm artist top-tags:
 
-## Not available / placeholders
+- Last.fm sync calls `artist.getTopTags` per artist and stores normalized tags on `Song.genre_tags`.
+- `backfill_music_genres` can enrich existing listening history.
+- Analytics counts tag occurrences across songs in the selected period and returns the top six genres.
+- Non-genre tags such as `seen live` and decade labels are filtered out.
 
-1. **Music genres**  
-   `Song` has no genre/tag field. Options for later:
-   - Last.fm: use track/artist tags from Last.fm API and aggregate.
-   - Store genre/tags on `Song` (or related model) and populate from provider (e.g. Last.fm, Spotify) when syncing.
+## Remaining Optional Work
 
-2. **Genre of the week**  
-   Depends on genre/tag data; once genres are available, can be implemented as “most listened genre in last 7 days”.
+- Add per-day average listening duration to `music_weekly_scrobbles` if the chart should compare scrobble volume against average duration.
+- Add Spotify-side genre enrichment if Spotify artist metadata is added later.
 
-3. **Average duration per day (for chart)**  
-   The design mentions “Listening volume vs average duration”. Current chart uses only scrobble counts. If desired, the API could add an `avg_listening_minutes_per_day` (or similar) per day in `music_weekly_scrobbles` using `Song.duration_ms` and `played_at` in the analytics service.
+## Files
 
-## Component status
-
-- **MusicStats.tsx** uses all implemented fields and falls back safely when data is missing (e.g. “—”, “Not available”, or period totals).
-- Genres section shows a message when `music_genre_distribution.genres` is empty.
-- Genre of the week shows “Not available” when `genre_of_the_week` is null.
-
-## Files touched
-
-- `analytics/services.py` – music helpers and their use of `music.models.Song`.
-- `analytics/views.py` – added music fields to the analytics response and cache key list.
-- `UI/.../MusicStats.tsx` – new layout and wiring to the above fields.
-- `UI/.../AnalyticsPage.tsx` – `AnalyticsData` interface extended with the new music fields.
+- `music/models.py` – `Song.genre_tags`, Last.fm tag lookup, and tag normalization.
+- `music/management/commands/backfill_music_genres.py` – backfill command for existing scrobbles.
+- `analytics/services.py` – music genre distribution and genre of the week.
+- `analytics/views.py` – analytics response wiring.
+- `UI/.../MusicStats.tsx` – Music tab display.

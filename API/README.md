@@ -1,6 +1,6 @@
 # NowPlaying API
 
-**Version 1.3.0**
+**Version 1.4.0**
 
 This folder contains the backend API for the **NowPlaying** project. The API is built using Django 5.1 and Django REST Framework to fetch and manage data from various entertainment services including Steam, PlayStation, Xbox, RetroAchievements, Spotify, Last.fm, and Trakt.
 
@@ -11,7 +11,7 @@ This folder contains the backend API for the **NowPlaying** project. The API is 
 - Python 3.10 or higher
 - pip (Python package manager)
 - A virtual environment tool (e.g., `venv` or `virtualenv`)
-- PostgreSQL (optional, SQLite is configured by default)
+- PostgreSQL and Redis for the Docker Compose stack
 
 ### Installation
 
@@ -84,8 +84,8 @@ The system uses encrypted storage for all external service credentials. See the 
 **Endpoints**: `/music/`
 
 - **Spotify**: Recently played tracks with full metadata
-- **Last.fm**: Scrobbled tracks with MusicBrainz IDs and enhanced metadata
-- **Features**: Unified storage, source filtering, duplicate prevention
+- **Last.fm**: Scrobbled tracks with MusicBrainz IDs, loved status, artwork, and normalized artist genre tags
+- **Features**: Unified storage, source filtering, duplicate prevention, cache invalidation, and genre backfill support
 
 📖 **[Complete Music Documentation](./NowPlayingAPI/music/README_MUSIC.md)**
 
@@ -98,8 +98,8 @@ The system uses encrypted storage for all external service credentials. See the 
 **Endpoints**: `/trakt/`
 
 - **OAuth2 Authentication**: Secure token-based authentication
-- **Movies**: Watch history, ratings, metadata from TMDB
-- **TV Shows**: Episode tracking, season progress, detailed information
+- **Movies**: Watch history, ratings, posters, genres, directors, studios, runtime, and TMDB metadata
+- **TV Shows**: Episode tracking, season progress, posters, genres, networks, status, runtime, and detailed information
 - **Features**: Automatic token refresh, pagination support
 
 📖 **[Complete Trakt Documentation](./NowPlayingAPI/trakt/README_TRAKT.md)**
@@ -159,8 +159,9 @@ The system uses encrypted storage for all external service credentials. See the 
 - **Comprehensive Statistics**: Cross-platform analytics combining gaming, music, and movie data
 - **Performance Optimized**: Cached results with intelligent query aggregation
 - **Multi-Platform Gaming Stats**: Unified statistics across Steam, PlayStation, Xbox, and RetroAchievements
-- **Entertainment Insights**: Music listening patterns and movie/show watching trends
+- **Entertainment Insights**: Music listening patterns, Last.fm genre tags, TMDB media genres, and movie/show watching trends
 - **Gaming Streaks**: Achievement and activity streak tracking
+- **Cache Invalidation**: Music and Trakt sync operations clear analytics caches after data changes
 - **Efficient Caching**: Redis-backed caching with 1-hour TTL for optimal performance
 
 **Key Features**:
@@ -195,7 +196,7 @@ The system uses encrypted storage for all external service credentials. See the 
 | Endpoint | Description |
 |----------|-------------|
 | `GET /music/fetch-recently-played/` | Fetch Spotify recent tracks |
-| `GET /music/fetch-lastfm-recent/` | Fetch Last.fm scrobbles |
+| `GET /music/fetch-lastfm-recent/` | Fetch Last.fm scrobbles and enrich artist genre tags |
 | `GET /music/get-stored-songs/` | Get stored songs (with filtering) |
 
 ### Trakt Endpoints
@@ -241,9 +242,18 @@ The system uses encrypted storage for all external service credentials. See the 
 
 ## Environment Variables
 
-Create a `.env` file in the API folder with the following variables:
+Create `API/.env` from `API/.env.example` and fill in real values before deploying:
 
 ```env
+# Django Configuration
+DJANGO_ENV=development
+DEBUG=true
+SECRET_KEY=<your_django_secret_key>
+API_KEY_ENCRYPTION_KEY=<your_fernet_key>
+ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:3200
+CORS_ALLOW_ALL_ORIGINS=false
+
 # Database Configuration (Optional - PostgreSQL)
 POSTGRES_DB=<your_psql_db>
 POSTGRES_USER=<your_psql_user>
@@ -280,14 +290,21 @@ The API can be deployed using Docker:
 1. Build and run using Docker Compose from the project root:
 
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
+
+   Default Compose ports:
+
+   - API: <http://localhost:8001>
+   - UI: <http://localhost:3200>
+   - PostgreSQL: `localhost:5433`
+   - Redis: `localhost:6380`
 
 2. Alternatively, build and run the API container directly:
 
    ```bash
    docker build -t nowplaying-api .
-   docker run -p 8000:8000 nowplaying-api
+   docker run -p 8001:8080 nowplaying-api
    ```
 
 ---
@@ -301,6 +318,23 @@ The API can be deployed using Docker:
 - **Django CORS Headers**: For handling Cross-Origin Resource Sharing
 - **Python-dotenv**: For managing environment variables
 - **Cryptography**: For encrypted API key storage
+- **Redis**: Analytics and dashboard caching
+
+---
+
+## Data Backfill Commands
+
+These commands are useful after adding metadata fields or importing old history:
+
+```bash
+# Populate Last.fm-derived song genre tags for existing scrobbles
+python manage.py backfill_music_genres --user-id <id> --days 365 --artist-limit 500
+
+# Populate TMDB metadata for existing watched movies and shows
+python manage.py backfill_media_metadata --user-id <id> --limit 200
+```
+
+Both commands invalidate the affected analytics caches when they update user data.
 
 ---
 

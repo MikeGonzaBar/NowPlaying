@@ -9,7 +9,7 @@ The Trakt service allows you to:
 - **OAuth Authentication**: Secure token-based authentication with automatic refresh
 - **Movie Tracking**: Fetch and store watched movies with metadata
 - **TV Show Tracking**: Track watched episodes and seasons with detailed information
-- **TMDB Integration**: Enhanced metadata from The Movie Database
+- **TMDB Integration**: Posters, genres, runtime, ratings, directors, studios, networks, and status from The Movie Database
 - **Pagination Support**: Efficient data retrieval for large collections
 
 ---
@@ -22,7 +22,7 @@ The Trakt service allows you to:
    - Visit [Trakt API Applications](https://trakt.tv/oauth/applications)
    - Create a new application
    - Note your `Client ID` and `Client Secret`
-   - Set redirect URI (e.g., `http://localhost:8000/trakt/oauth-callback/`)
+   - Set redirect URI to match `TRAKT_REDIRECT_URI` (for local Docker, `http://localhost:5173/profile`)
 
 2. **Store Trakt Credentials**:
 
@@ -31,15 +31,8 @@ The Trakt service allows you to:
         -H "Authorization: Bearer YOUR_JWT_TOKEN" \
         -H "Content-Type: application/json" \
         -d '{
-          "service_name": "trakt_client_id",
-          "api_key": "YOUR_TRAKT_CLIENT_ID"
-        }'
-
-   curl -X POST "http://localhost:8000/users/api-keys/" \
-        -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d '{
-          "service_name": "trakt_client_secret",
+          "service_name": "trakt",
+          "service_user_id": "YOUR_TRAKT_CLIENT_ID",
           "api_key": "YOUR_TRAKT_CLIENT_SECRET"
         }'
    ```
@@ -431,7 +424,8 @@ Enhanced metadata from The Movie Database:
 
 - **Movie Posters**: High-quality artwork
 - **Show Images**: Backdrop and poster images
-- **Detailed Information**: Ratings, overviews, genres
+- **Movie Analytics Metadata**: Genres, runtime, rating, directors, and studios
+- **Show Analytics Metadata**: Genres, runtime, rating, network, and status
 - **Cross-Platform IDs**: Links to IMDB, TMDB, Trakt
 
 ### Pagination Support
@@ -497,6 +491,15 @@ sequenceDiagram
 - **Duplicate Prevention**: Prevents duplicate entries
 - **Metadata Enhancement**: TMDB provides additional details
 - **Progress Tracking**: Stores episode watch progress
+- **Analytics Refresh**: Trakt sync invalidates analytics caches after media data changes
+
+### Metadata Backfill
+
+Existing records can be enriched without waiting for another sync:
+
+```bash
+python manage.py backfill_media_metadata --user-id <id> --limit 200
+```
 
 ### Security Features
 

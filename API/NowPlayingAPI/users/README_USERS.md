@@ -222,7 +222,7 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 **Response**:
 
 ```json
-["spotify", "lastfm", "trakt_client_id", "trakt_client_secret"]
+["spotify", "lastfm", "trakt", "steam", "psn", "xbox", "retroachievements"]
 ```
 
 ---
@@ -235,8 +235,7 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 |---------|--------------|-----------------|-----------------|
 | **Spotify** | `spotify` | `api_key` (Access Token) | - |
 | **Last.fm** | `lastfm` | `api_key` (API Key) | `service_user_id` (Username) |
-| **Trakt Client ID** | `trakt_client_id` | `api_key` (Client ID) | - |
-| **Trakt Client Secret** | `trakt_client_secret` | `api_key` (Client Secret) | - |
+| **Trakt** | `trakt` | `api_key` (Client Secret) | `service_user_id` (Client ID) |
 | **Steam** | `steam` | `api_key` (API Key) | `service_user_id` (Steam ID) |
 | **PlayStation** | `psn` | `api_key` (NPSSO Token) | `service_user_id` (PSN User ID) |
 | **Xbox** | `xbox` | `api_key` (OpenXBL API Key) | `service_user_id` (XUID) |
@@ -269,24 +268,15 @@ curl -X POST "http://localhost:8000/users/api-keys/" \
      }'
 ```
 
-#### Trakt (requires both client ID and secret)
+#### Trakt
 
 ```bash
-# Client ID
 curl -X POST "http://localhost:8000/users/api-keys/" \
      -H "Authorization: Bearer YOUR_JWT_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{
-       "service_name": "trakt_client_id",
-       "api_key": "your_trakt_client_id"
-     }'
-
-# Client Secret
-curl -X POST "http://localhost:8000/users/api-keys/" \
-     -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "service_name": "trakt_client_secret",
+       "service_name": "trakt",
+       "service_user_id": "your_trakt_client_id",
        "api_key": "your_trakt_client_secret"
      }'
 ```
@@ -440,6 +430,7 @@ except UserApiKey.DoesNotExist:
 
 - **Spotify**: Requires periodic token refresh (implement OAuth2 refresh flow)
 - **Last.fm**: Username stored in `service_user_id` field
+- **Trakt**: Client ID stored in `service_user_id`; client secret stored encrypted in `api_key`
 - **Trakt**: Uses separate entries for client ID and secret
 - **Gaming Services**: User IDs stored in `service_user_id` field
 

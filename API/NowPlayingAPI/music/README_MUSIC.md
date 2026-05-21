@@ -7,7 +7,7 @@ This document provides comprehensive documentation for the Music service endpoin
 The Music service allows you to:
 
 - **Spotify**: Fetch recently played tracks with full metadata
-- **Last.fm**: Fetch scrobbled tracks with enhanced metadata including MusicBrainz IDs
+- **Last.fm**: Fetch scrobbled tracks with enhanced metadata including MusicBrainz IDs, loved status, artwork, and normalized artist genre tags
 - **Unified Storage**: Store tracks from both services in a unified data model
 - **Source Filtering**: Filter stored songs by their source (spotify/lastfm)
 
@@ -99,20 +99,22 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 
 **Endpoint**: `GET /music/fetch-lastfm-recent/`
 
-**Description**: Fetches recent scrobbled tracks from Last.fm with enhanced metadata.
+**Description**: Fetches recent scrobbled tracks from Last.fm with enhanced metadata and artist top-tags for analytics.
 
 **Authentication**: Required (JWT Token)
 
 **Query Parameters**:
 
-- `limit` (optional): Number of tracks to fetch (default: 50, max: 200)
+- `async=true` (optional): Start a background sync for large libraries
 
 **Example Request**:
 
 ```bash
 curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-     "http://localhost:8000/music/fetch-lastfm-recent/?limit=100"
+     "http://localhost:8000/music/fetch-lastfm-recent/"
 ```
+
+For large libraries, use `?async=true` to return immediately while the sync runs in the background.
 
 **Enhanced Response** (includes MusicBrainz IDs and multiple image sizes):
 
@@ -136,6 +138,7 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
             "album_mbid": "mno345-pqr678-stu901",
             "loved": true,
             "streamable": false,
+            "genre_tags": ["Rock", "Alternative Rock"],
             "album_thumbnails": {
                 "small": "https://lastfm.freetls.fastly.net/i/u/34s/...",
                 "medium": "https://lastfm.freetls.fastly.net/i/u/64s/...",
@@ -201,7 +204,8 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
             "album_thumbnail_small": null,
             "album_thumbnail_medium": null,
             "album_thumbnail_large": null,
-            "album_thumbnail_extralarge": null
+            "album_thumbnail_extralarge": null,
+            "genre_tags": []
         }
     ]
 }
@@ -243,6 +247,7 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 | `album_mbid` | CharField | MusicBrainz album ID |
 | `loved` | BooleanField | User "loved" status on Last.fm |
 | `streamable` | BooleanField | Track streamable on Last.fm |
+| `genre_tags` | JSONField | Normalized Last.fm artist top-tags used by analytics |
 
 #### **Multiple Image Sizes**
 
@@ -276,6 +281,18 @@ Last.fm tracks include MusicBrainz IDs when available:
 - **Cross-platform identification**: Link tracks across services
 - **Music database integration**: Connect to comprehensive music metadata
 - **Analytics support**: Enable advanced music analysis features
+
+### Genre Tag Analytics
+
+Last.fm recent-track responses do not include genres directly. During sync, NowPlaying looks up `artist.getTopTags`, filters non-genre tags such as `seen live` and decade labels, normalizes display names, and stores the result on `Song.genre_tags`.
+
+Existing listening history can be enriched with:
+
+```bash
+python manage.py backfill_music_genres --user-id <id> --days 365 --artist-limit 500
+```
+
+The analytics API uses these tags for the Music tab's genre distribution and genre of the week.
 
 ### Responsive Image Support
 
@@ -333,12 +350,13 @@ Last.fm provides multiple image sizes for optimal UI performance:
 - Requires only API key (no OAuth needed for public scrobble data)
 - Enhanced metadata with `extended=1` parameter
 - MusicBrainz IDs may be empty for some tracks
+- Artist top-tags are fetched separately and cached per artist during a sync run
 
 ### Database Benefits
 
 - **Unified Model**: Both services use the same Song model
 - **Source Filtering**: Easy separation of Spotify vs Last.fm data
-- **Enhanced Metadata**: Last.fm provides additional context
+- **Enhanced Metadata**: Last.fm provides additional context, MusicBrainz IDs, loved status, artwork, and genre tags
 - **Offline Access**: Data persists locally for fast retrieval
 
 ---

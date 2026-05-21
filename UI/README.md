@@ -1,6 +1,6 @@
 # NowPlaying UI
 
-**Version 1.3.0**
+**Version 1.4.0**
 
 This folder contains the frontend user interface for the **NowPlaying** project, built with **React**, **TypeScript**, and **Vite**, with Material-UI for styling. The application provides a comprehensive dashboard for tracking your gaming, movie, and music activities across multiple platforms with advanced search functionality.
 
@@ -8,7 +8,15 @@ This folder contains the frontend user interface for the **NowPlaying** project,
 
 ## Recent Features
 
-### Advanced Search Functionality (Latest)
+### Analytics Metadata Refresh (Latest)
+
+- **Music Genres**: Music analytics now displays real Last.fm-derived genre tags, top genres, and genre of the week.
+- **Movies & TV Genres**: Media analytics now displays TMDB-backed recurring genres, favorite director, binge streak, and top studio/network.
+- **Accurate Time Totals**: Last.fm scrobbles without duration use a listening-time fallback so music contributes to overview engagement totals.
+- **Stale Cache Fixes**: Music and Trakt sync actions trigger backend cache invalidation so analytics cards update after data changes.
+- **Completion Progress**: Movies & TV completion shows `—` when reliable completion data is unavailable instead of a misleading zero.
+
+### Advanced Search Functionality
 
 - **Cross-Platform Game Search**: Real-time search across Steam, PlayStation, Xbox, and RetroAchievements
   - **Autocomplete Interface**: Shows game title, platform, and cover image in search suggestions
@@ -47,13 +55,13 @@ The NowPlaying UI is a modern React application that provides:
 - **Multi-Platform Gaming**: Steam, PlayStation, Xbox, and RetroAchievements integration
 - **Entertainment Tracking**: Trakt integration for movies and TV shows
 - **Analytics Dashboard**: Comprehensive statistics and insights across all entertainment platforms with performance-optimized caching
-- **Music Integration**: Spotify and Last.fm scrobbling
+- **Music Integration**: Spotify and Last.fm scrobbling with Last.fm genre analytics
 - **Advanced Search**: Cross-platform search functionality across all entertainment categories
 - **Responsive Design**: Mobile-friendly interface using Material-UI
 
 ## Technology Stack
 
-- **React 18**: Modern UI components and state management
+- **React 19**: Modern UI components and state management
 - **TypeScript**: Type safety and enhanced developer experience
 - **Vite**: Fast development and optimized builds
 - **Material-UI (MUI)**: Responsive design system
@@ -81,19 +89,20 @@ The NowPlaying UI is a modern React application that provides:
    npm install
    ```
 
-3. Create environment variables file:
+3. Create environment variables file from the tracked template:
 
    ```bash
    cp .env.example .env
    ```
 
-4. Configure your environment variables in `.env`
+4. Configure your environment variables in `UI/now-playing-ui/.env`
 
 ### Environment Variables
 
-Create a `.env` file with the following variables:
+Create `UI/now-playing-ui/.env` from `UI/now-playing-ui/.env.example` and fill in real values as needed:
 
 ```env
+VITE_API_BASE_URL=http://localhost:8001
 VITE_REACT_APP_NEWS_API_KEY=<your_news_api_key>
 VITE_REACT_APP_TMDB_API_KEY=<your_tmdb_api_key>
 VITE_REACT_APP_SPOTIFY_API_KEY=<your_spotify_api_key>
@@ -112,6 +121,8 @@ VITE_REACT_APP_SPOTIFY_API_KEY=<your_spotify_api_key>
    ```
 
 2. Open the application in your browser at [http://localhost:5173](http://localhost:5173).
+
+When running through the root Docker Compose stack, the production UI is served at [http://localhost:3200](http://localhost:3200).
 
 ## Project Structure
 
@@ -159,8 +170,8 @@ now-playing-ui/
 
 - **AnalyticsPage**: Main analytics dashboard with comprehensive statistics
 - **GamingStats**: Gaming statistics across all platforms with achievement tracking
-- **MusicStats**: Music listening patterns and statistics from Spotify and Last.fm
-- **MediaStats**: Movie and TV show watching statistics from Trakt
+- **MusicStats**: Music listening patterns, Last.fm scrobble totals, genre distribution, and genre of the week
+- **MediaStats**: Movie and TV show watching statistics, TMDB genres, director/studio insights, and watch-time breakdowns
 - **DailyActivity**: Daily activity tracking and visualization
 - **PlatformComparison**: Cross-platform gaming comparison and insights
 - **AchievementProgress**: Achievement progress tracking across gaming platforms
@@ -230,6 +241,11 @@ The UI connects to a Django backend API with JWT authentication. Key endpoints:
 - `POST /users/register/`: User registration  
 - `POST /users/token/refresh/`: Token refresh
 
+### Analytics
+
+- `GET /analytics/`: Comprehensive analytics dashboard payload with overview, gaming, music, and media sections
+- `GET /analytics/?days=30`: Same payload scoped to a date window
+
 ### Games
 
 - `GET /games/search/`: **Cross-platform game search** (Steam, PlayStation, Xbox, RetroAchievements)
@@ -246,8 +262,8 @@ The UI connects to a Django backend API with JWT authentication. Key endpoints:
 
 ### Music
 
-- `GET /music/fetch-lastfm-recent/`: Last.fm recent tracks
-- `GET /spotify/get-recently-played/`: Spotify recent tracks
+- `GET /music/fetch-lastfm-recent/`: Last.fm recent tracks with MusicBrainz metadata and genre tags
+- `GET /music/fetch-recently-played/`: Spotify recent tracks
 
 ## Features
 
@@ -276,9 +292,10 @@ The UI connects to a Django backend API with JWT authentication. Key endpoints:
 ### Music Dashboard
 
 - **Multi-Service Integration**: Spotify and Last.fm support
-- **Enhanced Metadata**: MusicBrainz integration for rich music data
+- **Enhanced Metadata**: MusicBrainz integration, loved tracks, artwork sizes, and Last.fm genre tags
 - **Visual Display**: Album artwork with multiple image sizes
 - **Scrobbling History**: Complete listening history tracking
+- **Analytics**: Genre distribution and genre of the week in the analytics Music tab
 
 ## Deployment
 
@@ -299,7 +316,13 @@ docker build -t now-playing-ui .
 docker run -p 8080:80 now-playing-ui
 ```
 
-Or use the root docker-compose.yml file to deploy the entire application.
+Or use the root `docker-compose.yml` file to deploy the entire application:
+
+```bash
+docker compose up -d
+```
+
+The Compose default UI URL is [http://localhost:3200](http://localhost:3200).
 
 ## Troubleshooting
 

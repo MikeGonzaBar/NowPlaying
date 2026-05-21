@@ -66,7 +66,7 @@ The authentication system connects to these backend endpoints:
 API base URL can be configured via environment variable:
 
 ```env
-VITE_API_BASE_URL=http://localhost:8000
+VITE_API_BASE_URL=http://localhost:8001
 ```
 
 ## Usage
