@@ -16,6 +16,10 @@ var/
 .project
 .pytest_cache/
 .coverage
+.coverage.*
+htmlcov/
+.ruff_cache/
+.mypy_cache/
 .tox/
 .cache
 nosetests.xml
@@ -40,9 +44,12 @@ MANIFEST
 *.log
 local_settings.py
 db.sqlite3
-media
+*.sqlite3
+media/
+staticfiles/
 
 # Virtualenv
+.venv/
 venv/
 nowPlayingVenv/
 ENV/
@@ -50,9 +57,27 @@ env/
 env.bak/
 venv.bak/
 
+# Node / frontend
+node_modules/
+dist-ssr/
+.vite/
+
 # VS Code
 .vscode/
 
-#Keys
+# Environment / secrets
 .env
+.env.*
+!.env.example
+!**/.env.example
+
+# Local generated artifacts
+test-artifacts/
+.codex-scan/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local notes
 UI/NOTE.md

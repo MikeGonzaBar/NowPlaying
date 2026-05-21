@@ -4,7 +4,7 @@ services:
       context: ./API
       dockerfile: ./Dockerfile
     ports:
-      - "8080:8080"
+      - "${API_PORT:-8001}:8080"
     volumes:
       - ./API:/app
       - ./API/static:/app/static
@@ -23,8 +23,10 @@ services:
     build:
       context: ./UI/now-playing-ui
       dockerfile: ./Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8001}
     ports:
-      - "3000:80"
+      - "${UI_PORT:-3200}:80"
     environment:
       - NODE_ENV=production
 
@@ -34,7 +36,7 @@ services:
       dockerfile: ./Dockerfile
     restart: always
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     env_file:
       - ./DB/.env
     volumes:
@@ -44,7 +46,7 @@ services:
     image: redis:7-alpine
     restart: always
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6380}:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes

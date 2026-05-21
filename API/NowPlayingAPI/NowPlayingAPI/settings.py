@@ -14,42 +14,61 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv, find_dotenv
 from datetime import timedelta
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(find_dotenv())
 
-# STEAM_API_KEY = os.environ["STEAM_API_KEY"]
-# STEAM_ID = os.environ["STEAM_ID"]
-# PLAY_STATION_NPSSO = os.environ["PLAY_STATION_NPSSO"]
-# PLAY_STATION_ID = os.environ["PLAY_STATION_ID"]
-# TRAKT_CLIENT_ID = os.environ["TRAKT_CLIENT_ID"]
-# TRAKT_CLIENT_SECRET = os.environ["TRAKT_CLIENT_SECRET"]
-TRAKT_REDIRECT_URI = os.environ["TRAKT_REDIRECT_URI"]
-TRAKT_AUTH_CODE = os.environ["TRAKT_AUTH_CODE"]
-TMDB_API_KEY = os.environ["TMDB_API_KEY"]
-SPOTIFY_ACCESS_TOKEN = os.environ["SPOTIFY_ACCESS_TOKEN"]
-# RETROACHIEVEMENTS_API_KEY = os.environ["RETROACHIEVEMENTS_API_KEY"]
-# RETROACHIEVEMENTS_USER = os.environ["RETROACHIEVEMENTS_USER"]
-# OPEN_XBL_API = os.environ["OPEN_XBL_API"]
-# XUID = os.environ["XUID"]
+def env_bool(name, default=False):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
-# API Key encryption
-# In production, use a strong key stored in environment
-# This key is used to encrypt/decrypt user's API keys
-API_KEY_ENCRYPTION_KEY = os.environ.get('API_KEY_ENCRYPTION_KEY', 'C3fygP72WNfaeLgDXCwPRgxSzWQctoCY7fHB3DNOZPM=')
-# The above is a properly formatted Fernet key for development only. In production, always set this in the environment.
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
+def env_list(name, default=None):
+    value = os.environ.get(name)
+    if value is None:
+        return default or []
+    return [item.strip() for item in value.split(",") if item.strip()]
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-7xthprcmh1^rrz5$+z*07$srfwl*rp8mgo6j-p0gc(!oui771r"
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+def require_env(name):
+    value = os.environ.get(name)
+    if not value:
+        raise ImproperlyConfigured(f"{name} must be set in production.")
+    return value
 
-ALLOWED_HOSTS = ["*"]
+
+ENVIRONMENT = os.environ.get("DJANGO_ENV", "development").strip().lower()
+IS_PRODUCTION = ENVIRONMENT in {"prod", "production"}
+
+DEBUG = env_bool("DEBUG", default=not IS_PRODUCTION)
+
+SECRET_KEY = (
+    require_env("SECRET_KEY")
+    if IS_PRODUCTION
+    else os.environ.get("SECRET_KEY", "django-insecure-development-only-nowplaying-key")
+)
+
+API_KEY_ENCRYPTION_KEY = (
+    require_env("API_KEY_ENCRYPTION_KEY")
+    if IS_PRODUCTION
+    else os.environ.get("API_KEY_ENCRYPTION_KEY", "C3fygP72WNfaeLgDXCwPRgxSzWQctoCY7fHB3DNOZPM=")
+)
+
+ALLOWED_HOSTS = env_list(
+    "ALLOWED_HOSTS",
+    ["localhost", "127.0.0.1", "0.0.0.0", "*"] if DEBUG else [],
+)
+if IS_PRODUCTION and not ALLOWED_HOSTS:
+    raise ImproperlyConfigured("ALLOWED_HOSTS must be set in production.")
+
+TRAKT_REDIRECT_URI = os.environ.get("TRAKT_REDIRECT_URI", "http://localhost:3000/profile")
+TRAKT_AUTH_CODE = os.environ.get("TRAKT_AUTH_CODE", "")
+TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "")
+SPOTIFY_ACCESS_TOKEN = os.environ.get("SPOTIFY_ACCESS_TOKEN", "")
 
 
 # Application definition
@@ -121,7 +140,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.environ.get('POSTGRES_DB', 'nowplaying'),
         'USER': os.environ.get('POSTGRES_USER', 'nowplaying_user'),
-        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'nowplaying_password'),
+        'PASSWORD': require_env('POSTGRES_PASSWORD') if IS_PRODUCTION else os.environ.get('POSTGRES_PASSWORD', 'nowplaying_password'),
         'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
         'PORT': os.environ.get('POSTGRES_PORT', '5432'),
     }
@@ -160,9 +179,6 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
-
-STATIC_URL = "static/"
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -203,7 +219,12 @@ SIMPLE_JWT = {
     "TOKEN_TYPE_CLAIM": "token_type",
 }
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = env_bool("CORS_ALLOW_ALL_ORIGINS", default=DEBUG)
+CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", [])
+if IS_PRODUCTION and CORS_ALLOW_ALL_ORIGINS:
+    raise ImproperlyConfigured("CORS_ALLOW_ALL_ORIGINS cannot be true in production.")
+if IS_PRODUCTION and not CORS_ALLOWED_ORIGINS:
+    raise ImproperlyConfigured("CORS_ALLOWED_ORIGINS must be set in production.")
 
 # Caching Configuration
 CACHES = {
