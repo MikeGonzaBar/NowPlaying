@@ -1,5 +1,4 @@
 from django.db import models
-from django.conf import settings
 from psnawp_api import PSNAWP
 from psnawp_api.models import Client
 from psnawp_api.models.trophies import PlatformType

@@ -1,4 +1,3 @@
-from django.shortcuts import render
 from django.db.models import IntegerField
 from django.db.models.functions import Cast
 from .serializers import XboxGameSerializer
@@ -7,7 +6,7 @@ from .models import XboxAPI
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import viewsets, status
-from users.models import UserApiKey
+from users.credentials import get_service_credentials
 
 class XBOXViewSet(viewsets.ModelViewSet):
     serializer_class = XboxGameSerializer
@@ -18,32 +17,18 @@ class XBOXViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=["get"], url_path="get-game-list")
     def getGameList(self, request):
+        api_key = get_service_credentials(request.user, "xbox", require_user_id=True)
+
         try:
-            # Get the user's Xbox credentials from their stored API keys
-            api_key = UserApiKey.objects.get(user=request.user, service_name='xbox')
-            xuid = api_key.service_user_id
-            xbox_api_key = api_key.get_key()
-            
-            if not xuid:
-                return Response(
-                    {"error": "No Xbox XUID found. Please update your Xbox API key with your XUID."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-                
             # Call the API method to fetch/update games and achievements
             result = XboxAPI.fetch_games(
                 user=request.user,
-                xbox_api_key=xbox_api_key,
-                xuid=xuid
+                xbox_api_key=api_key.api_key,
+                xuid=api_key.service_user_id,
             )
             
             return Response({"result": result})
             
-        except UserApiKey.DoesNotExist:
-            return Response(
-                {"error": "No Xbox API key found. Please add your Xbox API key in profile settings."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
         except Exception as e:
             return Response(
                 {"error": f"An unexpected error occurred: {str(e)}"},

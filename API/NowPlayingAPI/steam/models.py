@@ -1,9 +1,8 @@
 from django.db import models
-from django.conf import settings
-import requests
 from datetime import datetime, timezone
 import logging
 from django.contrib.auth.models import User
+import http_client
 
 logger = logging.getLogger("steam")
 
@@ -61,8 +60,16 @@ class SteamAPI:
     @staticmethod
     def fetch_global_achievements(appid, steam_api_key):
         url = "http://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/"
-        response = requests.get(url, params={"key": steam_api_key, "appid": appid})
-        data = response.json()
+        try:
+            response = http_client.get(
+                url,
+                params={"key": steam_api_key, "appid": appid},
+                logger_name="steam",
+            )
+            data = response.json()
+        except (http_client.ExternalRequestError, ValueError) as exc:
+            logger.warning("Unable to fetch Steam global achievements for %s: %s", appid, exc)
+            return None, "Unable to fetch achievements from Steam."
         if (
             not data.get("game")
             or not data["game"].get("availableGameStats")
@@ -74,14 +81,18 @@ class SteamAPI:
     @staticmethod
     def fetch_player_achievements(appid, steam_id, steam_api_key):
         url = "http://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/"
-        response = requests.get(url, params={
-            "key": steam_api_key,
-            "steamid": steam_id,
-            "appid": appid,
-        })
         try:
+            response = http_client.get(
+                url,
+                params={
+                    "key": steam_api_key,
+                    "steamid": steam_id,
+                    "appid": appid,
+                },
+                logger_name="steam",
+            )
             data = response.json()
-        except requests.JSONDecodeError as e:
+        except (http_client.ExternalRequestError, ValueError) as e:
             logger.error(f"Failed to decode JSON: {e}")
             return None, "Invalid response from Steam API."
 
@@ -193,11 +204,14 @@ class SteamAPI:
             "include_appinfo": True,
             "include_played_free_games": True,
         }
-        response = requests.get(url, params=params)
+        response = http_client.get(url, params=params, logger_name="steam")
         if response.status_code != 200:
             return {"error": f"Failed to fetch games data: {response.status_code}"}
 
-        data = response.json()
+        try:
+            data = response.json()
+        except ValueError:
+            return {"error": "Invalid response from Steam API."}
         games = data.get("response", {}).get("games", [])
 
         formatted_games = []

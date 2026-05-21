@@ -1,10 +1,8 @@
 from django.db import models
-from django.conf import settings
 from datetime import datetime, timedelta
-from django.utils.dateparse import parse_datetime
-import requests
 from django.contrib.auth.models import User
 import logging
+import http_client
 
 # Set up logging
 logger = logging.getLogger("xbox")
@@ -38,25 +36,80 @@ class XboxAchievement(models.Model):
         return f"{self.name} ({'Unlocked' if self.unlocked else 'Locked'})"
     
 class XboxAPI:
+    XBOX_DEVICE_MARKERS = {"PC", "XboxOne", "XboxSeries", "Xbox360"}
+    GENERIC_SERVICE_CONFIG_ID = "00000000-0000-0000-0000-000000000000"
+
+    @staticmethod
+    def _safe_int(value):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
     @staticmethod
     def make_request(url, api_key):
         headers = {
             "x-authorization": api_key
         }
         try:
-            response = requests.get(url, headers=headers)
+            response = http_client.get(url, headers=headers, logger_name="xbox")
             if response.status_code == 200:
                 try:
-                    return response.json()
+                    data = response.json()
                 except ValueError:
                     logger.error(f"Error parsing JSON from URL: {url}")
                     return {}
+
+                if isinstance(data, dict) and "content" in data and "code" in data:
+                    if data.get("code") != 200:
+                        logger.error("OpenXBL returned code %s for URL %s", data.get("code"), url)
+                        return {}
+                    content = data.get("content")
+                    return content if isinstance(content, dict) else {}
+
+                return data
             else:
                 logger.error(f"Bad response from URL {url}: {response.status_code} {response.reason}")
                 return {}
         except Exception as e:
             logger.error(f"Request error: {str(e)}")
             return {}
+
+    @classmethod
+    def is_supported_xbox_title(cls, game):
+        """
+        OpenXBL title history can include generic Windows game activity from
+        Xbox/Game Bar. Keep real Xbox ecosystem titles and drop plain Win32
+        entries such as emulators or games tracked elsewhere.
+        """
+        devices = set(game.get("devices") or [])
+        if devices.intersection(cls.XBOX_DEVICE_MARKERS):
+            return True
+
+        if "Win32" not in devices:
+            return False
+
+        achievement = game.get("achievement") or {}
+        stats = game.get("stats") or {}
+        game_pass = game.get("gamePass") or {}
+        service_config_id = game.get("serviceConfigId")
+
+        has_package_identity = any([
+            game.get("pfn"),
+            game.get("modernTitleId"),
+            service_config_id and service_config_id != cls.GENERIC_SERVICE_CONFIG_ID,
+        ])
+        has_xbox_live_metadata = any([
+            game.get("xboxLiveTier") == "Full",
+            game_pass.get("isGamePass") is True,
+            cls._safe_int(achievement.get("currentAchievements")) > 0,
+            cls._safe_int(achievement.get("totalAchievements")) > 0,
+            cls._safe_int(achievement.get("currentGamerscore")) > 0,
+            cls._safe_int(achievement.get("totalGamerscore")) > 0,
+            cls._safe_int(stats.get("sourceVersion")) > 0,
+        ])
+
+        return has_package_identity and has_xbox_live_metadata
     
     @staticmethod
     def needs_update(game: dict, user) -> bool:
@@ -103,12 +156,13 @@ class XboxAPI:
             titles_count = len(response.get("titles", []))
             logger.info(f"Titles obtained: {titles_count}")
             
-            desired_devices = {"PC", "XboxOne", "XboxSeries", "Xbox360"}
+            raw_titles = response.get("titles", [])
             xbox_games = [
-                game for game in response.get("titles", [])
-                if desired_devices.intersection(set(game.get("devices", [])))
+                game for game in raw_titles
+                if cls.is_supported_xbox_title(game)
             ]
-            logger.info(f"Titles after filtering: {len(xbox_games)}")
+            logger.info(f"Titles after Xbox ecosystem filtering: {len(xbox_games)}")
+            logger.info(f"Titles excluded as generic Win32/non-Xbox activity: {len(raw_titles) - len(xbox_games)}")
             
             games_info = []
             

@@ -3,7 +3,7 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from .models import RetroAchievementsAPI
-from users.models import UserApiKey
+from users.credentials import get_service_credentials
 
 
 class RetroAchievementsViewSet(viewsets.ViewSet):
@@ -38,32 +38,18 @@ class RetroAchievementsViewSet(viewsets.ViewSet):
         """
         Fetches and populates the latest 50 recently played games for the authenticated user.
         """
+        api_key = get_service_credentials(request.user, "retroachievements", require_user_id=True)
+
         try:
-            # Get the user's RetroAchievements credentials from their stored API keys
-            api_key = UserApiKey.objects.get(user=request.user, service_name='retroachievements')
-            ra_username = api_key.service_user_id
-            ra_api_key = api_key.get_key()
-            
-            if not ra_username:
-                return Response(
-                    {"error": "No RetroAchievements username found. Please update your RetroAchievements API key with your username."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-                
             # Call the new API method to fetch/update games and achievements
             result = RetroAchievementsAPI.populate_recently_played_games(
                 user=request.user,
-                ra_username=ra_username, 
-                ra_api_key=ra_api_key
+                ra_username=api_key.service_user_id,
+                ra_api_key=api_key.api_key,
             )
             
             return Response({"result": result})
             
-        except UserApiKey.DoesNotExist:
-            return Response(
-                {"error": "No RetroAchievements API key found. Please add your RetroAchievements API key in profile settings."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
         except Exception as e:
             return Response(
                 {"error": f"An unexpected error occurred: {str(e)}"},

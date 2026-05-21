@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 import re
 from rest_framework.decorators import action
 from rest_framework import viewsets, status
@@ -7,6 +7,7 @@ from .models import PSNGame
 from .serializers import PSNGameSerializer
 from .models import PSN  # Import the utility class that contains get_games() and get_games_stored()
 from users.models import UserApiKey  # Import UserApiKey from users app
+from users.credentials import get_service_credentials
 from rest_framework.permissions import IsAuthenticated
 from psnawp_api import PSNAWP
 
@@ -20,27 +21,9 @@ class PSNViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="get-game-list")
     def getGameList(self, request):
-        try:
-            # Get the user's PSN NPSSO from their stored API keys
-            api_key = UserApiKey.objects.get(user=request.user, service_name='psn')
-            psn_user_id = api_key.service_user_id
-            psn_npsso = api_key.get_key()
-            
-            if not psn_npsso:
-                return Response(
-                    {"error": "No PlayStation NPSSO found. Please update your PlayStation API key."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Call the helper method to fetch/update games and achievements
-            result = PSN.get_games(psn_npsso, psn_user_id, user=request.user)
-            return Response({"result": result})
-            
-        except UserApiKey.DoesNotExist:
-            return Response(
-                {"error": "No PlayStation API key found. Please add your PlayStation NPSSO in profile settings."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        api_key = get_service_credentials(request.user, "psn", require_user_id=True)
+        result = PSN.get_games(api_key.api_key, api_key.service_user_id, user=request.user)
+        return Response({"result": result})
 
     @action(detail=False, methods=["post"], url_path="exchange-npsso")
     def exchange_npsso(self, request):

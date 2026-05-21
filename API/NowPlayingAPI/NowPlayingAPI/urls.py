@@ -20,11 +20,12 @@ from django.urls import include, path
 from rest_framework import routers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from rest_framework import status
 from rest_framework.response import Response
 from django.db.models import Q
-import json
 from django.core.cache import cache
 from django.conf import settings
+import logging
 
 from retroachievements import views as retroachievements_views
 from steam import views as steam_views
@@ -33,6 +34,8 @@ from trakt import views as trakt_views
 from music import views as music_views
 from xbox import views as xbox_views
 from analytics import views as analytics_views
+
+logger = logging.getLogger(__name__)
 
 # Optimized Games Search View with caching
 @api_view(['GET'])
@@ -72,7 +75,7 @@ def games_search(request):
                 'appid': game.appid
             })
     except Exception as e:
-        print(f"Steam search error: {e}")
+        logger.warning("Steam search error: %s", e)
     
     # Search in PSN games
     try:
@@ -94,7 +97,7 @@ def games_search(request):
                 'appid': game.appid
             })
     except Exception as e:
-        print(f"PSN search error: {e}")
+        logger.warning("PSN search error: %s", e)
     
     # Search in Xbox games
     try:
@@ -116,7 +119,7 @@ def games_search(request):
                 'appid': game.appid
             })
     except Exception as e:
-        print(f"Xbox search error: {e}")
+        logger.warning("Xbox search error: %s", e)
     
     # Search in RetroAchievements games
     try:
@@ -140,7 +143,7 @@ def games_search(request):
                 'appid': game.game_id
             })
     except Exception as e:
-        print(f"RetroAchievements search error: {e}")
+        logger.warning("RetroAchievements search error: %s", e)
     
     # Sort results by title and limit to 20 total
     results.sort(key=lambda x: x['title'].lower())
@@ -150,6 +153,63 @@ def games_search(request):
     cache.set(cache_key, results, getattr(settings, 'CACHE_TIMEOUTS', {}).get('SEARCH_RESULTS', 300))
     
     return Response({'results': results})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def games_detail(request):
+    platform = request.GET.get('platform', '').strip().lower()
+    appid = request.GET.get('appid', '').strip()
+
+    if platform not in {'steam', 'psn', 'xbox', 'retroachievements'}:
+        return Response(
+            {'error': "platform must be one of: steam, psn, xbox, retroachievements."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if not appid:
+        return Response({'error': 'appid is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if platform == 'steam':
+        from steam.models import Game as SteamGame
+        from steam.serializers import SteamSerializer
+
+        game = SteamGame.objects.filter(user=request.user, appid=appid).prefetch_related('achievements').first()
+        if not game:
+            return Response({'error': 'Game not found.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'result': SteamSerializer(game).data})
+
+    if platform == 'psn':
+        from playstation.models import PSNGame
+        from playstation.serializers import PSNGameSerializer
+
+        game = PSNGame.objects.filter(user=request.user, appid=appid).prefetch_related('achievements').first()
+        if not game:
+            return Response({'error': 'Game not found.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'result': PSNGameSerializer(game).data})
+
+    if platform == 'xbox':
+        from xbox.models import XboxGame
+        from xbox.serializers import XboxGameSerializer
+
+        game = XboxGame.objects.filter(user=request.user, appid=appid).prefetch_related('achievements').first()
+        if not game:
+            return Response({'error': 'Game not found.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'result': XboxGameSerializer(game).data})
+
+    try:
+        game_id = int(appid)
+    except ValueError:
+        return Response({'error': 'appid must be an integer for RetroAchievements.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    from retroachievements.models import RetroAchievementsAPI
+
+    detail = RetroAchievementsAPI.fetch_game_details(user=request.user, game_id=game_id)
+    if not detail:
+        return Response({'error': 'Game not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    result = detail['game']
+    result['achievements'] = detail['achievements']
+    return Response({'result': result})
 
 admin.autodiscover()
 
@@ -170,4 +230,5 @@ urlpatterns = [
     path("auth/", include("users.urls")),
     path("users/", include("users.urls")),
     path("games/search/", games_search, name="games_search"),
+    path("games/detail/", games_detail, name="games_detail"),
 ]
