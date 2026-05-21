@@ -2,9 +2,12 @@ from rest_framework.decorators import action
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from .models import Song
 from .serializers import StreamedSongSerializer  # Import the serializer
 from users.models import UserApiKey  # Import UserApiKey from the correct location
+from users.credentials import get_service_credentials
+from query_params import bounded_int, pagination_params
 from django.core.cache import cache
 from django.conf import settings
 from django.db.models import Count
@@ -17,9 +20,53 @@ import threading
 logger = logging.getLogger(__name__)
 
 
+def invalidate_music_caches(user_id):
+    """Clear cached music and analytics snapshots after music data changes."""
+    from analytics.services import AnalyticsService
+
+    deleted_keys = AnalyticsService.invalidate_user_cache(user_id)
+    today = timezone.now().date()
+    music_keys = []
+    for days in range(1, 366):
+        music_keys.append(f"music_dashboard_stats_{user_id}_{days}")
+    cache.delete_many(music_keys)
+
+    logger.info(
+        "Invalidated music-dependent caches for user %s on %s (%s analytics keys, %s music keys)",
+        user_id,
+        today,
+        deleted_keys,
+        len(music_keys),
+    )
+
+
 class StreamedSongViewSet(viewsets.ModelViewSet):
     queryset = Song.objects.all()
     serializer_class = StreamedSongSerializer
+
+    def _filtered_top_songs(self, request):
+        songs = Song.objects.filter(user=request.user)
+
+        days_param = request.query_params.get("days")
+        if days_param not in (None, "", "all"):
+            try:
+                days = int(days_param)
+            except (TypeError, ValueError):
+                raise ValidationError({"days": "Must be an integer from 1 to 365 or 'all'."})
+
+            if days < 1 or days > 365:
+                raise ValidationError({"days": "Must be between 1 and 365."})
+
+            songs = songs.filter(played_at__gte=timezone.now() - timedelta(days=days))
+
+        source = request.query_params.get("source")
+        if source:
+            source = source.strip().lower()
+            if source not in ["spotify", "lastfm"]:
+                raise ValidationError({"source": "Must be one of: spotify, lastfm."})
+            songs = songs.filter(source=source)
+
+        return songs
 
     def get_queryset(self):
         """
@@ -35,24 +82,11 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
         Fetches the latest 50 recently played songs from Spotify for the authenticated user,
         stores them in the database, and returns the fetched data.
         """
-        try:
-            # Get the user's Spotify access token from their stored API keys
-            try:
-                api_key = UserApiKey.objects.get(user=request.user, service_name='spotify')
-                spotify_token = api_key.get_key()
-                
-                if not spotify_token:
-                    return Response(
-                        {"error": "No Spotify access token found. Please update your Spotify API key."},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-            except UserApiKey.DoesNotExist:
-                return Response(
-                    {"error": "No Spotify API key found. Please add your Spotify API key in profile settings."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        api_key = get_service_credentials(request.user, "spotify")
 
-            result = Song.fetch_recently_played_songs(request.user, spotify_token)
+        try:
+            result = Song.fetch_recently_played_songs(request.user, api_key.api_key)
+            invalidate_music_caches(request.user.id)
             return Response(
                 {
                     "message": "Recently played songs fetched and stored successfully.",
@@ -72,42 +106,26 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
         stores them in the database, and returns the fetched data.
         If async=True query param is provided, runs in background thread.
         """
-        try:
-            # Get the user's Last.fm API key and username from their stored API keys
-            try:
-                api_key_obj = UserApiKey.objects.get(user=request.user, service_name='lastfm')
-                lastfm_api_key = api_key_obj.get_key()
-                lastfm_username = api_key_obj.service_user_id
-                
-                if not lastfm_api_key:
-                    return Response(
-                        {"error": "No Last.fm API key found. Please update your Last.fm API key."},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                
-                if not lastfm_username:
-                    return Response(
-                        {"error": "No Last.fm username found. Please update your Last.fm API key with your username in the service_user_id field."},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                    
-            except UserApiKey.DoesNotExist:
-                return Response(
-                    {"error": "No Last.fm API key found. Please add your Last.fm API key in profile settings."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        api_key_obj = get_service_credentials(request.user, "lastfm", require_user_id=True)
+        lastfm_api_key = api_key_obj.api_key
+        lastfm_username = api_key_obj.service_user_id
 
+        try:
             # Check if async mode is requested
             async_mode = request.query_params.get('async', 'false').lower() == 'true'
             
             if async_mode:
                 # Run in background thread to avoid timeout
+                user = request.user
+                user_id = request.user.id
+
                 def sync_tracks():
                     try:
-                        Song.fetch_lastfm_recent_tracks(request.user, lastfm_api_key, lastfm_username, limit=None)
-                        logger.info(f"Background Last.fm sync completed for user {request.user.id}")
+                        Song.fetch_lastfm_recent_tracks(user, lastfm_api_key, lastfm_username, limit=None)
+                        invalidate_music_caches(user_id)
+                        logger.info(f"Background Last.fm sync completed for user {user_id}")
                     except Exception as e:
-                        logger.error(f"Error in background Last.fm sync for user {request.user.id}: {e}", exc_info=True)
+                        logger.error(f"Error in background Last.fm sync for user {user_id}: {e}", exc_info=True)
                 
                 thread = threading.Thread(target=sync_tracks, daemon=True)
                 thread.start()
@@ -119,6 +137,7 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
             else:
                 # Fetch ALL tracks (no limit) - synchronous mode
                 result = Song.fetch_lastfm_recent_tracks(request.user, lastfm_api_key, lastfm_username, limit=None)
+                invalidate_music_caches(request.user.id)
                 return Response(
                     {
                         "message": f"Last.fm ALL recent tracks fetched and stored successfully for user '{lastfm_username}'.",
@@ -142,8 +161,9 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
         """
         # Optional filter by source (spotify, lastfm, or all)
         source = request.query_params.get('source')
-        page = int(request.query_params.get('page', 1))
-        page_size = int(request.query_params.get('page_size', 50))
+        page, page_size = pagination_params(request.query_params, default_page_size=50, max_page_size=100)
+        if source and source not in ['spotify', 'lastfm']:
+            raise ValidationError({'source': "Must be 'spotify' or 'lastfm'."})
         
         # Check cache first - SAFE OPTIMIZATION
         cache_key = f"stored_songs_{request.user.id}_{source}_{page}_{page_size}"
@@ -196,9 +216,10 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
         - Milestones
         - Loved highlights
         """
+        days = bounded_int(request.query_params, 'days', default=30, minimum=1, maximum=365)
+
         try:
             user = request.user
-            days = int(request.query_params.get('days', 30))
             
             # Check cache
             cache_key = f"music_dashboard_stats_{user.id}_{days}"
@@ -395,11 +416,10 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="top-tracks")
     def topTracks(self, request):
         """Returns all top tracks with full details for the View All page"""
+        limit = bounded_int(request.query_params, 'limit', default=100, minimum=1, maximum=500)
+
         try:
-            user = request.user
-            limit = int(request.query_params.get('limit', 100))
-            
-            songs = Song.objects.filter(user=user)
+            songs = self._filtered_top_songs(request)
             top_tracks = songs.values('title', 'artist').annotate(
                 count=Count('id')
             ).order_by('-count')[:limit]
@@ -424,6 +444,8 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                     })
             
             return Response({'tracks': tracks_list})
+        except ValidationError:
+            raise
         except Exception as e:
             logger.error(f"Error fetching top tracks: {e}", exc_info=True)
             return Response(
@@ -434,11 +456,10 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="top-artists")
     def topArtists(self, request):
         """Returns all top artists with their top 3 tracks for the View All page"""
+        limit = bounded_int(request.query_params, 'limit', default=100, minimum=1, maximum=500)
+
         try:
-            user = request.user
-            limit = int(request.query_params.get('limit', 100))
-            
-            songs = Song.objects.filter(user=user)
+            songs = self._filtered_top_songs(request)
             top_artists = songs.values('artist').annotate(
                 count=Count('id')
             ).order_by('-count')[:limit]
@@ -470,6 +491,8 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                 })
             
             return Response({'artists': artists_list})
+        except ValidationError:
+            raise
         except Exception as e:
             logger.error(f"Error fetching top artists: {e}", exc_info=True)
             return Response(
@@ -480,11 +503,10 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="top-albums")
     def topAlbums(self, request):
         """Returns all top albums with their top 3 tracks for the View All page"""
+        limit = bounded_int(request.query_params, 'limit', default=100, minimum=1, maximum=500)
+
         try:
-            user = request.user
-            limit = int(request.query_params.get('limit', 100))
-            
-            songs = Song.objects.filter(user=user)
+            songs = self._filtered_top_songs(request)
             top_albums = songs.exclude(album__isnull=True).exclude(album='').values(
                 'album', 'artist'
             ).annotate(
@@ -519,6 +541,8 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                 })
             
             return Response({'albums': albums_list})
+        except ValidationError:
+            raise
         except Exception as e:
             logger.error(f"Error fetching top albums: {e}", exc_info=True)
             return Response(

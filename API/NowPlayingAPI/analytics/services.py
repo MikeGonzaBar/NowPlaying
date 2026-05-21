@@ -18,6 +18,20 @@ class AnalyticsService:
     """Optimized service class for calculating and managing user statistics"""
     
     @staticmethod
+    def invalidate_user_cache(user_id):
+        """Clear analytics cache entries that depend on user activity data."""
+        today = timezone.now().date()
+        keys = []
+        for days in range(1, 366):
+            keys.extend([
+                f"analytics_{user_id}_{days}",
+                f"analytics_{user_id}_{days}_{today}",
+                f"platform_dist_{user_id}_{days}_{today}",
+            ])
+        cache.delete_many(keys)
+        return len(keys)
+    
+    @staticmethod
     def _format_duration(duration):
         """Convert timedelta to human-readable string"""
         if not duration or duration.total_seconds() == 0:

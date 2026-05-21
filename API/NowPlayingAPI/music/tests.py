@@ -1,7 +1,9 @@
-from django.test import TestCase
 from django.contrib.auth.models import User
+from django.core.cache import cache
+from django.utils import timezone
 from rest_framework.test import APITestCase
 from rest_framework import status
+from datetime import timedelta
 from unittest.mock import patch, MagicMock
 from users.models import UserApiKey
 from .models import Song
@@ -17,7 +19,7 @@ class LastFmIntegrationTestCase(APITestCase):
         self.client.force_authenticate(user=self.user)
         
         # Create a test Last.fm API key
-        self.api_key = UserApiKey.objects.create(
+        self.api_key = UserApiKey(
             user=self.user,
             service_name='lastfm'
         )
@@ -31,7 +33,7 @@ class LastFmIntegrationTestCase(APITestCase):
         
         response = self.client.get('/music/fetch-lastfm-recent/')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('No Last.fm API key found', response.data['error'])
+        self.assertIn('No Last.fm API key found', response.data['detail'])
 
     def test_fetch_lastfm_recent_missing_username(self):
         """Test that missing username returns appropriate error"""
@@ -41,15 +43,15 @@ class LastFmIntegrationTestCase(APITestCase):
         
         response = self.client.get('/music/fetch-lastfm-recent/')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('No Last.fm username found', response.data['error'])
+        self.assertIn('No Last.fm user ID found', response.data['detail'])
 
-    @patch('music.models.requests.get')
+    @patch('music.models.http_client.get')
     def test_fetch_lastfm_recent_success_with_enhanced_data(self, mock_get):
         """Test successful Last.fm API call with all enhanced fields"""
         # Mock the Last.fm API response with extended data
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
+        recent_response = MagicMock()
+        recent_response.status_code = 200
+        recent_response.json.return_value = {
             "recenttracks": {
                 "track": [
                     {
@@ -78,12 +80,34 @@ class LastFmIntegrationTestCase(APITestCase):
                 ]
             }
         }
-        mock_get.return_value = mock_response
+        tags_response = MagicMock()
+        tags_response.status_code = 200
+        tags_response.json.return_value = {
+            "toptags": {
+                "tag": [
+                    {"name": "rock", "count": "100"},
+                    {"name": "alternative rock", "count": "80"},
+                    {"name": "seen live", "count": "50"},
+                ]
+            }
+        }
+        mock_get.side_effect = [recent_response, tags_response]
+        today = timezone.now().date()
+        stale_keys = [
+            f"analytics_{self.user.id}_30",
+            f"analytics_{self.user.id}_30_{today}",
+            f"platform_dist_{self.user.id}_30_{today}",
+            f"music_dashboard_stats_{self.user.id}_30",
+        ]
+        for key in stale_keys:
+            cache.set(key, "stale")
         
         response = self.client.get('/music/fetch-lastfm-recent/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('Last.fm recent tracks fetched and stored successfully', response.data['message'])
+        self.assertIn('Last.fm ALL recent tracks fetched and stored successfully', response.data['message'])
         self.assertEqual(len(response.data['data']), 1)
+        for key in stale_keys:
+            self.assertIsNone(cache.get(key))
         
         # Check that the song was saved to the database with enhanced data
         song = Song.objects.filter(user=self.user, source='lastfm').first()
@@ -99,6 +123,7 @@ class LastFmIntegrationTestCase(APITestCase):
         self.assertEqual(song.artist_lastfm_url, 'https://www.last.fm/music/Test+Artist')
         self.assertTrue(song.loved)
         self.assertTrue(song.streamable)
+        self.assertEqual(song.genre_tags, ["Rock", "Alternative Rock"])
         
         # Test image fields
         self.assertEqual(song.album_thumbnail_small, 'https://example.com/small.jpg')
@@ -115,6 +140,7 @@ class LastFmIntegrationTestCase(APITestCase):
         self.assertEqual(track_data['artist_lastfm_url'], 'https://www.last.fm/music/Test+Artist')
         self.assertTrue(track_data['loved'])
         self.assertTrue(track_data['streamable'])
+        self.assertEqual(track_data['genre_tags'], ["Rock", "Alternative Rock"])
         
         # Check album thumbnails object
         thumbnails = track_data['album_thumbnails']
@@ -122,6 +148,65 @@ class LastFmIntegrationTestCase(APITestCase):
         self.assertEqual(thumbnails['medium'], 'https://example.com/medium.jpg')
         self.assertEqual(thumbnails['large'], 'https://example.com/large.jpg')
         self.assertEqual(thumbnails['extralarge'], 'https://example.com/extralarge.jpg')
+
+    @patch('music.models.http_client.get')
+    def test_fetch_lastfm_recent_accepts_long_urls(self, mock_get):
+        """Long Last.fm and artwork URLs should fit in the database columns."""
+        long_url = "https://www.last.fm/music/Test+Artist/_/Test+Song?" + ("token=abc123&" * 25)
+        long_image_url = "https://lastfm.freetls.fastly.net/i/u/300x300/" + ("abcdef1234567890" * 12) + ".jpg"
+        self.assertGreater(len(long_url), 200)
+        self.assertGreater(len(long_image_url), 200)
+
+        for field_name in [
+            "album_thumbnail",
+            "track_url",
+            "artist_lastfm_url",
+            "album_thumbnail_extralarge",
+        ]:
+            self.assertEqual(Song._meta.get_field(field_name).max_length, 2048)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "recenttracks": {
+                "track": [
+                    {
+                        "name": "Long URL Song",
+                        "artist": {
+                            "#text": "Test Artist",
+                            "url": long_url,
+                        },
+                        "album": {"#text": "Test Album"},
+                        "date": {"#text": "01 Jan 2024, 12:00"},
+                        "url": long_url,
+                        "image": [
+                            {"#text": long_image_url, "size": "extralarge"},
+                        ],
+                    }
+                ]
+            }
+        }
+        mock_get.return_value = mock_response
+
+        response = self.client.get('/music/fetch-lastfm-recent/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        song = Song.objects.get(user=self.user, source='lastfm', title='Long URL Song')
+        self.assertEqual(song.track_url, long_url)
+        self.assertEqual(song.artist_lastfm_url, long_url)
+        self.assertEqual(song.album_thumbnail, long_image_url)
+        self.assertEqual(song.album_thumbnail_extralarge, long_image_url)
+
+    def test_normalize_lastfm_tags_returns_genre_like_tags(self):
+        tags = Song.normalize_lastfm_tags([
+            {"name": "seen live", "count": "999"},
+            {"name": "r&b", "count": "900"},
+            {"name": "pop", "count": "700"},
+            {"name": "80s", "count": "100"},
+            {"name": "dance-pop", "count": "600"},
+        ])
+
+        self.assertEqual(tags, ["R&B", "Pop", "Dance Pop"])
 
     def test_get_stored_songs_filter_by_source(self):
         """Test filtering songs by source"""
@@ -162,3 +247,77 @@ class LastFmIntegrationTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
         self.assertEqual(response.data['results'][0]['source'], 'spotify')
+
+    def test_get_stored_songs_rejects_invalid_page(self):
+        response = self.client.get('/music/get-stored-songs/?page=0')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('page', response.data)
+
+    def test_get_stored_songs_clamps_oversized_page_size(self):
+        response = self.client.get('/music/get-stored-songs/?page_size=1000')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['page_size'], 100)
+
+    def test_dashboard_stats_rejects_invalid_days(self):
+        response = self.client.get('/music/dashboard-stats/?days=0')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('days', response.data)
+
+    def test_top_artists_filters_by_days_and_source(self):
+        now = timezone.now()
+        Song.objects.create(
+            user=self.user,
+            title='Recent Last.fm Song',
+            artist='Recent Artist',
+            album='Recent Album',
+            played_at=now - timedelta(days=10),
+            source='lastfm',
+        )
+        Song.objects.create(
+            user=self.user,
+            title='Old Spotify Song',
+            artist='Old Artist',
+            album='Old Album',
+            played_at=now - timedelta(days=120),
+            source='spotify',
+        )
+
+        response = self.client.get('/music/top-artists/?days=30&source=lastfm')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['artists']), 1)
+        self.assertEqual(response.data['artists'][0]['name'], 'Recent Artist')
+
+    def test_top_albums_filters_by_source(self):
+        now = timezone.now()
+        Song.objects.create(
+            user=self.user,
+            title='Spotify Song',
+            artist='Shared Artist',
+            album='Spotify Album',
+            played_at=now - timedelta(days=1),
+            source='spotify',
+        )
+        Song.objects.create(
+            user=self.user,
+            title='Last.fm Song',
+            artist='Shared Artist',
+            album='Last.fm Album',
+            played_at=now - timedelta(days=2),
+            source='lastfm',
+        )
+
+        response = self.client.get('/music/top-albums/?source=spotify')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['albums']), 1)
+        self.assertEqual(response.data['albums'][0]['name'], 'Spotify Album')
+
+    def test_top_tracks_rejects_invalid_filters(self):
+        response = self.client.get('/music/top-tracks/?days=0')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('days', response.data)
+
+        response = self.client.get('/music/top-tracks/?source=itunes')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('source', response.data)

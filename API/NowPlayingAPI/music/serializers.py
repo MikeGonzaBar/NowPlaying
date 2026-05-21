@@ -9,5 +9,5 @@ class StreamedSongSerializer(serializers.ModelSerializer):
                  'track_url', 'artists_url', 'duration_ms', 'source',
                  'artist_lastfm_url', 'track_mbid', 'artist_mbid', 'album_mbid', 
                  'loved', 'streamable', 'album_thumbnail_small', 'album_thumbnail_medium',
-                 'album_thumbnail_large', 'album_thumbnail_extralarge']
+                 'album_thumbnail_large', 'album_thumbnail_extralarge', 'genre_tags']
         read_only_fields = ['id', 'user']
