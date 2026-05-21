@@ -8,10 +8,33 @@ import {
 } from '../utils/types';
 import { parseDate, getPlaytime, calculateAchievementPercentage } from '../utils/utils';
 
+type GameData = SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
+
+interface GameApiResponse {
+    result?: GameData[] | {
+        games?: GameData[];
+        error?: string;
+    };
+}
+
+interface RefreshResponse {
+    result?: {
+        error?: string;
+    };
+}
+
+interface FailedRequest {
+    __error: unknown;
+}
+
+const isFailedRequest = (value: RefreshResponse | FailedRequest): value is FailedRequest => (
+    '__error' in value
+);
+
 export const useGameData = (beBaseUrl: string) => {
-    const [latestPlayedGames, setLatestPlayedGames] = useState<(SteamGame | PsnGame | RetroAchievementsGame | XboxGame)[]>([]);
-    const [mostPlayed, setMostPlayed] = useState<(SteamGame | PsnGame | RetroAchievementsGame | XboxGame)[]>([]);
-    const [mostAchieved, setMostAchieved] = useState<(SteamGame | PsnGame | RetroAchievementsGame | XboxGame)[]>([]);
+    const [latestPlayedGames, setLatestPlayedGames] = useState<GameData[]>([]);
+    const [mostPlayed, setMostPlayed] = useState<GameData[]>([]);
+    const [mostAchieved, setMostAchieved] = useState<GameData[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [missingServices, setMissingServices] = useState<string[]>([]);
@@ -28,29 +51,27 @@ export const useGameData = (beBaseUrl: string) => {
 
     const api = useApi();
 
-    const fetchGameData = async (url: string): Promise<any> => {
-        const data = await api.request(url);
+    const fetchGameData = async (url: string): Promise<GameData[]> => {
+        const data = await api.request<GameApiResponse>(url);
+        const result = data.result;
 
-        // Check if the response has the expected structure
-        if (data.result && data.result.games) {
-            return data.result.games;
+        if (Array.isArray(result)) {
+            return result;
         }
 
-        // Fallback: if result is already an array (for different endpoints)
-        if (Array.isArray(data.result)) {
-            return data.result;
+        if (result && typeof result === 'object' && 'games' in result && Array.isArray(result.games)) {
+            return result.games;
         }
 
-        // Last resort: try to extract values (original logic)
-        return Object.values(data.result);
+        return [];
     };
 
     const mergeAndSortGames = (
-        steamArray: SteamGame[],
-        psnArray: PsnGame[],
-        retroArray: RetroAchievementsGame[],
-        xboxArray: XboxGame[]
-    ): (SteamGame | PsnGame | RetroAchievementsGame | XboxGame)[] => {
+        steamArray: GameData[],
+        psnArray: GameData[],
+        retroArray: GameData[],
+        xboxArray: GameData[]
+    ): GameData[] => {
         const invalidTimestamp = new Date(1970, 0, 1).getTime();
         return [...steamArray, ...psnArray, ...retroArray, ...xboxArray]
             .map((game) => ({
@@ -75,10 +96,10 @@ export const useGameData = (beBaseUrl: string) => {
 
             // Track platform membership based on original API response lists
             const newPlatformGameIds: Record<string, Set<string>> = {
-                steam: new Set(steamArray.map((game: any) => String(game.appid))),
-                psn: new Set(psnArray.map((game: any) => String(game.appid))),
-                xbox: new Set(xboxArray.map((game: any) => String(game.appid))),
-                retroachievements: new Set(retroArray.map((game: any) => String(game.appid)))
+                steam: new Set(steamArray.map((game) => String(game.appid))),
+                psn: new Set(psnArray.map((game) => String(game.appid))),
+                xbox: new Set(xboxArray.map((game) => String(game.appid))),
+                retroachievements: new Set(retroArray.map((game) => String(game.appid)))
             };
             setPlatformGameIds(newPlatformGameIds);
 
@@ -121,15 +142,15 @@ export const useGameData = (beBaseUrl: string) => {
     const refreshGames = async () => {
         try {
             const [_steamRes, psnRes, _retroRes, _xboxRes] = await Promise.all([
-                api.request(`${beBaseUrl}/steam/get-game-list/`).catch((e) => ({ __error: e })),
-                api.request(`${beBaseUrl}/psn/get-game-list/`).catch((e) => ({ __error: e })),
-                api.request(`${beBaseUrl}/retroachievements/fetch-recently-played-games/`).catch((e) => ({ __error: e })),
-                api.request(`${beBaseUrl}/xbox/get-game-list/`).catch((e) => ({ __error: e })),
+                api.request<RefreshResponse>(`${beBaseUrl}/steam/get-game-list/`).catch((e): FailedRequest => ({ __error: e })),
+                api.request<RefreshResponse>(`${beBaseUrl}/psn/get-game-list/`).catch((e): FailedRequest => ({ __error: e })),
+                api.request<RefreshResponse>(`${beBaseUrl}/retroachievements/fetch-recently-played-games/`).catch((e): FailedRequest => ({ __error: e })),
+                api.request<RefreshResponse>(`${beBaseUrl}/xbox/get-game-list/`).catch((e): FailedRequest => ({ __error: e })),
             ]);
 
-            if (psnRes && !('__error' in psnRes) && psnRes.result && psnRes.result.error) {
+            if (psnRes && !isFailedRequest(psnRes) && psnRes.result?.error) {
                 setError(psnRes.result.error);
-            } else if (psnRes && '__error' in psnRes) {
+            } else if (psnRes && isFailedRequest(psnRes)) {
                 setError('An error occurred while refreshing PSN games');
             } else {
                 setError(null);
@@ -160,8 +181,8 @@ export const useGameData = (beBaseUrl: string) => {
     const refreshPSN = async () => {
         try {
             setUpdatingPlatforms(prev => ({ ...prev, psn: true }));
-            const resp = await api.request(`${beBaseUrl}/psn/get-game-list/`);
-            if (resp && resp.result && resp.result.error) {
+            const resp = await api.request<RefreshResponse>(`${beBaseUrl}/psn/get-game-list/`);
+            if (resp.result?.error) {
                 setError(resp.result.error);
             } else {
                 setError(null);
@@ -205,7 +226,7 @@ export const useGameData = (beBaseUrl: string) => {
 
     const checkApiKeys = async () => {
         try {
-            const response = await api.request(`${beBaseUrl}/users/api-keys/services/`);
+            const response = await api.request<string[]>(`${beBaseUrl}/users/api-keys/services/`);
             const services = response || [];
             setConfiguredServices(services);
 
@@ -214,7 +235,7 @@ export const useGameData = (beBaseUrl: string) => {
             setMissingServices(missing);
 
             if (missing.length > 0) {
-                console.log(`Missing API keys for: ${missing.join(', ')}`);
+                console.warn(`Missing API keys for: ${missing.join(', ')}`);
             }
         } catch (error) {
             console.error('Error checking API keys:', error);
@@ -222,7 +243,7 @@ export const useGameData = (beBaseUrl: string) => {
     };
 
     // Function to get platform of a game based on stored mapping
-    const getGamePlatform = (game: any): string => {
+    const getGamePlatform = (game: GameData): string => {
         const gameId = String(game.appid);
 
         if (platformGameIds.steam.has(gameId)) return 'steam';

@@ -64,7 +64,6 @@ function LastScrobbled({ movies, shows }: LastScrobbledProps) {
             if (media.movie?.image_url) {
                 return media.movie.image_url;
             }
-            console.log("No movie image_url found, returning null");
             // Note: Direct TMDB poster URLs require the poster_path from API, not just the ID
             // For now, return null and show placeholder
             return null;

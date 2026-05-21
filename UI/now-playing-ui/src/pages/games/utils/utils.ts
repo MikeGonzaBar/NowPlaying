@@ -50,8 +50,8 @@ export const formatPlaytime = (game: any): string => {
         const m = game.playtime_formatted.match(/(\d+)\s*h\s*(\d+)\s*m/);
         if (!m) return "0m";
 
-        let hours = parseInt(m[1], 10);
-        let minutes = parseInt(m[2], 10);
+        const hours = parseInt(m[1], 10);
+        const minutes = parseInt(m[2], 10);
 
         const days = Math.floor(hours / 24);
         const remHours = hours % 24;

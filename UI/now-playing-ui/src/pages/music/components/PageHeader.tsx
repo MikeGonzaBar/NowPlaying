@@ -20,7 +20,7 @@ export function PageHeader({ title, description, filterButtons }: PageHeaderProp
                 </Typography>
             </Box>
             {filterButtons && (
-                <Box sx={{ display: "flex", gap: 1.5 }}>
+                <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.5, justifyContent: { xs: "flex-start", md: "flex-end" } }}>
                     {filterButtons}
                 </Box>
             )}

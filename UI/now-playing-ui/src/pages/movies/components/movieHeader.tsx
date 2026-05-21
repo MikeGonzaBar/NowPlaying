@@ -44,23 +44,17 @@ interface WatchedSeasonsEpisodesResponse {
 }
 
 const MovieHeader: React.FC<MovieHeaderProps> = ({ media, mediaType, mediaDetails }) => {
-    if (!media) {
-        return (
-            <Box sx={{ padding: 2 }}>
-                <Typography>No media information available.</Typography>
-            </Box>
-        );
-    }
-
-    const mediaTitle = mediaType === "movie" ? (media as Movie).movie.title : (media as Show).show.title;
+    const [trailerKey, setTrailerKey] = useState<string | null>(null);
+    const [watchedData, setWatchedData] = useState<WatchedSeasonsEpisodesResponse | null>(null);
+    const mediaTitle = media ? (mediaType === "movie" ? (media as Movie).movie.title : (media as Show).show.title) : '';
     const mediaImage = mediaDetails?.poster_path
         ? `https://image.tmdb.org/t/p/w1280${mediaDetails.backdrop_path}`
         : '';
-    const traktId = mediaType === "movie" ? (media as Movie).movie.ids.trakt : (media as Show).show.ids.trakt;
-    const [trailerKey, setTrailerKey] = useState<string | null>(null);
-    const [watchedData, setWatchedData] = useState<WatchedSeasonsEpisodesResponse | null>(null);
+    const traktId = media ? (mediaType === "movie" ? (media as Movie).movie.ids.trakt : (media as Show).show.ids.trakt) : '';
 
     const fetchWatchedSeasonsEpisodes = async () => {
+        if (!traktId) return;
+
         try {
             const response = await authenticatedFetch(
                 getApiUrl(`${API_CONFIG.TRAKT_ENDPOINT}/get-watched-seasons-episodes/?trakt_id=${traktId}`)
@@ -77,6 +71,8 @@ const MovieHeader: React.FC<MovieHeaderProps> = ({ media, mediaType, mediaDetail
         }
     };
     const fetchTrailer = async () => {
+        if (!media) return;
+
         try {
             const apiKey = import.meta.env.VITE_REACT_APP_TMDB_API_KEY;
             const tmdbId = mediaType === "movie" ? (media as Movie).movie.ids.tmdb : (media as Show).show.ids.tmdb;
@@ -100,12 +96,22 @@ const MovieHeader: React.FC<MovieHeaderProps> = ({ media, mediaType, mediaDetail
         }
     };
     useEffect(() => {
+        if (!media) return;
 
         fetchTrailer();
         if (mediaType === "show") {
             fetchWatchedSeasonsEpisodes();
         }
     }, [media, mediaType]);
+
+    if (!media) {
+        return (
+            <Box sx={{ padding: 2 }}>
+                <Typography>No media information available.</Typography>
+            </Box>
+        );
+    }
+
     return (
         <Box sx={{ paddingLeft: 2.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, ml: -1 }}>

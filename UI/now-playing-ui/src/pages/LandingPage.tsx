@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Box, Typography, Container } from '@mui/material';
-import { Gamepad2, Film, Music, BarChart3, Search, User } from 'lucide-react';
+import { Gamepad2, Film, Music, BarChart3, User } from 'lucide-react';
 import { zincColors, categoryColors } from '../theme';
 
 interface CategoryTileProps {
@@ -19,15 +19,17 @@ const CategoryTile: React.FC<CategoryTileProps> = ({ title, icon, color, route, 
             component="div"
             onClick={() => navigate(route)}
             sx={{
-                width: 200,
-                height: 140,
+                width: { xs: '100%', sm: 220 },
+                maxWidth: { xs: '100%', sm: 240 },
+                height: 128,
                 backgroundColor: zincColors.card,
                 border: `1px solid ${zincColors.border}`,
-                borderRadius: '12px',
+                borderRadius: '8px',
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                p: 2,
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 position: 'relative',
@@ -37,33 +39,31 @@ const CategoryTile: React.FC<CategoryTileProps> = ({ title, icon, color, route, 
                 },
             }}
         >
-            <Box sx={{ color: zincColors.muted, mb: 1 }}>
+            <Box sx={{ color: zincColors.muted }}>
                 {icon}
             </Box>
-            <Typography
-                variant="h6"
-                sx={{
-                    fontSize: '16px',
-                    fontWeight: 600,
-                    color: zincColors.white,
-                    mb: 0.5,
-                }}
-            >
-                {title}
-            </Typography>
-            {lastPlayed && (
+            <Box sx={{ width: '100%' }}>
+                <Typography
+                    variant="h6"
+                    sx={{
+                        fontSize: '16px',
+                        fontWeight: 600,
+                        color: zincColors.white,
+                        mb: 0.5,
+                    }}
+                >
+                    {title}
+                </Typography>
                 <Typography
                     variant="body2"
                     sx={{
                         fontSize: '11px',
                         color: zincColors.muted,
-                        position: 'absolute',
-                        bottom: 12,
                     }}
                 >
-                    {lastPlayed}
+                    {lastPlayed || 'Open dashboard'}
                 </Typography>
-            )}
+            </Box>
         </Box>
     );
 };
@@ -116,7 +116,7 @@ function LandingPage() {
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    px: 4,
+                    px: { xs: 2, md: 4 },
                     py: 2,
                     borderBottom: `1px solid ${zincColors.border}`,
                 }}
@@ -148,42 +148,45 @@ function LandingPage() {
                     >
                         <User size={20} strokeWidth={1.5} />
                     </Box>
-                    <Box
-                        sx={{
-                            color: zincColors.muted,
-                            display: 'flex',
-                            alignItems: 'center',
-                            cursor: 'pointer',
-                            transition: 'color 0.2s',
-                            '&:hover': {
-                                color: zincColors.white,
-                            },
-                        }}
-                    >
-                        <Search size={20} strokeWidth={1.5} />
-                    </Box>
                 </Box>
             </Box>
 
-            {/* Main Hub - Centered */}
+            {/* Main Hub */}
             <Box
                 sx={{
                     flex: 1,
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    py: 8,
+                    justifyContent: 'flex-start',
+                    py: { xs: 4, md: 7 },
+                    px: { xs: 2, md: 4 },
                 }}
             >
+                <Box sx={{ width: '100%', maxWidth: '980px', mb: 4 }}>
+                    <Typography
+                        variant="h1"
+                        sx={{
+                            fontSize: { xs: '32px', md: '42px' },
+                            fontWeight: 800,
+                            color: zincColors.white,
+                            mb: 1,
+                        }}
+                    >
+                        Dashboard
+                    </Typography>
+                    <Typography sx={{ color: zincColors.muted, maxWidth: 640 }}>
+                        Jump into your connected games, movies, music, and analytics.
+                    </Typography>
+                </Box>
                 <Box
                     sx={{
                         display: 'flex',
                         gap: 3,
                         flexWrap: 'wrap',
-                        justifyContent: 'center',
-                        maxWidth: '900px',
-                        px: 4,
+                        justifyContent: 'flex-start',
+                        width: '100%',
+                        maxWidth: '980px',
                     }}
                 >
                     {categories.map((category, index) => (

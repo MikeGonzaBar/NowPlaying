@@ -6,7 +6,7 @@ import StarIcon from "@mui/icons-material/Star";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import SyncIcon from "@mui/icons-material/Sync";
 import { useEffect, useState } from "react";
-import SideBar from "../../../components/sideBar";
+import AppShell from "../../../components/AppShell";
 import { authenticatedFetch } from "../../../utils/auth";
 import { getApiUrl, API_CONFIG } from "../../../config/api";
 import { format } from "date-fns";
@@ -93,13 +93,14 @@ function MovieDetails() {
     const location = useLocation();
     const navigate = useNavigate();
     const { media, mediaDetails } = location.state || {};
+    const initialMovie = media?.movie || media || null;
 
-    const [movieData, setMovieData] = useState<MovieData | null>(media?.movie || media || null);
+    const [movieData, setMovieData] = useState<MovieData | null>(initialMovie);
     const [tmdbDetails, setTmdbDetails] = useState<TMDBMovieDetails | null>(mediaDetails || null);
     const [movieDetails, setMovieDetails] = useState<MovieDetailsData | null>(null);
     const [traktStats, setTraktStats] = useState<TraktStats | null>(null);
     const [watchProviders, setWatchProviders] = useState<WatchProviders | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!initialMovie);
     const [syncing, setSyncing] = useState(false);
 
     useEffect(() => {
@@ -112,37 +113,33 @@ function MovieDetails() {
             try {
                 setLoading(true);
 
-                const traktId = movieData?.ids?.trakt || media?.movie?.ids?.trakt || media?.ids?.trakt;
-                if (!traktId) {
-                    console.error("No trakt_id found for movie");
-                    setLoading(false);
-                    return;
-                }
+                const currentMovie = movieData || media?.movie || media;
+                const traktId = currentMovie?.ids?.trakt;
+                const tmdbId = currentMovie?.ids?.tmdb;
 
-                // Fetch movie data from our API
-                const moviesRes = await authenticatedFetch(
-                    getApiUrl(`${API_CONFIG.TRAKT_ENDPOINT}/get-stored-movies/?page_size=1000`)
-                );
+                if (tmdbId && !movieDetails) {
+                    const detailRes = await authenticatedFetch(
+                        getApiUrl(`${API_CONFIG.TRAKT_ENDPOINT}/detail/?type=movie&tmdb_id=${encodeURIComponent(tmdbId)}`)
+                    );
 
-                if (moviesRes.ok) {
-                    const data = await moviesRes.json();
-                    const movie = data.movies?.find((m: any) => m.movie.ids.trakt === traktId);
-                    if (movie) {
+                    if (detailRes.ok) {
+                        const data = await detailRes.json();
+                        const result = data.result;
                         setMovieDetails({
-                            plays: movie.plays || 0,
-                            last_watched_at: movie.last_watched_at,
-                            last_updated_at: movie.last_updated_at,
+                            plays: result?.plays || 0,
+                            last_watched_at: result?.last_watched_at || null,
+                            last_updated_at: result?.last_updated_at || null,
                         });
-                        if (!movieData) {
-                            setMovieData(movie.movie);
+                        if (!movieData && result?.movie) {
+                            setMovieData(result.movie);
                         }
                     }
                 }
 
                 // Fetch TMDB details if not provided
-                if (!tmdbDetails && movieData?.ids?.tmdb) {
-                    const apiKey = import.meta.env.VITE_REACT_APP_TMDB_API_KEY;
-                    const tmdbUrl = `https://api.themoviedb.org/3/movie/${movieData.ids.tmdb}?api_key=${apiKey}&append_to_response=credits,similar`;
+                const apiKey = import.meta.env.VITE_REACT_APP_TMDB_API_KEY;
+                if (!tmdbDetails && tmdbId && apiKey) {
+                    const tmdbUrl = `https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${apiKey}&append_to_response=credits,similar`;
                     const tmdbRes = await fetch(tmdbUrl);
                     if (tmdbRes.ok) {
                         const tmdbData = await tmdbRes.json();
@@ -151,10 +148,9 @@ function MovieDetails() {
                 }
 
                 // Fetch watch providers from TMDB
-                if (movieData?.ids?.tmdb) {
-                    const apiKey = import.meta.env.VITE_REACT_APP_TMDB_API_KEY;
+                if (tmdbId && apiKey) {
                     // Try to get providers for US (or fallback to any region)
-                    const providersUrl = `https://api.themoviedb.org/3/movie/${movieData.ids.tmdb}/watch/providers?api_key=${apiKey}`;
+                    const providersUrl = `https://api.themoviedb.org/3/movie/${tmdbId}/watch/providers?api_key=${apiKey}`;
                     const providersRes = await fetch(providersUrl);
                     if (providersRes.ok) {
                         const providersData = await providersRes.json();
@@ -173,12 +169,14 @@ function MovieDetails() {
                 }
 
                 // Fetch Trakt stats
-                const statsRes = await authenticatedFetch(
-                    getApiUrl(`${API_CONFIG.TRAKT_ENDPOINT}/movie-stats/?trakt_id=${traktId}`)
-                );
-                if (statsRes.ok) {
-                    const statsData = await statsRes.json();
-                    setTraktStats(statsData);
+                if (traktId) {
+                    const statsRes = await authenticatedFetch(
+                        getApiUrl(`${API_CONFIG.TRAKT_ENDPOINT}/movie-stats/?trakt_id=${encodeURIComponent(traktId)}`)
+                    );
+                    if (statsRes.ok) {
+                        const statsData = await statsRes.json();
+                        setTraktStats(statsData);
+                    }
                 }
 
             } catch (error) {
@@ -189,7 +187,7 @@ function MovieDetails() {
         };
 
         fetchMovieDetails();
-    }, [media, movieData, tmdbDetails, navigate]);
+    }, [media, movieData, movieDetails, tmdbDetails, navigate]);
 
     const handleSync = async () => {
         try {
@@ -221,18 +219,15 @@ function MovieDetails() {
         }
     };
 
-    if (!movieData || loading) {
+    if (!movieData) {
         return (
-            <Box sx={{ display: "flex", minHeight: "100vh", backgroundColor: "#0f1115" }}>
-                <SideBar activeItem="Movies" />
-                <Box component="main" sx={{ flexGrow: 1, padding: 3, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <AppShell activeItem="Movies" backgroundColor="#0f1115" mainSx={{ p: 3, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     {loading ? (
                         <CircularProgress sx={{ color: "#ed1c24" }} />
                     ) : (
                         <Typography sx={{ color: "#fff" }}>Movie not found</Typography>
                     )}
-                </Box>
-            </Box>
+            </AppShell>
         );
     }
 
@@ -322,9 +317,7 @@ function MovieDetails() {
     };
 
     return (
-        <Box sx={{ display: "flex", minHeight: "100vh", backgroundColor: "#0f1115" }}>
-            <SideBar activeItem="Movies" />
-            <Box component="main" sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
+        <AppShell activeItem="Movies" backgroundColor="#0f1115" mainSx={{ display: "flex", flexDirection: "column" }}>
                 {/* Back Button */}
                 <Box sx={{ p: 3, pb: 0 }}>
                     <IconButton
@@ -1074,8 +1067,7 @@ function MovieDetails() {
                         </Grid>
                     </Grid>
                 </Container>
-            </Box>
-        </Box>
+        </AppShell>
     );
 }
 

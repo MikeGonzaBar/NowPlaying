@@ -13,18 +13,27 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import { useNavigate } from 'react-router-dom';
 import { authenticatedFetch } from '../../../utils/auth';
-import { getApiUrl, } from '../../../config/api';
+import { getApiUrl } from '../../../config/api';
 
 interface GameSuggestion {
     id: number;
     title: string;
     platform: string;
     cover_image: string;
-    appid?: number;
+    appid?: number | string;
 }
 
 interface GameSearchProps {
     onSearch?: (query: string) => void;
+}
+
+interface SearchResponse {
+    results?: GameSuggestion[];
+}
+
+interface GameDetailResponse {
+    result?: unknown;
+    error?: string;
 }
 
 function GameSearch({ onSearch }: GameSearchProps) {
@@ -49,7 +58,7 @@ function GameSearch({ onSearch }: GameSearchProps) {
             );
 
             if (response.ok) {
-                const data = await response.json();
+                const data = await response.json() as SearchResponse;
                 setSuggestions(data.results || []);
             } else {
                 console.error('Search failed:', response.statusText);
@@ -89,69 +98,25 @@ function GameSearch({ onSearch }: GameSearchProps) {
         if (game) {
             setLoadingGameDetails(true);
             try {
-                // Fetch complete game data from the appropriate platform
-                let gameData;
-
-                switch (game.platform.toLowerCase()) {
-                    case 'steam':
-                        const steamResponse = await authenticatedFetch(
-                            getApiUrl(`/steam/get-game-list-stored/`)
-                        );
-                        if (steamResponse.ok) {
-                            const steamData = await steamResponse.json();
-                            // Steam returns {"result": [...]} - direct array
-                            if (steamData.result && Array.isArray(steamData.result)) {
-                                gameData = steamData.result.find((g: any) => g.appid === game.appid);
-                            }
-                        }
-                        break;
-
-                    case 'psn':
-                        const psnResponse = await authenticatedFetch(
-                            getApiUrl(`/psn/get-game-list-stored/`)
-                        );
-                        if (psnResponse.ok) {
-                            const psnData = await psnResponse.json();
-                            // PSN returns {"result": {"games": [...]}} - nested array
-                            if (psnData.result && psnData.result.games && Array.isArray(psnData.result.games)) {
-                                gameData = psnData.result.games.find((g: any) => g.appid === game.appid);
-                            }
-                        }
-                        break;
-
-                    case 'xbox':
-                        const xboxResponse = await authenticatedFetch(
-                            getApiUrl(`/xbox/get-game-list-stored/`)
-                        );
-                        if (xboxResponse.ok) {
-                            const xboxData = await xboxResponse.json();
-                            // Xbox returns {"result": {"games": [...]}} - nested array
-                            if (xboxData.result && xboxData.result.games && Array.isArray(xboxData.result.games)) {
-                                gameData = xboxData.result.games.find((g: any) => g.appid === game.appid);
-                            }
-                        }
-                        break;
-
-                    case 'retroachievements':
-                        const retroResponse = await authenticatedFetch(
-                            getApiUrl(`/retroachievements/fetch-games/`)
-                        );
-                        if (retroResponse.ok) {
-                            const retroData = await retroResponse.json();
-                            // RetroAchievements returns {"result": {"games": [...]}} - nested array
-                            if (retroData.result && retroData.result.games && Array.isArray(retroData.result.games)) {
-                                gameData = retroData.result.games.find((g: any) => g.appid === game.appid);
-                            }
-                        }
-                        break;
-
-                    default:
-                        console.error('Unknown platform:', game.platform);
-                        return;
+                if (game.appid === undefined || game.appid === null) {
+                    throw new Error(`Missing app id for ${game.title}`);
                 }
 
+                const response = await authenticatedFetch(
+                    getApiUrl(
+                        `/games/detail/?platform=${encodeURIComponent(game.platform.toLowerCase())}&appid=${encodeURIComponent(String(game.appid))}`
+                    )
+                );
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({})) as GameDetailResponse;
+                    throw new Error(errorData.error || `Failed to load game details (${response.status})`);
+                }
+
+                const data = await response.json() as GameDetailResponse;
+                const gameData = data.result;
+
                 if (gameData) {
-                    // Navigate to game details page with complete game data
                     navigate('/game', {
                         state: { game: gameData }
                     });

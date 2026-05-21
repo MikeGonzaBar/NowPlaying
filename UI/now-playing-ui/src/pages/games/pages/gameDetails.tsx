@@ -14,12 +14,13 @@ import MasterAchievementList from '../components/MasterAchievementList';
 import EnhancedTimeMetrics from '../components/EnhancedTimeMetrics';
 import GameContextMetadata from '../components/GameContextMetadata';
 import { zincColors } from '../../../theme';
+import { API_CONFIG } from '../../../config/api';
 
 const GameDetails: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { id } = useParams<{ id: string }>();
-    const beBaseUrl = `http://${window.location.hostname}:8080`;
+    const beBaseUrl = API_CONFIG.BASE_URL;
     const [isTransitioning, setIsTransitioning] = useState(true);
 
     // Get game from location state or find by appid
@@ -35,7 +36,7 @@ const GameDetails: React.FC = () => {
                 sessionStorage.removeItem('gameCardPosition'); // Clean up after use
                 return position as { x: number; y: number; width: number; height: number };
             }
-        } catch (e) {
+        } catch {
             // Ignore parsing errors
         }
         return undefined;

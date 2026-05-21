@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Box, Container, Grid, Typography, Button, Card, LinearProgress, CircularProgress, IconButton } from "@mui/material";
+import { Box, Container, Grid, Typography, Button, Card, LinearProgress, CircularProgress, IconButton, Menu, MenuItem } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import FilterListIcon from "@mui/icons-material/FilterList";
@@ -8,7 +8,7 @@ import CategoryIcon from "@mui/icons-material/Category";
 import PersonIcon from "@mui/icons-material/Person";
 import DownloadIcon from "@mui/icons-material/Download";
 import { useEffect, useState, useMemo } from "react";
-import SideBar from "../../../components/sideBar";
+import AppShell from "../../../components/AppShell";
 import { authenticatedFetch } from "../../../utils/auth";
 import { getApiUrl, API_CONFIG } from "../../../config/api";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
@@ -40,6 +40,23 @@ interface WatchHistoryResponse {
     history: HistoryItem[];
 }
 
+interface TmdbGenre {
+    name: string;
+}
+
+const DATE_RANGE_OPTIONS = [
+    { label: "All time", value: "all" },
+    { label: "Last 180 days", value: "180" },
+    { label: "Last 90 days", value: "90" },
+    { label: "Last 30 days", value: "30" },
+    { label: "Last 7 days", value: "7" },
+];
+
+const SORT_OPTIONS = [
+    { label: "Newest first", value: "newest" },
+    { label: "Oldest first", value: "oldest" },
+];
+
 function WatchHistory() {
     const navigate = useNavigate();
     const [historyData, setHistoryData] = useState<WatchHistoryResponse | null>(null);
@@ -47,6 +64,10 @@ function WatchHistory() {
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [filterType, setFilterType] = useState<"all" | "movies" | "shows">("all");
+    const [dateRange, setDateRange] = useState("all");
+    const [sortOrder, setSortOrder] = useState("newest");
+    const [dateRangeAnchor, setDateRangeAnchor] = useState<null | HTMLElement>(null);
+    const [sortAnchor, setSortAnchor] = useState<null | HTMLElement>(null);
     const [page, setPage] = useState(1);
     const [movieGenres, setMovieGenres] = useState<Record<string, string[]>>({});
     const [topGenres, setTopGenres] = useState<Array<{ name: string; percentage: number }>>([]);
@@ -60,8 +81,18 @@ function WatchHistory() {
                 setLoadingMore(true);
             }
 
+            const params = new URLSearchParams({
+                type: filterType,
+                page: String(pageNum),
+                page_size: "20",
+                sort: sortOrder,
+            });
+            if (dateRange !== "all") {
+                params.set("days", dateRange);
+            }
+
             const response = await authenticatedFetch(
-                getApiUrl(`${API_CONFIG.TRAKT_ENDPOINT}/watch-history/?type=${filterType}&page=${pageNum}&page_size=20`)
+                getApiUrl(`${API_CONFIG.TRAKT_ENDPOINT}/watch-history/?${params.toString()}`)
             );
 
             if (response.ok) {
@@ -123,7 +154,9 @@ function WatchHistory() {
                             );
                             if (tmdbRes.ok) {
                                 const tmdbData = await tmdbRes.json();
-                                genresMap[movie.tmdb_id] = tmdbData.genres?.map((g: any) => g.name) || [];
+                                genresMap[movie.tmdb_id] = Array.isArray(tmdbData.genres)
+                                    ? tmdbData.genres.map((genre: TmdbGenre) => genre.name)
+                                    : [];
                             }
                         } catch (e) {
                             console.error(`Error fetching genres for movie ${movie.tmdb_id}:`, e);
@@ -147,14 +180,13 @@ function WatchHistory() {
     };
 
     useEffect(() => {
-        // Reset when filter changes
+        // Reset pagination when visible filters change, but keep the current list visible while refetching.
         setPage(1);
-        setAllHistoryItems([]);
         fetchHistory(1, true);
         fetchActivityHeatmap();
         fetchTopGenres();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filterType]);
+    }, [filterType, dateRange, sortOrder]);
 
     useEffect(() => {
         // Load more when page changes (but not on initial load)
@@ -163,13 +195,6 @@ function WatchHistory() {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page]);
-
-    // Fetch heatmap and genres on initial load
-    useEffect(() => {
-        fetchActivityHeatmap();
-        fetchTopGenres();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     // Top genres are now fetched from backend endpoint which uses ALL stored data
     // Removed calculateTopGenres() function - using backend data instead
@@ -298,6 +323,8 @@ function WatchHistory() {
         if (!allHistoryItems || allHistoryItems.length === 0) return {};
         return groupByDate(allHistoryItems);
     }, [allHistoryItems]);
+    const dateRangeLabel = DATE_RANGE_OPTIONS.find((option) => option.value === dateRange)?.label || "All time";
+    const sortLabel = SORT_OPTIONS.find((option) => option.value === sortOrder)?.label || "Newest first";
 
     // Infinite scroll handler
     useEffect(() => {
@@ -315,7 +342,6 @@ function WatchHistory() {
                     !loading &&
                     !loadingMore
                 ) {
-                    console.log("[WATCH_HISTORY] Loading more items, page:", page + 1);
                     setPage(page + 1);
                 }
             }
@@ -326,9 +352,7 @@ function WatchHistory() {
     }, [historyData, page, loading, loadingMore]);
 
     return (
-        <Box sx={{ display: "flex", minHeight: "100vh", backgroundColor: "#0f1115" }}>
-            <SideBar activeItem="Movies" />
-            <Box component="main" sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
+        <AppShell activeItem="Movies" backgroundColor="#0f1115" mainSx={{ display: "flex", flexDirection: "column" }}>
 
                 {/* Main Content */}
                 <Container maxWidth="xl" sx={{ py: 3, flex: 1 }}>
@@ -357,7 +381,7 @@ function WatchHistory() {
                                 </Typography>
                                 <Typography component="div" sx={{ color: "#9ca3af", fontSize: "0.875rem", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                                     <Box component="span" sx={{ color: "#ed1c24", fontWeight: 700 }}>
-                                        {historyData?.total_items || 0}
+                                        {historyData?.total_items ?? allHistoryItems.length}
                                     </Box>{" "}
                                     Total Plays scrobbled
                                 </Typography>
@@ -427,11 +451,13 @@ function WatchHistory() {
                                 </Box>
                                 <Button
                                     startIcon={<CalendarMonthIcon sx={{ fontSize: 16 }} />}
+                                    onClick={(event) => setDateRangeAnchor(event.currentTarget)}
                                     sx={{
                                         px: 2,
                                         py: 1,
-                                        backgroundColor: "rgba(26, 29, 35, 0.8)",
+                                        backgroundColor: dateRange !== "all" ? "rgba(237, 28, 36, 0.16)" : "rgba(26, 29, 35, 0.8)",
                                         border: "1px solid #2a2e37",
+                                        borderColor: dateRange !== "all" ? "rgba(237, 28, 36, 0.55)" : "#2a2e37",
                                         borderRadius: 2,
                                         fontSize: "10px",
                                         fontWeight: 700,
@@ -443,15 +469,17 @@ function WatchHistory() {
                                         },
                                     }}
                                 >
-                                    Date Range
+                                    {dateRangeLabel}
                                 </Button>
                                 <Button
                                     startIcon={<FilterListIcon sx={{ fontSize: 16 }} />}
+                                    onClick={(event) => setSortAnchor(event.currentTarget)}
                                     sx={{
                                         px: 2,
                                         py: 1,
-                                        backgroundColor: "rgba(26, 29, 35, 0.8)",
+                                        backgroundColor: sortOrder !== "newest" ? "rgba(237, 28, 36, 0.16)" : "rgba(26, 29, 35, 0.8)",
                                         border: "1px solid #2a2e37",
+                                        borderColor: sortOrder !== "newest" ? "rgba(237, 28, 36, 0.55)" : "#2a2e37",
                                         borderRadius: 2,
                                         fontSize: "10px",
                                         fontWeight: 700,
@@ -463,8 +491,62 @@ function WatchHistory() {
                                         },
                                     }}
                                 >
-                                    Sort
+                                    {sortLabel}
                                 </Button>
+                                <Menu
+                                    anchorEl={dateRangeAnchor}
+                                    open={Boolean(dateRangeAnchor)}
+                                    onClose={() => setDateRangeAnchor(null)}
+                                    slotProps={{
+                                        paper: {
+                                            sx: {
+                                                bgcolor: "#1a1d23",
+                                                color: "#e5e7eb",
+                                                border: "1px solid #2a2e37",
+                                            },
+                                        },
+                                    }}
+                                >
+                                    {DATE_RANGE_OPTIONS.map((option) => (
+                                        <MenuItem
+                                            key={option.value}
+                                            selected={dateRange === option.value}
+                                            onClick={() => {
+                                                setDateRange(option.value);
+                                                setDateRangeAnchor(null);
+                                            }}
+                                        >
+                                            {option.label}
+                                        </MenuItem>
+                                    ))}
+                                </Menu>
+                                <Menu
+                                    anchorEl={sortAnchor}
+                                    open={Boolean(sortAnchor)}
+                                    onClose={() => setSortAnchor(null)}
+                                    slotProps={{
+                                        paper: {
+                                            sx: {
+                                                bgcolor: "#1a1d23",
+                                                color: "#e5e7eb",
+                                                border: "1px solid #2a2e37",
+                                            },
+                                        },
+                                    }}
+                                >
+                                    {SORT_OPTIONS.map((option) => (
+                                        <MenuItem
+                                            key={option.value}
+                                            selected={sortOrder === option.value}
+                                            onClick={() => {
+                                                setSortOrder(option.value);
+                                                setSortAnchor(null);
+                                            }}
+                                        >
+                                            {option.label}
+                                        </MenuItem>
+                                    ))}
+                                </Menu>
                             </Box>
                         </Box>
                     </Box>
@@ -473,7 +555,26 @@ function WatchHistory() {
                         {/* Main History List */}
                         <Grid size={{ xs: 12, lg: 9 }}>
                             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                {loading ? (
+                                {loading && allHistoryItems.length > 0 && (
+                                    <Box
+                                        sx={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 1.5,
+                                            px: 2,
+                                            py: 1.5,
+                                            backgroundColor: "rgba(26, 29, 35, 0.8)",
+                                            border: "1px solid #2a2e37",
+                                            borderRadius: 2,
+                                        }}
+                                    >
+                                        <LinearProgress sx={{ flex: 1, maxWidth: 180, backgroundColor: "#2a2e37", "& .MuiLinearProgress-bar": { backgroundColor: "#ed1c24" } }} />
+                                        <Typography sx={{ color: "#9ca3af", fontSize: "0.8rem", fontWeight: 600 }}>
+                                            Updating results...
+                                        </Typography>
+                                    </Box>
+                                )}
+                                {loading && allHistoryItems.length === 0 ? (
                                     <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", py: 8 }}>
                                         <CircularProgress
                                             sx={{
@@ -496,7 +597,7 @@ function WatchHistory() {
                                             No watch history found
                                         </Typography>
                                         <Typography sx={{ color: "#6b7280", fontSize: "0.75rem" }}>
-                                            Start watching movies and shows to see your history here
+                                            No results match the current filters.
                                         </Typography>
                                     </Box>
                                 ) : (
@@ -941,8 +1042,7 @@ function WatchHistory() {
                         </Grid>
                     </Grid>
                 </Container>
-            </Box>
-        </Box>
+        </AppShell>
     );
 }
 

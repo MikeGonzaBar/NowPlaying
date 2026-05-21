@@ -75,7 +75,7 @@ function MoviesDashboard() {
                     title: m.movie?.title,
                     image_url: undefined,
                     timestamp: m.last_watched_at,
-                    description: `Check-in: \"${m.movie?.title}\"`,
+                    description: `Check-in: "${m.movie?.title}"`,
                 })),
                 ...recentShows.slice(0, 3).map((s: any) => ({
                     type: "check_in",
@@ -85,7 +85,7 @@ function MoviesDashboard() {
                     episode_title: undefined,
                     image_url: s.show?.image_url,
                     timestamp: s.last_watched_at,
-                    description: `Watching: \"${s.show?.title}\"`,
+                    description: `Watching: "${s.show?.title}"`,
                 })),
             ];
 

@@ -21,11 +21,20 @@ interface MediaSuggestion {
     type: 'movie' | 'show';
     cover_image: string;
     year?: number;
-    tmdb_id?: number;
+    tmdb_id?: number | string;
 }
 
 interface MovieShowSearchProps {
     onSearch?: (query: string) => void;
+}
+
+interface SearchResponse {
+    results?: MediaSuggestion[];
+}
+
+interface MediaDetailResponse {
+    result?: unknown;
+    error?: string;
 }
 
 function MovieShowSearch({ onSearch }: MovieShowSearchProps) {
@@ -50,7 +59,7 @@ function MovieShowSearch({ onSearch }: MovieShowSearchProps) {
             );
 
             if (response.ok) {
-                const data = await response.json();
+                const data = await response.json() as SearchResponse;
                 setSuggestions(data.results || []);
             } else {
                 console.error('Search failed:', response.statusText);
@@ -90,42 +99,41 @@ function MovieShowSearch({ onSearch }: MovieShowSearchProps) {
         if (media) {
             setLoadingMediaDetails(true);
             try {
-                // Step 1: Fetch base media data from our backend
-                let mediaData;
-                const endpoint = media.type === 'movie' ? '/trakt/get-stored-movies' : '/trakt/get-stored-shows';
-                const response = await authenticatedFetch(getApiUrl(`${endpoint}?page_size=1000`));
-
-                if (response.ok) {
-                    const data = await response.json();
-                    const items = media.type === 'movie' ? data.movies : data.shows;
-                    if (items && Array.isArray(items)) {
-                        mediaData = items.find((item: any) => {
-                            const itemIds = media.type === 'movie' ? item.movie.ids : item.show.ids;
-                            return itemIds.tmdb == media.tmdb_id;
-                        });
-                    }
+                if (media.tmdb_id === undefined || media.tmdb_id === null) {
+                    throw new Error(`Missing TMDB id for ${media.title}`);
                 }
 
+                const response = await authenticatedFetch(
+                    getApiUrl(
+                        `/trakt/detail/?type=${encodeURIComponent(media.type)}&tmdb_id=${encodeURIComponent(String(media.tmdb_id))}`
+                    )
+                );
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({})) as MediaDetailResponse;
+                    throw new Error(errorData.error || `Failed to load media details (${response.status})`);
+                }
+
+                const detailData = await response.json() as MediaDetailResponse;
+                const mediaData = detailData.result;
                 if (!mediaData) {
-                    console.error('Media data not found in stored items for:', media);
-                    alert(`Could not load details for "${media.title}". This item might not be in your watched list yet.`);
-                    setLoadingMediaDetails(false);
-                    return;
+                    throw new Error(`Could not load details for "${media.title}".`);
                 }
 
-                // Step 2: Fetch detailed media data from TMDB
                 const apiKey = import.meta.env.VITE_REACT_APP_TMDB_API_KEY;
                 const tmdbId = media.tmdb_id;
                 const tmdbEndpoint = media.type === 'movie' ? 'movie' : 'tv';
-                const tmdbUrl = `https://api.themoviedb.org/3/${tmdbEndpoint}/${tmdbId}?api_key=${apiKey}&append_to_response=videos`;
+                let tmdbDetails: unknown = null;
 
-                const tmdbResponse = await fetch(tmdbUrl);
-                if (!tmdbResponse.ok) {
-                    throw new Error('Failed to fetch data from TMDB');
+                if (apiKey) {
+                    const tmdbUrl = `https://api.themoviedb.org/3/${tmdbEndpoint}/${encodeURIComponent(String(tmdbId))}?api_key=${encodeURIComponent(apiKey)}&append_to_response=videos`;
+                    const tmdbResponse = await fetch(tmdbUrl);
+                    if (!tmdbResponse.ok) {
+                        throw new Error('Failed to fetch data from TMDB');
+                    }
+                    tmdbDetails = await tmdbResponse.json();
                 }
-                const tmdbDetails = await tmdbResponse.json();
 
-                // Step 3: Navigate with both our DB data (media) and TMDB data (mediaDetails)
                 navigate('/movieDetails', {
                     state: {
                         media: mediaData,

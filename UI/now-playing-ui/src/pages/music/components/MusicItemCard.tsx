@@ -1,4 +1,4 @@
-import { Box, Typography } from "@mui/material";
+import { Box, Tooltip, Typography } from "@mui/material";
 import { RankingBadge } from "./RankingBadge";
 import { TopTracksList } from "./TopTracksList";
 import { TopTrack } from "../types";
@@ -95,36 +95,48 @@ export function MusicItemCard({
                         }}
                     />
                 </Box>
-                <Box>
-                    <Typography
-                        variant="h2"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            if (url) onClick();
-                        }}
-                        sx={{
-                            fontSize: { xs: "24px", md: "32px" },
-                            fontWeight: 700,
-                            mb: 0.5,
-                            cursor: url ? "pointer" : "default",
-                            transition: "color 0.2s",
-                            "&:hover": {
-                                color: "#EF4444",
-                            },
-                        }}
-                    >
-                        {name}
-                    </Typography>
-                    {subtitle && (
+                <Box sx={{ minWidth: 0 }}>
+                    <Tooltip title={name} placement="top" enterDelay={400}>
                         <Typography
+                            variant="h2"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (url) onClick();
+                            }}
                             sx={{
-                                fontSize: "14px",
-                                color: "#71717a",
+                                fontSize: { xs: "24px", md: "32px" },
+                                fontWeight: 700,
                                 mb: 0.5,
+                                cursor: url ? "pointer" : "default",
+                                transition: "color 0.2s",
+                                display: "-webkit-box",
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden",
+                                "&:hover": {
+                                    color: "#EF4444",
+                                },
                             }}
                         >
-                            {subtitle}
+                            {name}
                         </Typography>
+                    </Tooltip>
+                    {subtitle && (
+                        <Tooltip title={subtitle} placement="top" enterDelay={400}>
+                            <Typography
+                                sx={{
+                                    fontSize: "14px",
+                                    color: "#71717a",
+                                    mb: 0.5,
+                                    display: "-webkit-box",
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: "vertical",
+                                    overflow: "hidden",
+                                }}
+                            >
+                                {subtitle}
+                            </Typography>
+                        </Tooltip>
                     )}
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}>
                         <Typography

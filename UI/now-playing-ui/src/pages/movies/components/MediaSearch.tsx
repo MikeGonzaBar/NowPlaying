@@ -10,6 +10,7 @@ import {
     CircularProgress,
     Chip,
     IconButton,
+    Tooltip,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
@@ -107,12 +108,28 @@ function MediaSearch() {
                 },
             });
         } else if (result.type === 'movie') {
+            let storedMedia = null;
+            if (result.tmdb_id) {
+                try {
+                    const detailResponse = await authenticatedFetch(
+                        getApiUrl(`${API_CONFIG.TRAKT_ENDPOINT}/detail/?type=movie&tmdb_id=${encodeURIComponent(result.tmdb_id)}`)
+                    );
+                    if (detailResponse.ok) {
+                        const detailData = await detailResponse.json();
+                        storedMedia = detailData.result;
+                    }
+                } catch (error) {
+                    console.warn('Stored movie detail unavailable:', error);
+                }
+            }
+
             navigate("/movieDetails", {
                 state: {
-                    media: {
+                    media: storedMedia || {
                         movie: {
                             title: result.title,
                             year: result.year,
+                            image_url: result.cover_image,
                             ids: { trakt: result.id.toString(), tmdb: result.tmdb_id?.toString() },
                         },
                         last_watched_at: null,
@@ -121,12 +138,28 @@ function MediaSearch() {
                 },
             });
         } else if (result.type === 'show') {
+            let storedShow = null;
+            if (result.tmdb_id) {
+                try {
+                    const detailResponse = await authenticatedFetch(
+                        getApiUrl(`${API_CONFIG.TRAKT_ENDPOINT}/detail/?type=show&tmdb_id=${encodeURIComponent(result.tmdb_id)}`)
+                    );
+                    if (detailResponse.ok) {
+                        const detailData = await detailResponse.json();
+                        storedShow = detailData.result?.show;
+                    }
+                } catch (error) {
+                    console.warn('Stored show detail unavailable:', error);
+                }
+            }
+
             navigate("/showDetails", {
                 state: {
-                    show: {
+                    show: storedShow || {
                         id: result.id,
                         title: result.title,
                         year: result.year,
+                        image_url: result.cover_image,
                         ids: { trakt: result.id.toString(), tmdb: result.tmdb_id?.toString() },
                     },
                 },
@@ -299,20 +332,23 @@ function MediaSearch() {
                                             />
                                         </Box>
                                         <CardContent sx={{ p: 1.5 }}>
-                                            <Typography
-                                                variant="body2"
-                                                sx={{
-                                                    fontSize: '12px',
-                                                    fontWeight: 600,
-                                                    color: '#fff',
-                                                    mb: 0.5,
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap',
-                                                }}
-                                            >
-                                                {result.title}
-                                            </Typography>
+                                            <Tooltip title={result.title} placement="top" enterDelay={400}>
+                                                <Typography
+                                                    variant="body2"
+                                                    sx={{
+                                                        fontSize: '12px',
+                                                        fontWeight: 600,
+                                                        color: '#fff',
+                                                        mb: 0.5,
+                                                        display: '-webkit-box',
+                                                        WebkitLineClamp: 2,
+                                                        WebkitBoxOrient: 'vertical',
+                                                        overflow: 'hidden',
+                                                    }}
+                                                >
+                                                    {result.title}
+                                                </Typography>
+                                            </Tooltip>
                                             {result.type === 'episode' && result.show_title && (
                                                 <Typography
                                                     variant="caption"

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useApi } from '../../../hooks/useApi';
 import { Movie, Show } from '../utils/types';
+import { API_CONFIG } from '../../../config/api';
 
-const beBaseUrl = `http://${window.location.hostname}:8080`;
+const beBaseUrl = API_CONFIG.BASE_URL;
 
 export const useMediaData = <T extends Movie | Show>(endpoint: string) => {
     const [data, setData] = useState<T[]>([]);

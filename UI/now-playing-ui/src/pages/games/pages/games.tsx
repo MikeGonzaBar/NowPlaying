@@ -12,7 +12,7 @@ import { SteamGame, PsnGame, RetroAchievementsGame, XboxGame, SteamAchievement, 
 import { isPsnGame, isXboxGame, isRetroAchievementsGame, isSteamGame } from "../utils/typeGuards";
 
 function Games() {
-    const beBaseUrl = `http://${window.location.hostname}:8080`;
+    const beBaseUrl = API_CONFIG.BASE_URL;
     const navigate = useNavigate();
     const [reconnectOpen, setReconnectOpen] = useState(false);
     const [npsso, setNpsso] = useState("");

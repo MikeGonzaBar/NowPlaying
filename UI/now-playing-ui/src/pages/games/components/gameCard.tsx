@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Grid, Typography } from "@mui/material";
+import { Box, Grid, Tooltip, Typography } from "@mui/material";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import EventIcon from "@mui/icons-material/Event";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
@@ -86,7 +86,7 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
     const matchedPlatform = platformConfig.find(({ key, value }) => {
         if (!(key in game)) return false;
 
-        const gameValue = (game as Record<string, any>)[key];
+        const gameValue = (game as unknown as Record<string, unknown>)[key];
         if (typeof gameValue !== "string") return false;
 
         const gameValues = gameValue.split(",").map((v) => v.trim().toLowerCase());
@@ -131,10 +131,10 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
                 boxShadow: 6,
                 transition: "transform 0.2s ease-in-out",
                 "&:hover": { transform: "scale(1.03)" },
-                minWidth: "250px",
-                maxWidth: "250px",
-                minHeight: "360px",
-                maxHeight: "360px",
+                width: "100%",
+                maxWidth: "260px",
+                height: "360px",
+                mx: "auto",
             }}
         >
             <Box
@@ -153,20 +153,22 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
                 sx={{ paddingLeft: 2, paddingRight: 2, paddingBottom: 2, paddingTop: 1 }}
             >
                 <Grid container alignItems="center" justifyContent="space-between">
-                    <Grid key={game.appid}>
-                        <Typography
-                            variant="subtitle1"
-                            sx={{
-                                fontFamily: "Inter, sans-serif",
-                                fontWeight: 700,
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                color: zincColors.white,
-                            }}
-                        >
-                            {game.name}
-                        </Typography>
+                    <Grid key={game.appid} sx={{ minWidth: 0, width: "100%" }}>
+                        <Tooltip title={game.name} placement="top" enterDelay={400}>
+                            <Typography
+                                variant="subtitle1"
+                                sx={{
+                                    fontFamily: "Inter, sans-serif",
+                                    fontWeight: 700,
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    color: zincColors.white,
+                                }}
+                            >
+                                {game.name}
+                            </Typography>
+                        </Tooltip>
                     </Grid>
                 </Grid>
                 <Grid container alignItems="center" justifyContent="space-between">

@@ -2,16 +2,17 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Box, Typography, IconButton, Button } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import SideBar from '../../../components/sideBar';
+import AppShell from '../../../components/AppShell';
 import { useGameData } from '../hooks/useGameData';
 import { SteamGame, PsnGame, RetroAchievementsGame, XboxGame } from '../utils/types';
 import { zincColors } from '../../../theme';
 import GameCard from '../components/gameCard';
+import { API_CONFIG } from '../../../config/api';
 
 const AllGames: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const beBaseUrl = `http://${window.location.hostname}:8080`;
+    const beBaseUrl = API_CONFIG.BASE_URL;
     const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
 
     // Get platform filter from navigation state
@@ -71,26 +72,19 @@ const AllGames: React.FC = () => {
     };
 
     return (
-        <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: zincColors.background }}>
-            <SideBar activeItem="Games" />
-            <Box
-                sx={{
-                    flex: 1,
-                    marginLeft: '80px',
-                    padding: 4,
-                    backgroundColor: zincColors.background,
-                }}
-            >
+        <AppShell activeItem="Games" mainSx={{ p: { xs: 2, md: 4 } }}>
                 {/* Header */}
                 <Box
                     sx={{
                         display: 'flex',
-                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        alignItems: { xs: 'flex-start', md: 'center' },
                         justifyContent: 'space-between',
+                        gap: 2,
                         marginBottom: 4,
                     }}
                 >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
                         <IconButton
                             onClick={() => navigate('/games')}
                             sx={{
@@ -112,6 +106,7 @@ const AllGames: React.FC = () => {
                                 fontFamily: 'Inter, sans-serif',
                                 fontWeight: 700,
                                 color: zincColors.white,
+                                overflowWrap: 'anywhere',
                             }}
                         >
                             All Games
@@ -120,7 +115,7 @@ const AllGames: React.FC = () => {
                     </Box>
 
                     {/* Platform Filter Buttons */}
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', justifyContent: { xs: 'flex-start', sm: 'flex-end' } }}>
                         <Button
                             size="small"
                             onClick={() => setSelectedPlatform(null)}
@@ -219,14 +214,10 @@ const AllGames: React.FC = () => {
                     <Box
                         sx={{
                             display: 'grid',
-                            gridTemplateColumns: {
-                                xs: 'repeat(1, 1fr)',
-                                sm: 'repeat(2, 1fr)',
-                                md: 'repeat(3, 1fr)',
-                                lg: 'repeat(4, 1fr)',
-                                xl: 'repeat(6, 1fr)',
-                            },
-                            gap: 3,
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                            gap: { xs: 2, md: 3 },
+                            alignItems: 'start',
+                            minWidth: 0,
                         }}
                     >
                         {filteredGames.map((game) => (
@@ -246,8 +237,7 @@ const AllGames: React.FC = () => {
                         ))}
                     </Box>
                 )}
-            </Box>
-        </Box>
+        </AppShell>
     );
 };
 

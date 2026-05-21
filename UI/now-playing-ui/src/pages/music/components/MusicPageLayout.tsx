@@ -22,6 +22,8 @@ export function MusicPageLayout({
             <Box
                 sx={{
                     flexGrow: 1,
+                    minWidth: 0,
+                    overflowX: "hidden",
                     maxWidth,
                     mx: "auto",
                     px: paddingX,

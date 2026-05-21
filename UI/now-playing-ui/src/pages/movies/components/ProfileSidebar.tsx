@@ -23,8 +23,6 @@ function ProfileSidebar({ stats, onSyncComplete }: ProfileSidebarProps) {
             );
 
             if (response.ok) {
-                const data = await response.json();
-                console.log("Movie sync started:", data);
                 // Show success message
                 alert("Movie sync started in the background. The dashboard will refresh shortly.");
                 // Wait a bit for background sync to start, then refresh dashboard
@@ -54,8 +52,6 @@ function ProfileSidebar({ stats, onSyncComplete }: ProfileSidebarProps) {
             );
 
             if (response.ok) {
-                const data = await response.json();
-                console.log("Show sync started:", data);
                 // Show success message
                 alert("Show sync started in the background. This may take a few minutes. The dashboard will refresh shortly.");
                 // Wait a bit for background sync to start, then refresh dashboard

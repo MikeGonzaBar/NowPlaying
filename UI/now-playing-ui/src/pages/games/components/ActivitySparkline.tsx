@@ -20,11 +20,6 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [dialogOpen, setDialogOpen] = useState(false);
 
-    // Debug: Log state changes
-    React.useEffect(() => {
-        console.log('Dialog state changed:', { dialogOpen, selectedDate });
-    }, [dialogOpen, selectedDate]);
-
     const chartData = useMemo(() => {
         const unlockDates = getAchievementUnlockDates(game);
         if (unlockDates.length === 0) {
@@ -63,18 +58,14 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
     // Custom dot component that's clickable
     const CustomDot = (props: any) => {
         const { cx, cy, payload } = props;
-        console.log('CustomDot rendered:', { cx, cy, payload });
 
         if (!payload || payload.count === 0) {
-            console.log('CustomDot: No payload or count is 0, returning null');
             return null;
         }
 
         const handleDotClick = (e: React.MouseEvent) => {
             e.stopPropagation();
-            console.log('CustomDot clicked!', payload);
             if (payload.date) {
-                console.log('Setting selected date:', payload.date);
                 setSelectedDate(payload.date);
                 setDialogOpen(true);
             } else {
@@ -83,7 +74,6 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
         };
 
         return (
-            // eslint-disable-next-line react/forbid-dom-props
             <circle
                 cx={cx}
                 cy={cy}
@@ -94,7 +84,6 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
                 onClick={handleDotClick}
                 onMouseDown={(e) => {
                     e.stopPropagation();
-                    console.log('CustomDot mouse down');
                 }}
                 style={{ cursor: 'pointer' }}
             />
@@ -102,15 +91,9 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
     };
 
     const handleCloseDialog = () => {
-        console.log('Closing dialog');
         setDialogOpen(false);
         setSelectedDate(null);
     };
-
-    // Debug: Log when dialog should be visible
-    React.useEffect(() => {
-        console.log('Dialog state:', { dialogOpen, selectedDate, achievementCount: selectedAchievements.length });
-    }, [dialogOpen, selectedDate, selectedAchievements.length]);
 
     const dateRange = useMemo(() => {
         if (!chartData || chartData.length === 0) return null;
@@ -260,10 +243,8 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
                         data={chartData}
                         margin={{ top: 2, right: 2, left: 2, bottom: 2 }}
                         onClick={(data: any) => {
-                            console.log('AreaChart clicked:', data);
                             if (data && data.activePayload && data.activePayload[0]) {
                                 const clickedData = data.activePayload[0].payload;
-                                console.log('AreaChart click payload:', clickedData);
                                 if (clickedData && clickedData.date) {
                                     setSelectedDate(clickedData.date);
                                     setDialogOpen(true);
@@ -300,24 +281,18 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
                             fill="url(#areaGradient)"
                             dot={<CustomDot />}
                             activeDot={(props: any) => {
-                                console.log('ActiveDot rendered:', props);
                                 const { cx, cy, payload } = props;
                                 const handleActiveDotClick = (e: React.MouseEvent) => {
                                     e.stopPropagation();
-                                    console.log('ActiveDot clicked!', payload);
                                     if (payload && payload.date) {
-                                        console.log('Setting selected date from activeDot:', payload.date);
                                         setSelectedDate(payload.date);
-                                        console.log('About to set dialogOpen to true');
                                         setDialogOpen(true);
-                                        console.log('dialogOpen should now be true');
                                     } else {
                                         console.error('No date in activeDot payload:', payload);
                                     }
                                 };
 
                                 return (
-                                    // eslint-disable-next-line react/forbid-dom-props
                                     <circle
                                         cx={cx}
                                         cy={cy}
@@ -328,7 +303,6 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
                                         onClick={handleActiveDotClick}
                                         onMouseDown={(e) => {
                                             e.stopPropagation();
-                                            console.log('ActiveDot mouse down');
                                         }}
                                         style={{ cursor: 'pointer' }}
                                     />
