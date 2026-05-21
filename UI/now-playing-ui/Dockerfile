@@ -1,8 +1,10 @@
 # Step 1: Build the app
-FROM node:18 AS build
+FROM node:22 AS build
 WORKDIR /app
 COPY . .
-RUN npm install
+ARG VITE_API_BASE_URL=http://localhost:8001
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+RUN npm ci
 RUN npm run build
 
 # Step 2: Serve with nginx

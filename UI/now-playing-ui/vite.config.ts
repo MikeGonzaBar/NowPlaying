@@ -25,19 +25,17 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: {
-          // Split large vendor libraries - SAFE OPTIMIZATION
-          'vendor-react': ['react', 'react-dom'],
+          // Split large vendor libraries for browser caching.
           'vendor-router': ['react-router-dom'],
           'vendor-mui': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
           'vendor-icons': ['react-icons'],
-          // Lazy loading will automatically create chunks for each page
+          'vendor-recharts': ['recharts'],
         }
       }
     },
-    // SAFE: Optimize chunks for better caching
-    chunkSizeWarningLimit: 200, // Warn if chunks exceed 200KB
-    minify: 'esbuild', // Faster than terser
-    sourcemap: false, // Smaller bundles
+    chunkSizeWarningLimit: 500,
+    minify: 'esbuild',
+    sourcemap: false,
   },
   define: {
     "process.env.VITE_REACT_APP_NEWS_API_KEY": JSON.stringify(process.env.VITE_REACT_APP_NEWS_API_KEY),

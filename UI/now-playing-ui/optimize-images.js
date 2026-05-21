@@ -1,9 +1,6 @@
-import imagemin from "imagemin";
-import imageminMozjpeg from "imagemin-mozjpeg";
-import imageminPngquant from "imagemin-pngquant";
-import imageminWebp from "imagemin-webp";
 import fs from "fs";
 import path from "path";
+import sharp from "sharp";
 
 async function optimizeImages() {
 	console.log("🖼️  Optimizing Images...\n");
@@ -56,14 +53,16 @@ async function optimizeImages() {
 			try {
 				// Optimize PNG images
 				if (imagePath.endsWith(".png")) {
-					await imagemin([fullPath], {
-						destination: path.join(outputDir, path.dirname(imagePath)),
-						plugins: [
-							imageminPngquant({
-								quality: [0.6, 0.8], // Compress to 60-80% quality
-							}),
-						],
-					});
+					const destinationDir = path.join(outputDir, path.dirname(imagePath));
+					fs.mkdirSync(destinationDir, { recursive: true });
+
+					await sharp(fullPath)
+						.png({
+							compressionLevel: 9,
+							palette: true,
+							quality: 80,
+						})
+						.toFile(path.join(outputDir, imagePath));
 				}
 
 				// Check optimized size
