@@ -1,7 +1,6 @@
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from cryptography.fernet import Fernet
-import base64
-import os
 import logging
 
 logger = logging.getLogger(__name__)
@@ -17,12 +16,7 @@ def get_encryption_key():
     key = getattr(settings, 'API_KEY_ENCRYPTION_KEY', None)
     
     if not key:
-        # For development only - in production, this should be set in environment
-        # and never generated on the fly
-        logger.warning("No API_KEY_ENCRYPTION_KEY found in settings, generating temporary key")
-        # Generate a valid Fernet key
-        key = base64.urlsafe_b64encode(os.urandom(32)).decode()
-        return key
+        raise ImproperlyConfigured("API_KEY_ENCRYPTION_KEY is required.")
     
     # Check if the key is already properly formatted
     try:
@@ -33,10 +27,7 @@ def get_encryption_key():
             Fernet(key)
         return key
     except Exception as e:
-        # If the key isn't valid, generate a new one
-        logger.warning(f"Invalid encryption key format: {e}. Generating a new key.")
-        key = base64.urlsafe_b64encode(os.urandom(32)).decode()
-        return key
+        raise ImproperlyConfigured(f"Invalid API_KEY_ENCRYPTION_KEY format: {e}") from e
 
 def encrypt_api_key(raw_key):
     """
