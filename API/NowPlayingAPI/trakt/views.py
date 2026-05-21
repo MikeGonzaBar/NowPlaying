@@ -5,14 +5,14 @@ from rest_framework.exceptions import ValidationError
 from rest_framework import status
 from django.db import models
 from django.conf import settings
-from django.shortcuts import redirect
 from django.urls import reverse
-import requests
 from datetime import timedelta
 from django.utils import timezone
 from django.core.cache import cache
 import logging
 import threading
+import http_client
+from query_params import pagination_params
 from .models import (
     Episode,
     Season,
@@ -28,11 +28,20 @@ from .models import (
     Movie,
     get_trakt_api_credentials,
     get_trakt_headers,
-    session,
 )
-from django.core.serializers import serialize  # For serializing data
 
 logger = logging.getLogger(__name__)
+
+
+def invalidate_trakt_caches(user_id):
+    """Clear analytics and media caches after Trakt data changes."""
+    from analytics.services import AnalyticsService
+
+    deleted_keys = AnalyticsService.invalidate_user_cache(user_id)
+    cache.delete_many([
+        f"completed_media_{user_id}",
+    ])
+    logger.info("Invalidated Trakt-dependent caches for user %s (%s analytics keys)", user_id, deleted_keys)
 
 
 class TraktViewSet(viewsets.ViewSet):
@@ -69,6 +78,7 @@ class TraktViewSet(viewsets.ViewSet):
                     "update-movie": request.build_absolute_uri("update-movie/"),
                     "movie-stats": request.build_absolute_uri("movie-stats/"),
                     "watch-history": request.build_absolute_uri("watch-history/"),
+                    "detail": request.build_absolute_uri("detail/"),
                     "activity-heatmap": request.build_absolute_uri("activity-heatmap/"),
                     "top-genres": request.build_absolute_uri("top-genres/"),
                     "completed-media": request.build_absolute_uri("completed-media/"),
@@ -82,8 +92,7 @@ class TraktViewSet(viewsets.ViewSet):
         Returns the stored values from the Movie model for the authenticated user, 
         sorted by last_watched_at, and formatted like the fetch_latest_movies endpoint.
         """
-        page = int(request.query_params.get("page", 1))
-        page_size = int(request.query_params.get("page_size", 5))
+        page, page_size = pagination_params(request.query_params, default_page_size=5, max_page_size=100)
         offset = (page - 1) * page_size
         limit = offset + page_size
         
@@ -139,8 +148,7 @@ class TraktViewSet(viewsets.ViewSet):
         Returns paginated stored values from the Show model for the authenticated user, 
         sorted by last_watched_at.
         """
-        page = int(request.query_params.get("page", 1))
-        page_size = int(request.query_params.get("page_size", 5))
+        page, page_size = pagination_params(request.query_params, default_page_size=5, max_page_size=100)
         offset = (page - 1) * page_size
         limit = offset + page_size
 
@@ -182,6 +190,58 @@ class TraktViewSet(viewsets.ViewSet):
             "shows": formatted_shows
         })
 
+    @action(detail=False, methods=["get"], url_path="detail")
+    def media_detail(self, request):
+        media_type = request.query_params.get("type", "").strip().lower()
+        tmdb_id = request.query_params.get("tmdb_id", "").strip()
+
+        if media_type not in ["movie", "show"]:
+            raise ValidationError({"type": "Must be 'movie' or 'show'."})
+        if not tmdb_id:
+            raise ValidationError({"tmdb_id": "This query parameter is required."})
+
+        if media_type == "movie":
+            movie = Movie.objects.filter(user=request.user, tmdb_id=tmdb_id).first()
+            if not movie:
+                return Response({"error": "Movie not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({
+                "result": {
+                    "plays": movie.plays,
+                    "last_watched_at": movie.last_watched_at,
+                    "last_updated_at": movie.last_updated_at,
+                    "movie": {
+                        "title": movie.title,
+                        "year": movie.year,
+                        "image_url": movie.image_url,
+                        "ids": {
+                            "trakt": movie.trakt_id,
+                            "slug": movie.slug,
+                            "imdb": movie.imdb_id,
+                            "tmdb": movie.tmdb_id,
+                        },
+                    },
+                }
+            })
+
+        show = Show.objects.filter(user=request.user, tmdb_id=tmdb_id).first()
+        if not show:
+            return Response({"error": "Show not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({
+            "result": {
+                "last_watched_at": show.last_watched_at,
+                "show": {
+                    "id": show.id,
+                    "title": show.title,
+                    "year": show.year,
+                    "image_url": show.image_url,
+                    "ids": {
+                        "trakt": show.trakt_id,
+                        "tmdb": show.tmdb_id,
+                    },
+                },
+            }
+        })
+
     @action(detail=False, methods=["get"], url_path="get-watched-seasons-episodes")
     def get_watched_seasons_episodes(self, request):
         """
@@ -208,7 +268,7 @@ class TraktViewSet(viewsets.ViewSet):
             
             # Fetch full show details from Trakt API for metadata
             show_url = f"https://api.trakt.tv/shows/{trakt_id}?extended=full"
-            show_response = session.get(show_url, headers=headers)
+            show_response = http_client.get(show_url, headers=headers, logger_name="trakt")
             show_metadata = {}
             
             if show_response.status_code == 200:
@@ -231,7 +291,7 @@ class TraktViewSet(viewsets.ViewSet):
             
             # Fetch all seasons for the show (this includes all episodes)
             seasons_url = f"https://api.trakt.tv/shows/{trakt_id}/seasons?extended=episodes"
-            seasons_response = session.get(seasons_url, headers=headers)
+            seasons_response = http_client.get(seasons_url, headers=headers, logger_name="trakt")
             
             if seasons_response.status_code != 200:
                 logger.warning(f"Failed to fetch seasons from Trakt: {seasons_response.status_code}")
@@ -316,7 +376,7 @@ class TraktViewSet(viewsets.ViewSet):
                         try:
                             tmdb_api_key = settings.TMDB_API_KEY
                             tmdb_ep_url = f"https://api.themoviedb.org/3/tv/{show_obj.tmdb_id}/season/{season_number}/episode/{episode_number}?api_key={tmdb_api_key}&language=en-US"
-                            tmdb_ep_response = session.get(tmdb_ep_url)
+                            tmdb_ep_response = http_client.get(tmdb_ep_url, logger_name="trakt")
                             if tmdb_ep_response.status_code == 200:
                                 tmdb_ep_data = tmdb_ep_response.json()
                                 still_path = tmdb_ep_data.get("still_path")
@@ -434,12 +494,16 @@ class TraktViewSet(viewsets.ViewSet):
                 )
             
             # Run the sync in a background thread to avoid timeout
+            user = request.user
+            user_id = request.user.id
+
             def sync_movies():
                 try:
-                    fetch_latest_watched_movies(request.user)
-                    logger.info(f"Background movie sync completed for user {request.user.id}")
+                    fetch_latest_watched_movies(user)
+                    invalidate_trakt_caches(user_id)
+                    logger.info(f"Background movie sync completed for user {user_id}")
                 except Exception as e:
-                    logger.error(f"Error in background movie sync for user {request.user.id}: {e}", exc_info=True)
+                    logger.error(f"Error in background movie sync for user {user_id}: {e}", exc_info=True)
             
             thread = threading.Thread(target=sync_movies, daemon=True)
             thread.start()
@@ -481,12 +545,16 @@ class TraktViewSet(viewsets.ViewSet):
                 )
             
             # Run the sync in a background thread to avoid timeout
+            user = request.user
+            user_id = request.user.id
+
             def sync_shows():
                 try:
-                    fetch_latest_watched_shows(request.user)
-                    logger.info(f"Background sync completed for user {request.user.id}")
+                    fetch_latest_watched_shows(user)
+                    invalidate_trakt_caches(user_id)
+                    logger.info(f"Background sync completed for user {user_id}")
                 except Exception as e:
-                    logger.error(f"Error in background sync for user {request.user.id}: {e}", exc_info=True)
+                    logger.error(f"Error in background sync for user {user_id}: {e}", exc_info=True)
             
             thread = threading.Thread(target=sync_shows, daemon=True)
             thread.start()
@@ -536,12 +604,16 @@ class TraktViewSet(viewsets.ViewSet):
             
             # Run the sync in a background thread to avoid timeout
             # Note: fetch_single_show will create the show if it doesn't exist in the database
+            user = request.user
+            user_id = request.user.id
+
             def sync_show():
                 try:
-                    result = fetch_single_show(request.user, trakt_id)
-                    logger.info(f"Show {trakt_id} sync completed for user {request.user.id}: {result}")
+                    result = fetch_single_show(user, trakt_id)
+                    invalidate_trakt_caches(user_id)
+                    logger.info(f"Show {trakt_id} sync completed for user {user_id}: {result}")
                 except Exception as e:
-                    logger.error(f"Error syncing show {trakt_id} for user {request.user.id}: {e}", exc_info=True)
+                    logger.error(f"Error syncing show {trakt_id} for user {user_id}: {e}", exc_info=True)
             
             thread = threading.Thread(target=sync_show, daemon=True)
             thread.start()
@@ -570,9 +642,26 @@ class TraktViewSet(viewsets.ViewSet):
         from django.utils import timezone
         from datetime import timedelta
         
-        page = int(request.query_params.get("page", 1))
-        page_size = int(request.query_params.get("page_size", 20))
+        page, page_size = pagination_params(request.query_params, default_page_size=20, max_page_size=100)
         media_type = request.query_params.get("type", "all")  # all, movies, shows, episodes
+        if media_type not in ["all", "movies", "shows", "episodes"]:
+            raise ValidationError({"type": "Must be one of: all, movies, shows, episodes."})
+        days_param = request.query_params.get("days", "all")
+        since = None
+        if days_param not in (None, "", "all"):
+            try:
+                days = int(days_param)
+            except (TypeError, ValueError):
+                raise ValidationError({"days": "Must be an integer from 1 to 365 or 'all'."})
+            if days < 1 or days > 365:
+                raise ValidationError({"days": "Must be between 1 and 365."})
+            since = timezone.now() - timedelta(days=days)
+
+        sort = request.query_params.get("sort", "newest")
+        if sort not in ["newest", "oldest"]:
+            raise ValidationError({"sort": "Must be one of: newest, oldest."})
+        sort_descending = sort == "newest"
+        order_by = "-watched_at" if sort_descending else "watched_at"
         offset = (page - 1) * page_size
         limit = offset + page_size
         
@@ -582,7 +671,10 @@ class TraktViewSet(viewsets.ViewSet):
         if media_type in ["all", "movies"]:
             movie_watches = MovieWatch.objects.filter(
                 movie__user=request.user
-            ).select_related("movie").order_by("-watched_at")
+            )
+            if since:
+                movie_watches = movie_watches.filter(watched_at__gte=since)
+            movie_watches = movie_watches.select_related("movie").order_by(order_by)
             
             
             for watch in movie_watches:
@@ -610,7 +702,10 @@ class TraktViewSet(viewsets.ViewSet):
         if media_type in ["all", "shows", "episodes"]:
             episode_watches = EpisodeWatch.objects.filter(
                 episode__show__user=request.user
-            ).select_related("episode", "episode__season", "episode__show").order_by("-watched_at")
+            )
+            if since:
+                episode_watches = episode_watches.filter(watched_at__gte=since)
+            episode_watches = episode_watches.select_related("episode", "episode__season", "episode__show").order_by(order_by)
             
             
             for watch in episode_watches:
@@ -638,8 +733,8 @@ class TraktViewSet(viewsets.ViewSet):
                 })
             
         
-        # Sort all items by watched_at (most recent first)
-        history_items.sort(key=lambda x: x["watched_at"] or "", reverse=True)
+        # Sort all items by watched_at after combining media types.
+        history_items.sort(key=lambda x: x["watched_at"] or "", reverse=sort_descending)
         
         # Deduplicate items - if same type, same trakt_id, and same watched_at (within 1 minute), keep only the most recent watch ID
         seen = {}
@@ -699,10 +794,7 @@ class TraktViewSet(viewsets.ViewSet):
         
         history_items = deduplicated_items
         
-        # Calculate total plays (count all watches, not just unique items)
-        total_movie_plays = MovieWatch.objects.filter(movie__user=request.user).count()
-        total_episode_plays = EpisodeWatch.objects.filter(episode__show__user=request.user).count()
-        total_plays = total_movie_plays + total_episode_plays
+        total_items = len(history_items)
         
         # Apply pagination
         paginated_items = history_items[offset:limit]
@@ -711,8 +803,8 @@ class TraktViewSet(viewsets.ViewSet):
         return Response({
             "page": page,
             "page_size": page_size,
-            "total_items": total_plays,
-            "total_pages": (len(history_items) + page_size - 1) // page_size,
+            "total_items": total_items,
+            "total_pages": (total_items + page_size - 1) // page_size,
             "history": paginated_items,
         })
 
@@ -765,92 +857,12 @@ class TraktViewSet(viewsets.ViewSet):
         """
         Returns top genres based on watch history from the last 12 months.
         """
-        from django.db.models import Count, Q
-        from datetime import timedelta
-        from collections import defaultdict
-        import requests
-        
-        # Get date 12 months ago
-        twelve_months_ago = timezone.now() - timedelta(days=365)
-        
-        # Get all movies watched in the last 12 months
-        movie_watches = MovieWatch.objects.filter(
-            movie__user=request.user,
-            watched_at__gte=twelve_months_ago
-        ).select_related('movie').values_list('movie__tmdb_id', flat=True).distinct()
-        
-        # Get all shows watched in the last 12 months (count by show, not episode)
-        show_watches = EpisodeWatch.objects.filter(
-            episode__show__user=request.user,
-            watched_at__gte=twelve_months_ago
-        ).select_related('episode__show').values_list('episode__show__tmdb_id', flat=True).distinct()
-        
-        genre_counts = defaultdict(int)
-        total_items = 0
-        
-        # Fetch genres for movies from TMDB
-        from django.conf import settings
-        tmdb_api_key = getattr(settings, 'TMDB_API_KEY', None)
-        if not tmdb_api_key:
-            logger.warning("[TOP_GENRES] TMDB_API_KEY not found in settings")
-            return Response({"genres": [], "total_items": 0})
-        
-        # Process movies - batch process to avoid too many API calls
-        movie_ids_list = list(movie_watches)[:100]  # Limit to first 100 to avoid timeout
-        for tmdb_id in movie_ids_list:
-            if tmdb_id:
-                try:
-                    response = session.get(
-                        f"https://api.themoviedb.org/3/movie/{tmdb_id}",
-                        params={"api_key": tmdb_api_key},
-                        timeout=5
-                    )
-                    if response.status_code == 200:
-                        movie_data = response.json()
-                        genres = movie_data.get('genres', [])
-                        for genre in genres:
-                            genre_counts[genre['name']] += 1
-                            total_items += 1
-                except Exception as e:
-                    logger.warning(f"[TOP_GENRES] Error fetching movie {tmdb_id}: {e}")
-        
-        # Process shows - batch process to avoid too many API calls
-        show_ids_list = list(show_watches)[:100]  # Limit to first 100 to avoid timeout
-        for tmdb_id in show_ids_list:
-            if tmdb_id:
-                try:
-                    response = session.get(
-                        f"https://api.themoviedb.org/3/tv/{tmdb_id}",
-                        params={"api_key": tmdb_api_key},
-                        timeout=5
-                    )
-                    if response.status_code == 200:
-                        show_data = response.json()
-                        genres = show_data.get('genres', [])
-                        for genre in genres:
-                            genre_counts[genre['name']] += 1
-                            total_items += 1
-                except Exception as e:
-                    logger.warning(f"[TOP_GENRES] Error fetching show {tmdb_id}: {e}")
-        
-        # Calculate percentages and sort
-        top_genres = []
-        for genre_name, count in genre_counts.items():
-            percentage = round((count / total_items * 100)) if total_items > 0 else 0
-            top_genres.append({
-                "name": genre_name,
-                "count": count,
-                "percentage": percentage,
-            })
-        
-        # Sort by percentage descending and take top 3
-        top_genres.sort(key=lambda x: x['percentage'], reverse=True)
-        top_genres = top_genres[:3]
-        
-        
+        from analytics.services import AnalyticsService
+
+        result = AnalyticsService.get_media_genre_distribution(request.user, days=365)
         return Response({
-            "genres": top_genres,
-            "total_items": total_items,
+            "genres": result["genres"][:3],
+            "total_items": result.get("total_items", 0),
         })
 
     @action(detail=False, methods=["get"], url_path="movie-stats")
@@ -872,7 +884,7 @@ class TraktViewSet(viewsets.ViewSet):
             
             # Fetch movie stats from Trakt API
             stats_url = f"https://api.trakt.tv/movies/{trakt_id}/stats"
-            stats_response = session.get(stats_url, headers=headers)
+            stats_response = http_client.get(stats_url, headers=headers, logger_name="trakt")
             
             if stats_response.status_code != 200:
                 logger.warning(f"Failed to fetch movie stats from Trakt: {stats_response.status_code}")
@@ -938,12 +950,16 @@ class TraktViewSet(viewsets.ViewSet):
                 )
             
             # Run the sync in a background thread to avoid timeout
+            user = request.user
+            user_id = request.user.id
+
             def sync_movie():
                 try:
-                    result = fetch_single_movie(request.user, trakt_id)
-                    logger.info(f"Movie {trakt_id} sync completed for user {request.user.id}: {result}")
+                    result = fetch_single_movie(user, trakt_id)
+                    invalidate_trakt_caches(user_id)
+                    logger.info(f"Movie {trakt_id} sync completed for user {user_id}: {result}")
                 except Exception as e:
-                    logger.error(f"Error syncing movie {trakt_id} for user {request.user.id}: {e}", exc_info=True)
+                    logger.error(f"Error syncing movie {trakt_id} for user {user_id}: {e}", exc_info=True)
             
             thread = threading.Thread(target=sync_movie, daemon=True)
             thread.start()
@@ -1227,7 +1243,7 @@ curl -X POST \\<br>
         }
         
         try:
-            response = requests.post(token_url, json=token_data)
+            response = http_client.post(token_url, json=token_data, logger_name="trakt")
             response.raise_for_status()
             token_info = response.json()
             
@@ -1249,7 +1265,7 @@ curl -X POST \\<br>
                 "expires_at": expires_at
             })
             
-        except requests.RequestException as e:
+        except (http_client.ExternalRequestError, http_client.requests.RequestException) as e:
             return Response(
                 {"error": f"Failed to exchange code for token: {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST
@@ -1280,26 +1296,27 @@ curl -X POST \\<br>
                 (Q(title__icontains=query) | Q(title__istartswith=query))
             )[:10]
             
-            print(f"Found {movies.count()} movies matching '{query}' for user {request.user.id}")
+            logger.info("Found %s movies matching '%s' for user %s", movies.count(), query, request.user.id)
             
             for movie in movies:
                 # Get movie poster from TMDB if available
                 cover_image = ''
                 if movie.tmdb_id:
                     try:
-                        tmdb_response = requests.get(
+                        tmdb_response = http_client.get(
                             f"https://api.themoviedb.org/3/movie/{movie.tmdb_id}",
                             params={
                                 'api_key': settings.TMDB_API_KEY,
                                 'append_to_response': 'images'
-                            }
+                            },
+                            logger_name="trakt",
                         )
                         if tmdb_response.ok:
                             tmdb_data = tmdb_response.json()
                             if tmdb_data.get('poster_path'):
                                 cover_image = f"https://image.tmdb.org/t/p/w500{tmdb_data['poster_path']}"
                     except Exception as e:
-                        print(f"Error fetching TMDB data for movie {movie.tmdb_id}: {e}")
+                        logger.warning("Error fetching TMDB data for movie %s: %s", movie.tmdb_id, e)
                 
                 results.append({
                     'id': movie.id,
@@ -1310,7 +1327,7 @@ curl -X POST \\<br>
                     'tmdb_id': movie.tmdb_id
                 })
         except Exception as e:
-            print(f"Movie search error: {e}")
+            logger.warning("Movie search error: %s", e)
         
         # Search in shows that the user has watched
         try:
@@ -1319,26 +1336,27 @@ curl -X POST \\<br>
                 (Q(title__icontains=query) | Q(title__istartswith=query))
             )[:10]
             
-            print(f"Found {shows.count()} shows matching '{query}' for user {request.user.id}")
+            logger.info("Found %s shows matching '%s' for user %s", shows.count(), query, request.user.id)
             
             for show in shows:
                 # Use existing image_url or fetch from TMDB
                 cover_image = show.image_url or ''
                 if not cover_image and show.tmdb_id:
                     try:
-                        tmdb_response = requests.get(
+                        tmdb_response = http_client.get(
                             f"https://api.themoviedb.org/3/tv/{show.tmdb_id}",
                             params={
                                 'api_key': settings.TMDB_API_KEY,
                                 'append_to_response': 'images'
-                            }
+                            },
+                            logger_name="trakt",
                         )
                         if tmdb_response.ok:
                             tmdb_data = tmdb_response.json()
                             if tmdb_data.get('poster_path'):
                                 cover_image = f"https://image.tmdb.org/t/p/w500{tmdb_data['poster_path']}"
                     except Exception as e:
-                        print(f"Error fetching TMDB data for show {show.tmdb_id}: {e}")
+                        logger.warning("Error fetching TMDB data for show %s: %s", show.tmdb_id, e)
                 
                 results.append({
                     'id': show.id,
@@ -1349,7 +1367,7 @@ curl -X POST \\<br>
                     'tmdb_id': show.tmdb_id
                 })
         except Exception as e:
-            print(f"Show search error: {e}")
+            logger.warning("Show search error: %s", e)
         
         # Search in episodes that the user has watched
         try:
@@ -1358,25 +1376,26 @@ curl -X POST \\<br>
                 (Q(title__icontains=query) | Q(show__title__icontains=query))
             ).select_related('show', 'season')[:20]
             
-            print(f"Found {episodes.count()} episodes matching '{query}' for user {request.user.id}")
+            logger.info("Found %s episodes matching '%s' for user %s", episodes.count(), query, request.user.id)
             
             for episode in episodes:
                 # Use episode image or show image
                 cover_image = episode.image_url or episode.show.image_url or ''
                 if not cover_image and episode.show.tmdb_id:
                     try:
-                        tmdb_response = requests.get(
+                        tmdb_response = http_client.get(
                             f"https://api.themoviedb.org/3/tv/{episode.show.tmdb_id}/season/{episode.season.season_number}/episode/{episode.episode_number}",
                             params={
                                 'api_key': settings.TMDB_API_KEY
-                            }
+                            },
+                            logger_name="trakt",
                         )
                         if tmdb_response.ok:
                             tmdb_data = tmdb_response.json()
                             if tmdb_data.get('still_path'):
                                 cover_image = f"https://image.tmdb.org/t/p/w500{tmdb_data['still_path']}"
                     except Exception as e:
-                        print(f"Error fetching TMDB data for episode {episode.id}: {e}")
+                        logger.warning("Error fetching TMDB data for episode %s: %s", episode.id, e)
                 
                 results.append({
                     'id': episode.id,
@@ -1392,14 +1411,14 @@ curl -X POST \\<br>
                     'show_trakt_id': episode.show.trakt_id,
                 })
         except Exception as e:
-            print(f"Episode search error: {e}")
+            logger.warning("Episode search error: %s", e)
         
         # Sort results by type (movies, shows, episodes) then by title
         type_order = {'movie': 0, 'show': 1, 'episode': 2}
         results.sort(key=lambda x: (type_order.get(x['type'], 99), x['title'].lower()))
         results = results[:50]  # Increased limit to accommodate episodes
         
-        print(f"Trakt search results for '{query}': {len(results)} items found")
+        logger.info("Trakt search results for '%s': %s items found", query, len(results))
         return Response({'results': results})
 
     @action(detail=False, methods=["get"], url_path="recent-activity")
@@ -1503,7 +1522,7 @@ curl -X POST \\<br>
             try:
                 # Fetch total episodes from Trakt API to verify completion
                 seasons_url = f"https://api.trakt.tv/shows/{show.trakt_id}/seasons?extended=episodes"
-                seasons_response = session.get(seasons_url, headers=headers)
+                seasons_response = http_client.get(seasons_url, headers=headers, logger_name="trakt")
                 
                 if seasons_response.status_code == 200:
                     trakt_seasons_data = seasons_response.json()
@@ -1647,7 +1666,7 @@ curl -X POST \\<br>
             
             # Fetch trending movies
             movies_url = "https://api.trakt.tv/movies/trending?limit=10"
-            movies_response = requests.get(movies_url, headers=headers)
+            movies_response = http_client.get(movies_url, headers=headers, logger_name="trakt")
             trending_movies = []
             
             if movies_response.status_code == 200:
@@ -1665,7 +1684,7 @@ curl -X POST \\<br>
             
             # Fetch trending shows
             shows_url = "https://api.trakt.tv/shows/trending?limit=10"
-            shows_response = requests.get(shows_url, headers=headers)
+            shows_response = http_client.get(shows_url, headers=headers, logger_name="trakt")
             trending_shows = []
             
             if shows_response.status_code == 200:

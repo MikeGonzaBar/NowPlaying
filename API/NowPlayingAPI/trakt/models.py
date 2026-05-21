@@ -1,21 +1,14 @@
 from django.db import models
 from django.utils import timezone
 from django.conf import settings
-import requests
 import logging
 from datetime import datetime, timedelta
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 from dateutil.parser import isoparse
-from django.db.models import Max
 from django.contrib.auth.models import User
+import http_client
 
 # Create your models here.
-
-session = requests.Session()
-retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
-adapter = HTTPAdapter(max_retries=retries)
-session.mount("https://", adapter)
+logger = logging.getLogger(__name__)
 
 
 class TraktToken(models.Model):
@@ -44,6 +37,11 @@ class Movie(models.Model):
     title = models.CharField(max_length=255)
     year = models.IntegerField(null=True, blank=True)
     image_url = models.URLField(null=True, blank=True)
+    genres = models.JSONField(default=list, blank=True)
+    directors = models.JSONField(default=list, blank=True)
+    studios = models.JSONField(default=list, blank=True)
+    runtime = models.IntegerField(null=True, blank=True)
+    rating = models.FloatField(null=True, blank=True)
     plays = models.IntegerField(default=0)  # Number of plays
     last_watched_at = models.DateTimeField(
         null=True, blank=True
@@ -88,6 +86,11 @@ class Show(models.Model):
     title = models.CharField(max_length=255)
     year = models.IntegerField(null=True, blank=True)
     image_url = models.URLField(null=True, blank=True)
+    genres = models.JSONField(default=list, blank=True)
+    network = models.CharField(max_length=255, null=True, blank=True)
+    status = models.CharField(max_length=50, null=True, blank=True)
+    runtime = models.IntegerField(null=True, blank=True)
+    rating = models.FloatField(null=True, blank=True)
     slug = models.CharField(max_length=255, null=True, blank=True)  # Trakt slug
     last_watched_at = models.DateTimeField(
         null=True, blank=True
@@ -177,20 +180,10 @@ def get_trakt_api_credentials(user):
     """
     Get Trakt API credentials for a specific user from UserApiKey model.
     """
-    from users.models import UserApiKey
-    
-    try:
-        api_key_obj = UserApiKey.objects.get(user=user, service_name='trakt')
-        client_id = api_key_obj.service_user_id  # client_id is stored in service_user_id
-        client_secret = api_key_obj.get_key()    # client_secret is stored in api_key
-        
-        if not client_id or not client_secret:
-            raise Exception(f"Trakt API credentials incomplete for user {user.username}. Please update your Trakt API settings.")
-        
-        return client_id, client_secret
-        
-    except UserApiKey.DoesNotExist:
-        raise Exception(f"Trakt API credentials not found for user {user.username}. Please add your Trakt API credentials.")
+    from users.credentials import get_service_credentials
+
+    credentials = get_service_credentials(user, "trakt", require_user_id=True)
+    return credentials.service_user_id, credentials.api_key
 
 
 def refresh_trakt_token(token_instance):
@@ -207,7 +200,7 @@ def refresh_trakt_token(token_instance):
         "redirect_uri": settings.TRAKT_REDIRECT_URI,  # This can stay in settings as it's app-level config
         "grant_type": "refresh_token",
     }
-    response = requests.post(url, json=data)
+    response = http_client.post(url, json=data, logger_name="trakt")
     token_data = response.json()
     if "access_token" in token_data:
         token_instance.access_token = token_data.get("access_token")
@@ -251,21 +244,96 @@ def fetch_tmdb_poster_for_movie(tmdb_id):
         return None
     
     try:
-        tmdb_response = session.get(
+        tmdb_response = http_client.get(
             f"https://api.themoviedb.org/3/movie/{tmdb_id}",
             params={
                 'api_key': settings.TMDB_API_KEY,
                 'language': 'en-US'
-            }
+            },
+            logger_name="trakt",
         )
         if tmdb_response.status_code == 200:
             tmdb_data = tmdb_response.json()
             if tmdb_data.get('poster_path'):
                 return f"https://image.tmdb.org/t/p/w500{tmdb_data['poster_path']}"
     except Exception as e:
-        logger = logging.getLogger(__name__)
         logger.warning(f"Error fetching TMDB poster for movie {tmdb_id}: {e}")
     return None
+
+
+def _normalize_genres(genres):
+    normalized = []
+    for genre in genres or []:
+        if isinstance(genre, dict):
+            name = genre.get("name")
+        else:
+            name = str(genre)
+
+        if not name:
+            continue
+
+        name = name.replace("-", " ").strip()
+        display_name = name.title() if name.islower() else name
+        if display_name and display_name not in normalized:
+            normalized.append(display_name)
+
+    return normalized
+
+
+def _names_from_dicts(items):
+    names = []
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        if name and name not in names:
+            names.append(name)
+    return names
+
+
+def fetch_tmdb_movie_metadata(tmdb_id):
+    """
+    Fetches movie metadata needed by analytics from TMDB.
+    """
+    if not tmdb_id or not getattr(settings, "TMDB_API_KEY", ""):
+        return {}
+
+    try:
+        response = http_client.get(
+            f"https://api.themoviedb.org/3/movie/{tmdb_id}",
+            params={
+                "api_key": settings.TMDB_API_KEY,
+                "language": "en-US",
+                "append_to_response": "credits",
+            },
+            logger_name="trakt",
+        )
+        if response.status_code != 200:
+            return {}
+
+        data = response.json()
+        crew = data.get("credits", {}).get("crew", [])
+        directors = []
+        for member in crew:
+            if isinstance(member, dict) and member.get("job") == "Director" and member.get("name"):
+                if member["name"] not in directors:
+                    directors.append(member["name"])
+
+        poster = None
+        if data.get("poster_path"):
+            poster = f"https://image.tmdb.org/t/p/w500{data['poster_path']}"
+
+        return {
+            "poster": poster,
+            "genres": _normalize_genres(data.get("genres", [])),
+            "runtime": data.get("runtime"),
+            "rating": data.get("vote_average"),
+            "directors": directors,
+            "studios": _names_from_dicts(data.get("production_companies", [])),
+        }
+    except Exception as e:
+        logger.warning("Error fetching TMDB movie metadata for %s: %s", tmdb_id, e)
+        return {}
 
 
 def fetch_tmdb_poster_for_show(tmdb_id):
@@ -277,21 +345,62 @@ def fetch_tmdb_poster_for_show(tmdb_id):
         return None
     
     try:
-        tmdb_response = session.get(
+        tmdb_response = http_client.get(
             f"https://api.themoviedb.org/3/tv/{tmdb_id}",
             params={
                 'api_key': settings.TMDB_API_KEY,
                 'language': 'en-US'
-            }
+            },
+            logger_name="trakt",
         )
         if tmdb_response.status_code == 200:
             tmdb_data = tmdb_response.json()
             if tmdb_data.get('poster_path'):
                 return f"https://image.tmdb.org/t/p/w500{tmdb_data['poster_path']}"
     except Exception as e:
-        logger = logging.getLogger(__name__)
         logger.warning(f"Error fetching TMDB poster for show {tmdb_id}: {e}")
     return None
+
+
+def fetch_tmdb_show_metadata(tmdb_id):
+    """
+    Fetches show metadata needed by analytics from TMDB.
+    """
+    if not tmdb_id or not getattr(settings, "TMDB_API_KEY", ""):
+        return {}
+
+    try:
+        response = http_client.get(
+            f"https://api.themoviedb.org/3/tv/{tmdb_id}",
+            params={
+                "api_key": settings.TMDB_API_KEY,
+                "language": "en-US",
+            },
+            logger_name="trakt",
+        )
+        if response.status_code != 200:
+            return {}
+
+        data = response.json()
+        poster = None
+        if data.get("poster_path"):
+            poster = f"https://image.tmdb.org/t/p/w500{data['poster_path']}"
+
+        runtimes = data.get("episode_run_time") or []
+        runtime = runtimes[0] if runtimes else data.get("runtime")
+        networks = _names_from_dicts(data.get("networks", []))
+
+        return {
+            "poster": poster,
+            "genres": _normalize_genres(data.get("genres", [])),
+            "runtime": runtime,
+            "rating": data.get("vote_average"),
+            "network": networks[0] if networks else None,
+            "status": data.get("status"),
+        }
+    except Exception as e:
+        logger.warning("Error fetching TMDB show metadata for %s: %s", tmdb_id, e)
+        return {}
 
 
 def _process_single_movie(user, item):
@@ -320,9 +429,23 @@ def _process_single_movie(user, item):
     except Movie.DoesNotExist:
         movie_obj = None
     
-    # Skip if movie hasn't been updated on Trakt, unless we need to backfill image
+    # Skip if movie hasn't been updated on Trakt, unless we need to backfill image or analytics metadata.
     needs_image_backfill = movie_obj and not movie_obj.image_url
-    if movie_obj and movie_obj.last_updated_at and api_last_updated and api_last_updated <= movie_obj.last_updated_at and not needs_image_backfill:
+    needs_metadata_backfill = movie_obj and any([
+        not movie_obj.genres,
+        not movie_obj.directors,
+        not movie_obj.studios,
+        movie_obj.runtime is None,
+        movie_obj.rating is None,
+    ])
+    if (
+        movie_obj
+        and movie_obj.last_updated_at
+        and api_last_updated
+        and api_last_updated <= movie_obj.last_updated_at
+        and not needs_image_backfill
+        and not needs_metadata_backfill
+    ):
         return {"skipped": True, "reason": "No updates needed"}
 
     plays = item.get("plays", 0)  # Number of times the movie was watched
@@ -333,6 +456,7 @@ def _process_single_movie(user, item):
     slug = movie_data.get("ids", {}).get("slug")
     imdb_id = movie_data.get("ids", {}).get("imdb")
     tmdb_id = movie_data.get("ids", {}).get("tmdb")
+    tmdb_metadata = fetch_tmdb_movie_metadata(tmdb_id)
     
     # Handle images safely - Trakt API may not return images or may return them in different formats
     poster = None
@@ -343,8 +467,8 @@ def _process_single_movie(user, item):
             poster = poster_data.get("full")
     
     # If Trakt didn't provide an image, try fetching from TMDB
-    if not poster and tmdb_id:
-        poster = fetch_tmdb_poster_for_movie(tmdb_id)
+    if not poster:
+        poster = tmdb_metadata.get("poster") or fetch_tmdb_poster_for_movie(tmdb_id)
     
     # If we're backfilling and still don't have a poster, keep existing if it exists
     if needs_image_backfill and not poster and movie_obj and movie_obj.image_url:
@@ -364,6 +488,11 @@ def _process_single_movie(user, item):
             "slug": slug,
             "imdb_id": imdb_id,
             "tmdb_id": tmdb_id,
+            "genres": _normalize_genres(movie_data.get("genres")) or tmdb_metadata.get("genres", []),
+            "directors": tmdb_metadata.get("directors", []),
+            "studios": tmdb_metadata.get("studios", []),
+            "runtime": movie_data.get("runtime") or tmdb_metadata.get("runtime"),
+            "rating": movie_data.get("rating") or tmdb_metadata.get("rating"),
         },
     )
 
@@ -379,9 +508,9 @@ def fetch_latest_watched_movies(user):
     """
     Fetches the latest watched movies from Trakt and updates/creates records in the database for a specific user.
     """
-    url = "https://api.trakt.tv/users/me/watched/movies"
+    url = "https://api.trakt.tv/users/me/watched/movies?extended=full"
     headers = get_trakt_headers(user)
-    response = requests.get(url, headers=headers)
+    response = http_client.get(url, headers=headers, logger_name="trakt")
     data = response.json()
     sorted_data = sorted(data, key=lambda x: x.get("last_updated_at"), reverse=True)
 
@@ -401,19 +530,17 @@ def fetch_single_movie(user, trakt_id):
 
     # Trakt does NOT support GET /movies/{id}/watched (405). For per-user watched info,
     # reuse the same endpoint as the bulk sync and filter down to the requested movie.
-    url = "https://api.trakt.tv/users/me/watched/movies"
-    response = session.get(url, headers=headers)
+    url = "https://api.trakt.tv/users/me/watched/movies?extended=full"
+    response = http_client.get(url, headers=headers, logger_name="trakt")
 
     if response.status_code != 200:
         error_msg = f"Trakt API returned status {response.status_code}: {response.text}"
-        logger = logging.getLogger(__name__)
         logger.error(error_msg)
         raise Exception(error_msg)
 
     data = response.json()
     if not isinstance(data, list):
         error_msg = f"Unexpected response format from Trakt API: {type(data)}"
-        logger = logging.getLogger(__name__)
         logger.warning(error_msg)
         raise Exception(error_msg)
 
@@ -429,10 +556,9 @@ def fetch_single_movie(user, trakt_id):
     if not item:
         # Not in watched list; still refresh base movie metadata so we can backfill poster/etc.
         movie_url = f"https://api.trakt.tv/movies/{trakt_id}?extended=full"
-        movie_response = session.get(movie_url, headers=headers)
+        movie_response = http_client.get(movie_url, headers=headers, logger_name="trakt")
         if movie_response.status_code != 200:
             error_msg = f"Trakt API returned status {movie_response.status_code}: {movie_response.text}"
-            logger = logging.getLogger(__name__)
             logger.error(error_msg)
             raise Exception(error_msg)
 
@@ -480,7 +606,6 @@ def _process_single_show(user, item, headers):
         try:
             api_last = isoparse(last_watched_at_str)
         except (ValueError, TypeError) as e:
-            logger = logging.getLogger(__name__)
             logger.warning(f"Error parsing last_watched_at for show {title}: {e}")
             api_last = None
     
@@ -488,15 +613,23 @@ def _process_single_show(user, item, headers):
         last_db = existing.last_watched_at
     else:
         last_db = None
-    print(f"Received Show: {title}\tAPI Last: {api_last}\tDB Last: {last_db}")
+    logger.info("Received show %s API last=%s DB last=%s", title, api_last, last_db)
     
-    # Skip if show hasn't been updated on Trakt, unless we need to backfill image
+    # Skip if show hasn't been updated on Trakt, unless we need to backfill image or analytics metadata.
     needs_image_backfill = existing and not existing.image_url
-    if api_last and last_db and (api_last <= last_db) and not needs_image_backfill:
+    needs_metadata_backfill = existing and any([
+        not existing.genres,
+        not existing.network,
+        not existing.status,
+        existing.runtime is None,
+        existing.rating is None,
+    ])
+    if api_last and last_db and (api_last <= last_db) and not needs_image_backfill and not needs_metadata_backfill:
         return {"skipped": True, "reason": "No updates needed"}
     
     year = show_data.get("year")
     slug = show_data.get("ids", {}).get("slug")
+    tmdb_metadata = fetch_tmdb_show_metadata(tmdb_id)
     # Extract the TMDb ID from the response
     # Handle images safely - Trakt API may not return images or may return them in different formats
     poster = None
@@ -507,8 +640,8 @@ def _process_single_show(user, item, headers):
             poster = poster_data.get("full")
     
     # If Trakt didn't provide an image, try fetching from TMDB
-    if not poster and tmdb_id:
-        poster = fetch_tmdb_poster_for_show(tmdb_id)
+    if not poster:
+        poster = tmdb_metadata.get("poster") or fetch_tmdb_poster_for_show(tmdb_id)
     
     # If we're backfilling and still don't have a poster, keep existing if it exists
     if needs_image_backfill and not poster and existing and existing.image_url:
@@ -521,6 +654,11 @@ def _process_single_show(user, item, headers):
         "image_url": poster,
         "slug": slug,
         "tmdb_id": tmdb_id,
+        "genres": _normalize_genres(show_data.get("genres")) or tmdb_metadata.get("genres", []),
+        "network": show_data.get("network") or tmdb_metadata.get("network"),
+        "status": show_data.get("status") or tmdb_metadata.get("status"),
+        "runtime": show_data.get("runtime") or tmdb_metadata.get("runtime"),
+        "rating": show_data.get("rating") or tmdb_metadata.get("rating"),
     }
     # Only update last_watched_at if we have a valid date
     if api_last:
@@ -549,11 +687,11 @@ def _process_single_show(user, item, headers):
             episode_number = episode.get("number")
             watched_at = episode.get("last_watched_at")
             plays = episode.get("plays", 0)
-            print(f"Processing Show {title}\tS: {season_number}\tE: {episode_number}")
+            logger.info("Processing show %s S:%s E:%s", title, season_number, episode_number)
 
             # Make an extra API call to fetch detailed info for the episode
             ep_url = f"https://api.trakt.tv/shows/{trakt_id}/seasons/{season_number}/episodes/{episode_number}?extended=full"
-            ep_response = session.get(ep_url, headers=headers)
+            ep_response = http_client.get(ep_url, headers=headers, logger_name="trakt")
             if ep_response.status_code == 200:
                 ep_details = ep_response.json()
                 episode_title = ep_details.get("title")
@@ -580,7 +718,7 @@ def _process_single_show(user, item, headers):
                         settings.TMDB_API_KEY
                     )  # Ensure you have this in your settings
                     tmdb_url = f"https://api.themoviedb.org/3/tv/{tmdb_id}/season/{season_number}/episode/{episode_number}?api_key={tmdb_api_key}&language=en-US"
-                    tmdb_response = session.get(tmdb_url)
+                    tmdb_response = http_client.get(tmdb_url, logger_name="trakt")
                     if tmdb_response.status_code == 200:
                         tmdb_data = tmdb_response.json()
                         still_path = tmdb_data.get("still_path")
@@ -619,7 +757,6 @@ def _process_single_show(user, item, headers):
                         if not latest_watched_at or watched_at_dt > latest_watched_at:
                             latest_watched_at = watched_at_dt
                     except (ValueError, TypeError, AttributeError) as e:
-                        logger = logging.getLogger(__name__)
                         logger.warning(f"Error parsing watched_at for episode: {e}")
 
                 # Record the watch event
@@ -629,7 +766,6 @@ def _process_single_show(user, item, headers):
                         episode=episode_obj, watched_at=watched_at, progress=progress
                     )
                 except Exception as e:
-                    logger = logging.getLogger(__name__)
                     logger.warning(f"Error creating EpisodeWatch: {e}")
                     # Continue processing other episodes even if one fails
 
@@ -646,21 +782,19 @@ def fetch_latest_watched_shows(user):
     Fetches the latest watched TV shows from Trakt and updates/creates records for shows,
     seasons, episodes, and watch events for a specific user.
     """
-    url = "https://api.trakt.tv/users/me/watched/shows"
+    url = "https://api.trakt.tv/users/me/watched/shows?extended=full"
     headers = get_trakt_headers(user)
-    response = requests.get(url, headers=headers)
+    response = http_client.get(url, headers=headers, logger_name="trakt")
     
     # Check if the response is successful
     if response.status_code != 200:
         error_msg = f"Trakt API returned status {response.status_code}: {response.text}"
-        logger = logging.getLogger(__name__)
         logger.error(error_msg)
         raise Exception(error_msg)
     
     data = response.json()
     # Handle case where data might be empty or not a list
     if not isinstance(data, list):
-        logger = logging.getLogger(__name__)
         logger.warning(f"Unexpected response format from Trakt API: {type(data)}")
         return []
     
@@ -686,17 +820,16 @@ def fetch_single_show(user, trakt_id):
     headers = get_trakt_headers(user)
     
     # First, try to fetch the show's watched data
-    url = f"https://api.trakt.tv/shows/{trakt_id}/watched"
-    response = session.get(url, headers=headers)
+    url = f"https://api.trakt.tv/shows/{trakt_id}/watched?extended=full"
+    response = http_client.get(url, headers=headers, logger_name="trakt")
     
     # If show is not watched (404) or method not allowed (405), fetch show details instead
     if response.status_code in [404, 405]:
-        logger = logging.getLogger(__name__)
         logger.info(f"Show {trakt_id} not in watched list, fetching show details instead")
         
         # Fetch show details
         show_url = f"https://api.trakt.tv/shows/{trakt_id}?extended=full"
-        show_response = session.get(show_url, headers=headers)
+        show_response = http_client.get(show_url, headers=headers, logger_name="trakt")
         
         if show_response.status_code == 404:
             # Show doesn't exist in Trakt - log and return gracefully
@@ -717,7 +850,6 @@ def fetch_single_show(user, trakt_id):
         }
     elif response.status_code != 200:
         error_msg = f"Trakt API returned status {response.status_code}: {response.text}"
-        logger = logging.getLogger(__name__)
         logger.error(error_msg)
         raise Exception(error_msg)
     else:
@@ -726,7 +858,6 @@ def fetch_single_show(user, trakt_id):
         # The response should be a single show object with seasons/episodes
         if not isinstance(data, dict) or "show" not in data:
             error_msg = f"Unexpected response format from Trakt API for show {trakt_id}"
-            logger = logging.getLogger(__name__)
             logger.warning(error_msg)
             raise Exception(error_msg)
     
