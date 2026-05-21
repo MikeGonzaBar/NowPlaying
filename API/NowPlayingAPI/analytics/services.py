@@ -2,6 +2,7 @@ from django.db.models import Sum, Count, Avg, F, Q, Max, Min
 from django.utils import timezone
 from django.core.cache import cache
 from datetime import datetime, timedelta, date
+from collections import Counter
 from .models import UserStatistics, GamingStreak
 from steam.models import Game as SteamGame, Achievement as SteamAchievement
 from playstation.models import PSNGame, PSNAchievement
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class AnalyticsService:
     """Optimized service class for calculating and managing user statistics"""
-    
+
     @staticmethod
     def invalidate_user_cache(user_id):
         """Clear analytics cache entries that depend on user activity data."""
@@ -127,8 +128,8 @@ class AnalyticsService:
         
         retro_achievements = GameAchievement.objects.filter(
             game__user=user,
-            date_earned__gte=start_date,
-            date_earned__lte=end_date
+            date_earned__gte=start_datetime,
+            date_earned__lte=end_datetime
         ).count()
         
         # Calculate totals
@@ -284,6 +285,8 @@ class AnalyticsService:
         
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
+        start_datetime = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
+        end_datetime = timezone.make_aware(datetime.combine(end_date, datetime.max.time()))
         
         # Optimized platform queries
         platforms = {
@@ -299,7 +302,8 @@ class AnalyticsService:
         # Steam data
         steam_data = SteamGame.objects.filter(
             user=user,
-            last_played__gte=start_date
+            last_played__gte=start_datetime,
+            last_played__lte=end_datetime
         ).aggregate(
             count=Count('id'),
             total_playtime=Sum('playtime_forever')
@@ -308,44 +312,49 @@ class AnalyticsService:
         platforms['steam']['playtime'] = timedelta(minutes=steam_data['total_playtime'] or 0)
         platforms['steam']['achievements'] = SteamAchievement.objects.filter(
             game__user=user,
-            unlock_time__gte=start_date,
+            unlock_time__gte=start_datetime,
+            unlock_time__lte=end_datetime,
             unlocked=True
         ).count()
         
         # PSN, Xbox, RetroAchievements data
-        platforms['psn']['games'] = PSNGame.objects.filter(user=user, last_played__gte=start_date).count()
+        platforms['psn']['games'] = PSNGame.objects.filter(user=user, last_played__gte=start_datetime, last_played__lte=end_datetime).count()
         platforms['psn']['achievements'] = PSNAchievement.objects.filter(
-            game__user=user, unlock_time__gte=start_date, unlocked=True
+            game__user=user, unlock_time__gte=start_datetime, unlock_time__lte=end_datetime, unlocked=True
         ).count()
         
-        platforms['xbox']['games'] = XboxGame.objects.filter(user=user, last_played__gte=start_date).count()
+        platforms['xbox']['games'] = XboxGame.objects.filter(user=user, last_played__gte=start_datetime, last_played__lte=end_datetime).count()
         platforms['xbox']['achievements'] = XboxAchievement.objects.filter(
-            game__user=user, unlock_time__gte=start_date, unlocked=True
+            game__user=user, unlock_time__gte=start_datetime, unlock_time__lte=end_datetime, unlocked=True
         ).count()
         
         platforms['retroachievements']['games'] = RetroAchievementsGame.objects.filter(
-            user=user, last_played__gte=start_date
+            user=user, last_played__gte=start_datetime, last_played__lte=end_datetime
         ).count()
         platforms['retroachievements']['achievements'] = GameAchievement.objects.filter(
-            game__user=user, date_earned__gte=start_date
+            game__user=user, date_earned__gte=start_datetime, date_earned__lte=end_datetime
         ).count()
         
         # Music platforms
         spotify_data = Song.objects.filter(
-            user=user, played_at__gte=start_date, source='spotify'
+            user=user, played_at__gte=start_datetime, played_at__lte=end_datetime, source='spotify'
         ).aggregate(count=Count('id'), total_duration=Sum('duration_ms'))
         platforms['spotify']['songs'] = spotify_data['count'] or 0
         platforms['spotify']['listening_time'] = timedelta(milliseconds=spotify_data['total_duration'] or 0)
+        if platforms['spotify']['songs'] and platforms['spotify']['listening_time'].total_seconds() == 0:
+            platforms['spotify']['listening_time'] = timedelta(minutes=round(platforms['spotify']['songs'] * 3.5))
         
         lastfm_data = Song.objects.filter(
-            user=user, played_at__gte=start_date, source='lastfm'
+            user=user, played_at__gte=start_datetime, played_at__lte=end_datetime, source='lastfm'
         ).aggregate(count=Count('id'), total_duration=Sum('duration_ms'))
         platforms['lastfm']['songs'] = lastfm_data['count'] or 0
         platforms['lastfm']['listening_time'] = timedelta(milliseconds=lastfm_data['total_duration'] or 0)
+        if platforms['lastfm']['songs'] and platforms['lastfm']['listening_time'].total_seconds() == 0:
+            platforms['lastfm']['listening_time'] = timedelta(minutes=round(platforms['lastfm']['songs'] * 3.5))
         
         # Trakt data
-        movie_watches = MovieWatch.objects.filter(movie__user=user, watched_at__gte=start_date).count()
-        episode_watches = EpisodeWatch.objects.filter(episode__show__user=user, watched_at__gte=start_date).count()
+        movie_watches = MovieWatch.objects.filter(movie__user=user, watched_at__gte=start_datetime, watched_at__lte=end_datetime).count()
+        episode_watches = EpisodeWatch.objects.filter(episode__show__user=user, watched_at__gte=start_datetime, watched_at__lte=end_datetime).count()
         
         platforms['trakt']['movies'] = movie_watches
         platforms['trakt']['episodes'] = episode_watches
@@ -374,26 +383,27 @@ class AnalyticsService:
         """Calculate optimized achievement efficiency (achievements per hour)"""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
+        start_datetime = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
         
         # Get total achievements earned in one query
         total_achievements = (
             SteamAchievement.objects.filter(
-                game__user=user, unlock_time__gte=start_date, unlocked=True
+                game__user=user, unlock_time__gte=start_datetime, unlocked=True
             ).count() +
             PSNAchievement.objects.filter(
-                game__user=user, unlock_time__gte=start_date, unlocked=True
+                game__user=user, unlock_time__gte=start_datetime, unlocked=True
             ).count() +
             XboxAchievement.objects.filter(
-                game__user=user, unlock_time__gte=start_date, unlocked=True
+                game__user=user, unlock_time__gte=start_datetime, unlocked=True
             ).count() +
             GameAchievement.objects.filter(
-                game__user=user, date_earned__gte=start_date
+                game__user=user, date_earned__gte=start_datetime
             ).count()
         )
         
         # Get total gaming time
         steam_playtime = SteamGame.objects.filter(
-            user=user, last_played__gte=start_date
+            user=user, last_played__gte=start_datetime
         ).aggregate(total=Sum('playtime_forever'))['total'] or 0
         total_gaming_time = timedelta(minutes=steam_playtime)
         
@@ -489,7 +499,7 @@ class AnalyticsService:
                 ).count() +
                 GameAchievement.objects.filter(
                     game__user=user, 
-                    date_earned=day_date
+                    date_earned__date=day_date
                 ).count()
             )
             
@@ -914,10 +924,42 @@ class AnalyticsService:
     
     @staticmethod
     def get_music_genre_distribution(user, days=30):
-        """Music genres. Song model has no genre field - return empty structure for UI to show placeholder."""
+        """Get music genre distribution from stored Last.fm/Spotify tags."""
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=days)
+        start_datetime = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
+        end_datetime = timezone.make_aware(datetime.combine(end_date, datetime.max.time()))
+
+        counts = Counter()
+        songs = Song.objects.filter(
+            user=user,
+            played_at__gte=start_datetime,
+            played_at__lte=end_datetime,
+        ).only("genre_tags")
+
+        tagged_song_count = 0
+        for song in songs:
+            tags = song.genre_tags or []
+            if tags:
+                tagged_song_count += 1
+            for tag in tags:
+                if tag:
+                    counts[str(tag)] += 1
+
+        total_hits = sum(counts.values())
+        genres = []
+        if total_hits:
+            for name, count in counts.most_common(6):
+                genres.append({
+                    'name': name,
+                    'count': count,
+                    'percentage': round((count / total_hits) * 100),
+                })
+
         return {
-            'genres': [],
-            'total_count': 0,
+            'genres': genres,
+            'total_count': len(counts),
+            'tagged_songs': tagged_song_count,
         }
     
     @staticmethod
@@ -941,8 +983,10 @@ class AnalyticsService:
     
     @staticmethod
     def get_genre_of_the_week(user, days=7):
-        """Genre of the week - not available without genre on Song. Placeholder."""
-        return None
+        """Return the most common music genre in the recent period."""
+        distribution = AnalyticsService.get_music_genre_distribution(user, days=days)
+        genres = distribution.get('genres', [])
+        return genres[0]['name'] if genres else None
     
     @staticmethod
     def get_most_played_game(user, days=30):
@@ -1185,19 +1229,112 @@ class AnalyticsService:
 
     @staticmethod
     def get_media_genre_distribution(user, days=30):
-        """Placeholder: no genre on Trakt watch models. Return structure for UI."""
-        return {'genres': [], 'total_count': 0}
+        """Get movie/show genre distribution from stored Trakt/TMDB metadata."""
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=days)
+        start_datetime = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
+        end_datetime = timezone.make_aware(datetime.combine(end_date, datetime.max.time()))
+
+        counts = Counter()
+
+        movie_watches = MovieWatch.objects.filter(
+            movie__user=user,
+            watched_at__gte=start_datetime,
+            watched_at__lte=end_datetime,
+        ).select_related('movie')
+        for watch in movie_watches:
+            for genre in watch.movie.genres or []:
+                if genre:
+                    counts[str(genre)] += 1
+
+        episode_watches = EpisodeWatch.objects.filter(
+            episode__show__user=user,
+            watched_at__gte=start_datetime,
+            watched_at__lte=end_datetime,
+        ).select_related('episode__show')
+        for watch in episode_watches:
+            for genre in watch.episode.show.genres or []:
+                if genre:
+                    counts[str(genre)] += 1
+
+        total_hits = sum(counts.values())
+        genres = []
+        if total_hits:
+            for name, count in counts.most_common(6):
+                genres.append({
+                    'name': name,
+                    'count': count,
+                    'percentage': round((count / total_hits) * 100),
+                })
+
+        return {
+            'genres': genres,
+            'total_count': len(counts),
+            'total_items': movie_watches.count() + episode_watches.count(),
+        }
 
     @staticmethod
     def get_media_completion_rate(user, days=30):
-        """Placeholder: would need 'started' vs 'finished' series. Return None or 0."""
+        """Completion rate requires a complete episode catalog; return unknown when unavailable."""
         return None
 
     @staticmethod
     def get_media_insights(user, days=30):
-        """Placeholder: binge_streak, favorite_director, top_studio. Ready for future API."""
+        """Get media quick insights from stored metadata."""
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=days)
+        start_datetime = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
+        end_datetime = timezone.make_aware(datetime.combine(end_date, datetime.max.time()))
+
+        watched_dates = set()
+        movie_watches = MovieWatch.objects.filter(
+            movie__user=user,
+            watched_at__gte=start_datetime,
+            watched_at__lte=end_datetime,
+        ).select_related('movie')
+        episode_watches = EpisodeWatch.objects.filter(
+            episode__show__user=user,
+            watched_at__gte=start_datetime,
+            watched_at__lte=end_datetime,
+        ).select_related('episode__show')
+
+        director_counts = Counter()
+        studio_counts = Counter()
+
+        for watch in movie_watches:
+            if watch.watched_at:
+                watched_dates.add(watch.watched_at.date())
+            for director in watch.movie.directors or []:
+                if director:
+                    director_counts[str(director)] += 1
+            for studio in watch.movie.studios or []:
+                if studio:
+                    studio_counts[str(studio)] += 1
+
+        for watch in episode_watches:
+            if watch.watched_at:
+                watched_dates.add(watch.watched_at.date())
+            network = watch.episode.show.network
+            if network:
+                studio_counts[str(network)] += 1
+
+        max_streak = 0
+        current_streak = 0
+        cursor = start_date
+        while cursor <= end_date:
+            if cursor in watched_dates:
+                current_streak += 1
+                max_streak = max(max_streak, current_streak)
+            else:
+                current_streak = 0
+            cursor += timedelta(days=1)
+
+        binge_streak = None
+        if max_streak:
+            binge_streak = f"{max_streak} day{'s' if max_streak != 1 else ''}"
+
         return {
-            'binge_streak': None,
-            'favorite_director': None,
-            'top_studio': None,
+            'binge_streak': binge_streak,
+            'favorite_director': director_counts.most_common(1)[0][0] if director_counts else None,
+            'top_studio': studio_counts.most_common(1)[0][0] if studio_counts else None,
         }

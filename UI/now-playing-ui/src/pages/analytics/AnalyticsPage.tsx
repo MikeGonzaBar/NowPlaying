@@ -144,7 +144,7 @@ interface AnalyticsData {
 }
 
 const AnalyticsPage: React.FC = () => {
-    const { request } = useApi();
+    const { request } = useApi<AnalyticsData>();
     const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);

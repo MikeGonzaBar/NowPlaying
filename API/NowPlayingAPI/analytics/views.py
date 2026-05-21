@@ -3,12 +3,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
-from datetime import datetime, timedelta
 from django.core.cache import cache
 from django.conf import settings
-from .models import UserStatistics
 from .services import AnalyticsService
-from .serializers import UserStatisticsSerializer
+from query_params import bounded_int
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,9 +18,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
     
     def list(self, request):
         """Get comprehensive analytics data - main endpoint used by UI"""
+        days = bounded_int(request.query_params, 'days', default=30, minimum=1, maximum=365)
+
         try:
-            days = int(request.query_params.get('days', 30))
-            
             # Check cache first - SAFE OPTIMIZATION
             cache_key = f"analytics_{request.user.id}_{days}"
             cached_result = cache.get(cache_key)

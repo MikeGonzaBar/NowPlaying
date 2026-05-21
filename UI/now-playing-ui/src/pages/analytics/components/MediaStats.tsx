@@ -36,7 +36,7 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
     const moviesChange = media_movies_change?.change ?? 0;
     const seriesCount = media_series_count ?? 0;
     const breakdown = media_watch_breakdown ?? { movies_percentage: 0, tv_percentage: 0 };
-    const completionRate = media_completion_rate ?? 0;
+    const completionRate = typeof media_completion_rate === 'number' ? media_completion_rate : null;
     const genres = media_genre_distribution?.genres ?? [];
     const genreCount = media_genre_distribution?.total_count ?? genres.length;
     const insights = media_insights ?? { binge_streak: null, favorite_director: null, top_studio: null };
