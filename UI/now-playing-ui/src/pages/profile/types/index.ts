@@ -27,6 +27,10 @@ export interface ServiceConfig {
     placeholder: string;
     imagePath: string;
     requiresOAuth?: boolean;
+    userIdLabel?: string;
+    apiKeyLabel?: string;
+    apiKeyPlaceholder?: string;
+    saveButtonLabel?: string;
 }
 
 export interface TraktAuthStatus {

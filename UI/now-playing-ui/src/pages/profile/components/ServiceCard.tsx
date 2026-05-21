@@ -25,7 +25,7 @@ interface ServiceCardProps {
     existingApiKey?: ApiKey;
     newKeyData: NewApiKey;
     onNewKeyChange: (field: 'userId' | 'apiKey', value: string) => void;
-    onSave: () => Promise<void>;
+    onSave: (keyData?: NewApiKey) => Promise<void>;
     onDelete: () => Promise<void>;
 
     // PSN specific props
@@ -61,9 +61,21 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
     traktLoading = false,
     onTraktOAuth
 }) => {
+    const userIdInputRef = React.useRef<HTMLInputElement>(null);
+    const apiKeyInputRef = React.useRef<HTMLInputElement>(null);
+    const userIdLabel = service.userIdLabel ?? (service.requiresOAuth ? 'Client ID' : 'User ID');
+    const apiKeyLabel = service.apiKeyLabel ?? (service.requiresOAuth ? 'Client Secret' : 'API Key');
+    const apiKeyPlaceholder = service.apiKeyPlaceholder ?? (service.requiresOAuth ? 'Client Secret' : 'Enter API Key');
+    const saveButtonLabel = service.saveButtonLabel ?? (service.requiresOAuth ? 'Save Credentials' : 'Save API Key');
+
     const handleSave = async () => {
         try {
-            await onSave();
+            const keyData = {
+                userId: userIdInputRef.current?.value ?? newKeyData.userId,
+                apiKey: apiKeyInputRef.current?.value ?? newKeyData.apiKey,
+            };
+
+            await onSave(keyData);
         } catch (error) {
             alert(error instanceof Error ? error.message : 'Failed to save API key');
         }
@@ -86,14 +98,16 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
         return (
             <Paper
                 sx={{
-                    p: 3,
-                    mb: 2,
+                    p: { xs: 2, md: 2.5 },
+                    mb: 1.5,
                     backgroundColor: 'rgba(255, 255, 255, 0.05)',
                     border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: 2,
+                    boxShadow: 'none',
                 }}
             >
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
                         <Box
                             component="img"
                             src={service.imagePath}
@@ -171,21 +185,27 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
                             <Box sx={{ flex: 1 }}>
                                 <TextField
                                     fullWidth
-                                    label="Client ID"
+                                    label={userIdLabel}
                                     value={newKeyData.userId}
                                     onChange={(e) => onNewKeyChange('userId', e.target.value)}
                                     placeholder="Your Trakt Client ID"
+                                    name={`${service.name}-user-id`}
+                                    autoComplete="off"
+                                    inputRef={userIdInputRef}
                                     size="small"
                                 />
                             </Box>
                             <Box sx={{ flex: 1 }}>
                                 <TextField
                                     fullWidth
-                                    label="Client Secret"
+                                    label={apiKeyLabel}
                                     type="password"
                                     value={newKeyData.apiKey}
                                     onChange={(e) => onNewKeyChange('apiKey', e.target.value)}
-                                    placeholder="Your Trakt Client Secret"
+                                    placeholder={apiKeyPlaceholder}
+                                    name={`${service.name}-api-key`}
+                                    autoComplete="new-password"
+                                    inputRef={apiKeyInputRef}
                                     size="small"
                                 />
                             </Box>
@@ -201,7 +221,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
                                     },
                                 }}
                             >
-                                Save Credentials
+                                {saveButtonLabel}
                             </Button>
                         </Box>
                     </>
@@ -251,14 +271,16 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
     return (
         <Paper
             sx={{
-                p: 3,
-                mb: 2,
+                p: { xs: 2, md: 2.5 },
+                mb: 1.5,
                 backgroundColor: 'rgba(255, 255, 255, 0.05)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: 2,
+                boxShadow: 'none',
             }}
         >
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
                     <Box
                         component="img"
                         src={service.imagePath}
@@ -367,18 +389,21 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
                 <Box sx={{ flex: 1 }}>
                     <TextField
                         fullWidth
-                        label="User ID"
+                        label={userIdLabel}
                         value={existingApiKey ? existingApiKey.service_user_id : newKeyData.userId}
                         onChange={(e) => onNewKeyChange('userId', e.target.value)}
                         disabled={!!existingApiKey}
                         placeholder={service.placeholder}
+                        name={`${service.name}-user-id`}
+                        autoComplete="off"
+                        inputRef={userIdInputRef}
                         size="small"
                     />
                 </Box>
                 <Box sx={{ flex: 1 }}>
                     <TextField
                         fullWidth
-                        label="API Key"
+                        label={apiKeyLabel}
                         type="password"
                         value={
                             existingApiKey
@@ -393,7 +418,10 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
                             }
                         }}
                         disabled={existingApiKey ? !(service.name === 'psn' && isPSNEditing) : false}
-                        placeholder={service.name === 'psn' && isPSNEditing ? "Enter new NPSSO token" : "Enter API Key"}
+                        placeholder={service.name === 'psn' && isPSNEditing ? "Enter new NPSSO token" : apiKeyPlaceholder}
+                        name={`${service.name}-api-key`}
+                        autoComplete="new-password"
+                        inputRef={apiKeyInputRef}
                         size="small"
                     />
                 </Box>
@@ -411,7 +439,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
                             },
                         }}
                     >
-                        Save API Key
+                        {saveButtonLabel}
                     </Button>
                 </Box>
             )}

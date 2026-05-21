@@ -44,8 +44,6 @@ export const useTraktAuth = (userProfile: UserProfile | null) => {
                 const errorData = await response.json();
                 throw new Error(errorData.error || 'Unknown error');
             }
-        } catch (err) {
-            throw err;
         } finally {
             setLoading(false);
         }
@@ -82,8 +80,6 @@ export const useTraktAuth = (userProfile: UserProfile | null) => {
                 const errorData = await response.json();
                 throw new Error(errorData.error || 'Unknown error');
             }
-        } catch (err) {
-            throw err;
         } finally {
             setLoading(false);
         }

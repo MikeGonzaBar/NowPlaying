@@ -3,6 +3,20 @@ import { ApiKey, ApiKeysResponse, NewApiKey } from '../types';
 import { authenticatedFetch } from '../../../utils/auth';
 import { getApiUrl, API_CONFIG } from '../../../config/api';
 
+const REQUIRED_FIELD_LABELS: Record<string, { userId: string; apiKey: string }> = {
+    steam: { userId: 'Steam ID', apiKey: 'Steam API Key' },
+    psn: { userId: 'PSN User ID', apiKey: 'NPSSO Token' },
+    xbox: { userId: 'XUID', apiKey: 'OpenXBL API Key' },
+    retroachievements: { userId: 'RetroAchievements Username', apiKey: 'RetroAchievements API Key' },
+    trakt: { userId: 'Client ID', apiKey: 'Client Secret' },
+    lastfm: { userId: 'Last.fm Username', apiKey: 'Last.fm API Key' },
+};
+
+const getRequiredFieldsMessage = (serviceName: string) => {
+    const labels = REQUIRED_FIELD_LABELS[serviceName] ?? { userId: 'User ID', apiKey: 'API Key' };
+    return `Please fill in both ${labels.userId} and ${labels.apiKey}`;
+};
+
 export const useApiKeys = () => {
     const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
     const [loading, setLoading] = useState(true);
@@ -46,10 +60,13 @@ export const useApiKeys = () => {
         }));
     };
 
-    const saveApiKey = async (serviceName: string) => {
-        const newKey = newApiKeys[serviceName];
-        if (!newKey?.userId || !newKey?.apiKey) {
-            throw new Error('Please fill in both Client ID and Client Secret');
+    const saveApiKey = async (serviceName: string, keyData?: NewApiKey) => {
+        const newKey = keyData ?? newApiKeys[serviceName];
+        const serviceUserId = newKey?.userId?.trim() ?? '';
+        const apiKey = newKey?.apiKey?.trim() ?? '';
+
+        if (!serviceUserId || !apiKey) {
+            throw new Error(getRequiredFieldsMessage(serviceName));
         }
 
         const response = await authenticatedFetch(
@@ -58,8 +75,8 @@ export const useApiKeys = () => {
                 method: 'POST',
                 body: JSON.stringify({
                     service_name: serviceName,
-                    service_user_id: newKey.userId,
-                    api_key: newKey.apiKey
+                    service_user_id: serviceUserId,
+                    api_key: apiKey
                 })
             }
         );

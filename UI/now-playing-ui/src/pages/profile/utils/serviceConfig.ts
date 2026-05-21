@@ -6,28 +6,44 @@ export const SERVICES: ServiceConfig[] = [
         displayName: 'Steam',
         category: 'Gaming',
         placeholder: 'Steam User ID',
-        imagePath: '/Platforms/steam.webp'
+        imagePath: '/Platforms/steam.webp',
+        userIdLabel: 'Steam ID',
+        apiKeyLabel: 'Steam API Key',
+        apiKeyPlaceholder: 'Enter Steam API Key',
+        saveButtonLabel: 'Save Steam Key'
     },
     {
         name: 'psn',
         displayName: 'PlayStation Network',
         category: 'Gaming',
         placeholder: 'PSN User ID',
-        imagePath: '/Platforms/playstation.webp'
+        imagePath: '/Platforms/playstation.webp',
+        userIdLabel: 'PSN User ID',
+        apiKeyLabel: 'NPSSO Token',
+        apiKeyPlaceholder: 'Enter NPSSO Token',
+        saveButtonLabel: 'Save NPSSO Token'
     },
     {
         name: 'xbox',
         displayName: 'Xbox',
         category: 'Gaming',
         placeholder: 'Xbox User ID',
-        imagePath: '/Platforms/xbox.svg'
+        imagePath: '/Platforms/xbox.svg',
+        userIdLabel: 'XUID',
+        apiKeyLabel: 'OpenXBL API Key',
+        apiKeyPlaceholder: 'Enter OpenXBL API Key',
+        saveButtonLabel: 'Save Xbox Key'
     },
     {
         name: 'retroachievements',
         displayName: 'RetroAchievements',
         category: 'Gaming',
         placeholder: 'RetroAchievements Username',
-        imagePath: '/Platforms/retroachievements.png'
+        imagePath: '/Platforms/retroachievements.png',
+        userIdLabel: 'RetroAchievements Username',
+        apiKeyLabel: 'RetroAchievements API Key',
+        apiKeyPlaceholder: 'Enter RetroAchievements API Key',
+        saveButtonLabel: 'Save RetroAchievements Key'
     },
     {
         name: 'trakt',
@@ -35,14 +51,22 @@ export const SERVICES: ServiceConfig[] = [
         category: 'Movies',
         placeholder: 'Client ID',
         imagePath: '/Platforms/trakt.png',
-        requiresOAuth: true
+        requiresOAuth: true,
+        userIdLabel: 'Client ID',
+        apiKeyLabel: 'Client Secret',
+        apiKeyPlaceholder: 'Your Trakt Client Secret',
+        saveButtonLabel: 'Save Credentials'
     },
     {
         name: 'lastfm',
         displayName: 'Last.fm',
         category: 'Music',
         placeholder: 'Last.fm Username',
-        imagePath: '/Platforms/lastfm.png'
+        imagePath: '/Platforms/lastfm.png',
+        userIdLabel: 'Last.fm Username',
+        apiKeyLabel: 'Last.fm API Key',
+        apiKeyPlaceholder: 'Enter Last.fm API Key',
+        saveButtonLabel: 'Save Last.fm Key'
     },
 ];
 
@@ -71,7 +95,7 @@ export const getServiceTooltipContent = (serviceName: string): string => {
 
         trakt: `Trakt Setup:
 • Go to trakt.tv/oauth/applications
-• Create new app with redirect: localhost:8080/trakt/oauth-callback/
+• Create new app with redirect: localhost:8001/trakt/oauth-callback/
 • Copy Client ID and Client Secret`,
 
         spotify: `Spotify Setup:

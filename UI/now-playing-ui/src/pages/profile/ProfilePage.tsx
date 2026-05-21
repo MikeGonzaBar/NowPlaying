@@ -6,7 +6,7 @@ import {
     Alert
 } from '@mui/material';
 
-import SideBar from '../../components/sideBar';
+import AppShell from '../../components/AppShell';
 import { useProfile, useApiKeys, useTraktAuth, usePSNEdit } from './hooks';
 import { authenticatedFetch } from '../../utils/auth';
 import { getApiUrl, API_CONFIG } from '../../config/api';
@@ -46,9 +46,9 @@ function ProfilePage() {
     } = usePSNEdit();
 
     // Handler functions
-    const handleSaveApiKey = async (serviceName: string) => {
+    const handleSaveApiKey = async (serviceName: string, keyData?: { userId: string; apiKey: string }) => {
         try {
-            await saveApiKey(serviceName);
+            await saveApiKey(serviceName, keyData);
 
             // If this was Trakt, refresh auth status
             if (serviceName === 'trakt') {
@@ -116,21 +116,12 @@ function ProfilePage() {
     };
 
     return (
-        <div>
-            <Box sx={{ display: 'flex', paddingLeft: 2.5 }}>
-                <SideBar activeItem="Profile" />
-                <Box
-                    component="main"
-                    sx={{
-                        width: '89vw',
-                        minHeight: '100vh',
-                        padding: 3
-                    }}
-                >
+        <>
+            <AppShell activeItem="Profile" mainSx={{ p: { xs: 2, md: 3 } }}>
                     <Typography
                         variant="h4"
                         sx={{
-                            mb: 4,
+                            mb: 2.5,
                             fontFamily: 'Montserrat, sans-serif',
                             fontWeight: 'bold'
                         }}
@@ -156,7 +147,7 @@ function ProfilePage() {
                             <Typography
                                 variant="h5"
                                 sx={{
-                                    mb: 3,
+                                    mb: 2,
                                     fontFamily: 'Montserrat, sans-serif',
                                     fontWeight: 'bold'
                                 }}
@@ -167,17 +158,17 @@ function ProfilePage() {
                             {/* Services Section */}
                             <Paper
                                 sx={{
-                                    p: 4,
-                                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                    p: { xs: 2, md: 3 },
+                                    backgroundColor: 'rgba(255, 255, 255, 0.07)',
                                     backdropFilter: 'blur(10px)',
                                     borderRadius: 2,
-                                    border: '1px solid rgba(255, 255, 255, 0.18)',
+                                    border: '1px solid rgba(255, 255, 255, 0.14)',
                                 }}
                             >
                                 <Typography
                                     variant="h5"
                                     sx={{
-                                        mb: 3,
+                                        mb: 2,
                                         fontFamily: 'Montserrat, sans-serif',
                                         fontWeight: 'bold'
                                     }}
@@ -236,8 +227,7 @@ function ProfilePage() {
                             </Paper>
                         </>
                     )}
-                </Box>
-            </Box>
+            </AppShell>
 
             {/* Trakt OAuth Dialog */}
             <TraktOAuthDialog
@@ -248,7 +238,7 @@ function ProfilePage() {
                 onComplete={handleCompleteOAuth}
                 loading={traktLoading}
             />
-        </div>
+        </>
     );
 }
 

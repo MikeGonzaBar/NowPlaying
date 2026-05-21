@@ -4,7 +4,9 @@ import {
     isAuthenticated,
     refreshAuthToken,
     removeAuthToken,
-    getAuthToken
+    getAuthToken,
+    setAuthToken,
+    setRefreshToken,
 } from '../utils/auth';
 
 export const useAuth = () => {
@@ -38,8 +40,8 @@ export const useAuth = () => {
     };
 
     const login = (token: string, refreshToken: string) => {
-        localStorage.setItem('token', token);
-        localStorage.setItem('refresh_token', refreshToken);
+        setAuthToken(token);
+        setRefreshToken(refreshToken);
         setAuthenticated(true);
     };
 

@@ -7,6 +7,16 @@ interface ApiResponse<T> {
     loading: boolean;
 }
 
+interface BackendError {
+    detail?: string;
+    error?: string;
+}
+
+const isBackendError = (value: unknown): value is BackendError => (
+    typeof value === 'object' && value !== null &&
+    ('detail' in value || 'error' in value)
+);
+
 export function useApi<T>() {
     const [state, setState] = useState<ApiResponse<T>>({
         data: null,
@@ -14,14 +24,14 @@ export function useApi<T>() {
         loading: false,
     });
 
-    const request = useCallback(async (url: string, options: RequestInit = {}) => {
+    const request = useCallback(async <R = T>(url: string, options: RequestInit = {}): Promise<R> => {
         setState(prev => ({ ...prev, loading: true, error: null }));
 
         try {
             const response = await authenticatedFetch(url, options);
 
             // Try to parse JSON, even on non-OK responses
-            let data: any = null;
+            let data: unknown = null;
             try {
                 data = await response.json();
             } catch (_e) {
@@ -29,13 +39,17 @@ export function useApi<T>() {
             }
 
             if (!response.ok) {
-                const backendMessage = (data && (data.detail || data.error)) ? (data.detail || data.error) : `Request failed with status ${response.status}`;
+                let backendMessage = `Request failed with status ${response.status}`;
+                if (isBackendError(data)) {
+                    backendMessage = data.detail ?? data.error ?? backendMessage;
+                }
                 setState({ data: null, error: backendMessage, loading: false });
                 throw new Error(backendMessage);
             }
 
-            setState({ data, error: null, loading: false });
-            return data;
+            const typedData = data as R;
+            setState({ data: typedData as unknown as T, error: null, loading: false });
+            return typedData;
         } catch (error) {
             let errorMessage = 'An error occurred';
 

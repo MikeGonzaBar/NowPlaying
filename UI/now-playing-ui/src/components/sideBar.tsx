@@ -1,95 +1,148 @@
 import { Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
 import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 import HeadsetIcon from '@mui/icons-material/Headset';
 import PersonIcon from '@mui/icons-material/Person';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
+import LogoutIcon from '@mui/icons-material/Logout';
+import { removeAuthToken } from '../utils/auth';
 
 interface SideBarProps {
     activeItem: string;
 }
+
+export const DRAWER_WIDTH = 160;
+
 function SideBar({ activeItem }: SideBarProps) {
-    const drawerWidth = 170
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+        removeAuthToken();
+        navigate('/auth', { replace: true });
+    };
+
+    const navButtonStyles = {
+        borderRadius: '8px',
+        px: 1.5,
+        py: 1.1,
+        mt: 1.25,
+        '&:hover': {
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        },
+    };
+
     const drawer =
-
-        <List>
-            <ListItem key="now-playing" disablePadding>
-                <ListItemButton
-                    component={Link}
-                    to="/"
-                    sx={{
-                        justifyContent: 'center',
-                        padding: 0,
-                    }}
-                >
-                    <Box
-                        component="img"
-                        src={'/nowPlaying.svg'}
-                        alt="Now Playing Icon"
-                        sx={{
-                            width: 122,
-                            height: 122,
-                        }}
-                    />
-                </ListItemButton>
-            </ListItem>
-
-            {[
-                { text: 'Games', icon: <SportsEsportsIcon />, route: '/games' },
-                { text: 'Movies', icon: <OndemandVideoIcon />, route: '/movies' },
-                { text: 'Music', icon: <HeadsetIcon />, route: '/music' },
-                { text: 'Analytics', icon: <AnalyticsIcon />, route: '/analytics' },
-                { text: 'Profile', icon: <PersonIcon />, route: '/profile' },
-            ].map((item) => (
-                <ListItem key={item.text} disablePadding>
+        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+            <List sx={{ px: 1, py: 1.5, flexGrow: 1 }}>
+                <ListItem key="now-playing" disablePadding>
                     <ListItemButton
                         component={Link}
-                        to={item.route}
+                        to="/"
                         sx={{
-                            backgroundColor: activeItem === item.text ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
-                            borderRadius: '20px',
-                            paddingLeft: '20px',
-                            marginInline: '10px',
-                            marginTop: '15px',
-                            '&:hover': {
-                                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                            },
+                            justifyContent: 'center',
+                            padding: 0,
+                        }}
+                    >
+                        <Box
+                            component="img"
+                            src={'/nowPlaying.svg'}
+                            alt="Now Playing Icon"
+                            sx={{
+                                width: 104,
+                                height: 104,
+                            }}
+                        />
+                    </ListItemButton>
+                </ListItem>
+
+                {[
+                    { text: 'Games', icon: <SportsEsportsIcon />, route: '/games' },
+                    { text: 'Movies', icon: <OndemandVideoIcon />, route: '/movies' },
+                    { text: 'Music', icon: <HeadsetIcon />, route: '/music' },
+                    { text: 'Analytics', icon: <AnalyticsIcon />, route: '/analytics' },
+                    { text: 'Profile', icon: <PersonIcon />, route: '/profile' },
+                ].map((item) => (
+                    <ListItem key={item.text} disablePadding>
+                        <ListItemButton
+                            component={Link}
+                            to={item.route}
+                            sx={{
+                                ...navButtonStyles,
+                                backgroundColor: activeItem === item.text ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
+                            }}
+                        >
+                            <ListItemIcon
+                                sx={{
+                                    minWidth: 'auto',
+                                    mr: 1.5,
+                                    svg: { fontSize: 32, color: '#ffffff' },
+                                }}
+                            >
+                                {item.icon}
+                            </ListItemIcon>
+                            <ListItemText
+                                primary={item.text}
+                                primaryTypographyProps={{
+                                    fontSize: 14,
+                                    fontWeight: activeItem === item.text ? 700 : 500,
+                                    color: '#ffffff',
+                                }}
+                            />
+                        </ListItemButton>
+                    </ListItem>
+                ))
+                }
+            </List>
+
+            <Box sx={{ px: 1, pb: 1.5 }}>
+                <ListItem disablePadding>
+                    <ListItemButton
+                        onClick={handleLogout}
+                        sx={{
+                            ...navButtonStyles,
+                            mt: 0,
+                            color: '#ffffff',
                         }}
                     >
                         <ListItemIcon
                             sx={{
                                 minWidth: 'auto',
-                                mr: 2,
-                                svg: { fontSize: 40, color: '#ffffff' },
+                                mr: 1.5,
+                                svg: { fontSize: 30, color: '#ffffff' },
                             }}
                         >
-                            {item.icon}
+                            <LogoutIcon />
                         </ListItemIcon>
                         <ListItemText
-                            primary={item.text}
-                            sx={{
-                                fontSize: 20,
+                            primary="Sign out"
+                            primaryTypographyProps={{
+                                fontSize: 14,
+                                fontWeight: 500,
                                 color: '#ffffff',
                             }}
                         />
                     </ListItemButton>
                 </ListItem>
-            ))
-            }
-        </List >
+            </Box>
+        </Box>
 
     return (
         <Box
             component="nav"
-            sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+            sx={{ width: { sm: DRAWER_WIDTH }, flexShrink: { sm: 0 } }}
             aria-label="sidebar btns"
         >
             <Drawer
                 variant="permanent"
                 sx={{
                     display: { xs: 'none', sm: 'block' },
-                    '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, backgroundColor: '#0E0022' },
+                    '& .MuiDrawer-paper': {
+                        boxSizing: 'border-box',
+                        width: DRAWER_WIDTH,
+                        backgroundColor: '#0E0022',
+                        borderRight: '1px solid rgba(255, 255, 255, 0.08)',
+                    },
                 }}
                 open
             >

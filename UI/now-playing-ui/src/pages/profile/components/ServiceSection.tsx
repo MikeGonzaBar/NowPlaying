@@ -26,7 +26,7 @@ interface ServiceSectionProps {
 
     // Event handlers
     onNewKeyChange: (serviceName: string, field: 'userId' | 'apiKey', value: string) => void;
-    onSaveApiKey: (serviceName: string) => Promise<void>;
+    onSaveApiKey: (serviceName: string, keyData?: NewApiKey) => Promise<void>;
     onDeleteApiKey: (apiKeyId: number, serviceName: string) => Promise<void>;
     onPSNEdit?: () => void;
     onPSNCancel?: () => void;
@@ -75,15 +75,17 @@ export const ServiceSection: React.FC<ServiceSectionProps> = ({
             defaultExpanded={category === 'Gaming'}
             sx={{
                 backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                mb: 2
+                mb: 1.5,
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                boxShadow: 'none',
             }}
         >
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 52 }}>
                 <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
                     {emoji} {title}
                 </Typography>
             </AccordionSummary>
-            <AccordionDetails>
+            <AccordionDetails sx={{ pt: 0 }}>
                 {services.map((service) => {
                     const existingApiKey = getApiKeyForService(service.name);
                     const newKeyData = newApiKeys[service.name] || { userId: '', apiKey: '' };
@@ -95,7 +97,7 @@ export const ServiceSection: React.FC<ServiceSectionProps> = ({
                             existingApiKey={existingApiKey}
                             newKeyData={newKeyData}
                             onNewKeyChange={(field, value) => onNewKeyChange(service.name, field, value)}
-                            onSave={() => onSaveApiKey(service.name)}
+                            onSave={(keyData) => onSaveApiKey(service.name, keyData)}
                             onDelete={() => onDeleteApiKey(existingApiKey!.id, service.displayName)}
 
                             // PSN specific props
