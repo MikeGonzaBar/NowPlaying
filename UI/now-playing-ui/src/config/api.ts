@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-    BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001',
+    BASE_URL: import.meta.env.VITE_API_BASE_URL || '/api',
     USERS_ENDPOINT: '/users',
     PSN_ENDPOINT: '/psn',
     MUSIC_ENDPOINT: '/music',

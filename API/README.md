@@ -263,6 +263,10 @@ POSTGRES_PORT=<your_psql_port>
 
 # TMDB API (for Trakt movie/show metadata)
 TMDB_API_KEY=<your_tmdb_api_key>
+
+# Optional. Leave blank when using the default Docker UI /api proxy.
+# Trakt redirect for default Compose UI: http://<ui-host>:3200/api/trakt/oauth-callback/
+TRAKT_REDIRECT_URI=
 ```
 
 **Note**: Service API keys (Steam, Spotify, Last.fm, etc.) are now managed through the User API Key system and stored encrypted in the database.
@@ -297,8 +301,25 @@ The API can be deployed using Docker:
 
    - API: <http://localhost:8001>
    - UI: <http://localhost:3200>
+   - UI API proxy: `/api` on the UI host, for example <http://localhost:3200/api>
    - PostgreSQL: `localhost:5433`
    - Redis: `localhost:6380`
+
+   The production UI defaults to `VITE_API_BASE_URL=/api`, and Nginx proxies
+   those requests to the API container. For a LAN/VM deployment, open the UI at
+   `http://<vm-ip>:3200` and use this Trakt application redirect URI:
+
+   ```text
+   http://<vm-ip>:3200/api/trakt/oauth-callback/
+   ```
+
+   The API container runs database migrations before starting Gunicorn after
+   PostgreSQL and Redis are healthy. If you need to apply migrations to an
+   already-running deployment, run:
+
+   ```bash
+   docker compose exec api sh -lc "cd /app/NowPlayingAPI && python manage.py migrate"
+   ```
 
 2. Alternatively, build and run the API container directly:
 

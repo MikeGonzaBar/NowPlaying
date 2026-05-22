@@ -83,7 +83,14 @@ function MusicDashboard() {
                 setStats(data);
                 return data;
             } else {
-                console.error("Failed to fetch dashboard stats");
+                let errorDetails = `HTTP ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorDetails = errorData.error || JSON.stringify(errorData);
+                } catch {
+                    errorDetails = await response.text();
+                }
+                console.error("Failed to fetch dashboard stats:", errorDetails);
                 return null;
             }
         } catch (error) {

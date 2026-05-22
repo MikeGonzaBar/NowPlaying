@@ -2,9 +2,11 @@ from rest_framework.decorators import action
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import AllowAny
 from rest_framework import status
 from django.db import models
 from django.conf import settings
+from django.http import HttpResponse
 from django.urls import reverse
 from datetime import timedelta
 from django.utils import timezone
@@ -12,6 +14,7 @@ from django.core.cache import cache
 import logging
 import threading
 import http_client
+from urllib.parse import urlencode
 from query_params import pagination_params
 from .models import (
     Episode,
@@ -31,6 +34,18 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def get_trakt_redirect_uri(request):
+    configured_uri = getattr(settings, "TRAKT_REDIRECT_URI", "").strip()
+    if configured_uri:
+        return configured_uri
+
+    prefix = request.headers.get("X-Forwarded-Prefix", "").strip().rstrip("/")
+    callback_path = reverse("trakt-oauth-callback")
+    if prefix:
+        callback_path = f"{prefix}{callback_path}"
+    return request.build_absolute_uri(callback_path)
 
 
 def invalidate_trakt_caches(user_id):
@@ -1034,21 +1049,22 @@ class TraktViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Build the authorization URL
-        auth_url = (
-            f"https://api.trakt.tv/oauth/authorize"
-            f"?response_type=code"
-            f"&client_id={client_id}"
-            f"&redirect_uri={settings.TRAKT_REDIRECT_URI}"
-            f"&state={request.user.id}"  # Use user ID as state for security
-        )
+        redirect_uri = get_trakt_redirect_uri(request)
+        auth_params = urlencode({
+            "response_type": "code",
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "state": request.user.id,  # Use user ID as state for security
+        })
+        auth_url = f"https://api.trakt.tv/oauth/authorize?{auth_params}"
         
         return Response({
             "auth_url": auth_url,
+            "redirect_uri": redirect_uri,
             "message": "Visit this URL to authorize your Trakt account"
         })
 
-    @action(detail=False, methods=["get", "post"], url_path="oauth-callback")
+    @action(detail=False, methods=["get", "post"], url_path="oauth-callback", permission_classes=[AllowAny])
     def oauth_callback(self, request):
         """
         Handle the OAuth callback from Trakt.
@@ -1059,6 +1075,11 @@ class TraktViewSet(viewsets.ViewSet):
             # Handle the redirect from Trakt (no authentication required)
             return self._handle_oauth_redirect(request)
         else:
+            if not request.user.is_authenticated:
+                return Response(
+                    {"error": "Authentication is required to complete Trakt OAuth."},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
             # Handle the POST request with authorization code (requires authentication)
             return self._handle_oauth_token_exchange(request)
 
@@ -1091,7 +1112,7 @@ class TraktViewSet(viewsets.ViewSet):
             </body>
             </html>
             """
-            return Response(html_content, content_type='text/html')
+            return HttpResponse(html_content, content_type='text/html')
         
         if not code:
             html_content = """
@@ -1113,7 +1134,7 @@ class TraktViewSet(viewsets.ViewSet):
             </body>
             </html>
             """
-            return Response(html_content, content_type='text/html')
+            return HttpResponse(html_content, content_type='text/html')
         
         # Display success page with instructions
         html_content = f"""
@@ -1201,7 +1222,7 @@ curl -X POST \\<br>
         </html>
         """
         
-        return Response(html_content, content_type='text/html')
+        return HttpResponse(html_content, content_type='text/html')
 
     def _handle_oauth_token_exchange(self, request):
         """
@@ -1238,7 +1259,7 @@ curl -X POST \\<br>
             "code": code,
             "client_id": client_id,
             "client_secret": client_secret,
-            "redirect_uri": settings.TRAKT_REDIRECT_URI,
+            "redirect_uri": get_trakt_redirect_uri(request),
             "grant_type": "authorization_code"
         }
         
@@ -1479,7 +1500,6 @@ curl -X POST \\<br>
         For shows, this means all episodes are watched.
         For movies, this means the movie has been watched.
         """
-        from django.db.models import Count, Q
         from django.core.cache import cache
         
         # Check cache first (cache for 5 minutes)
@@ -1488,12 +1508,38 @@ curl -X POST \\<br>
         if cached_result:
             return Response(cached_result)
         
+        completed_movies = Movie.objects.filter(
+            user=request.user,
+            plays__gt=0
+        ).order_by('-last_watched_at').values('id', 'title', 'year', 'image_url', 'trakt_id', 'tmdb_id', 'last_watched_at')[:20]
+
+        completed_movies_list = []
+        for movie in completed_movies:
+            movie_dict = dict(movie)
+            if movie_dict.get('last_watched_at'):
+                movie_dict['last_watched_at'] = movie_dict['last_watched_at'].isoformat()
+            else:
+                movie_dict['last_watched_at'] = None
+            completed_movies_list.append(movie_dict)
+
         completed_shows = []
-        # Limit to recently watched shows (last 100 shows) to avoid checking all shows
-        shows = Show.objects.filter(user=request.user).order_by('-last_watched_at')[:100]
+        trakt_auth_required = False
+        auth_error = None
+        try:
+            # Get Trakt headers for API calls
+            headers = get_trakt_headers(request.user)
+        except Exception as e:
+            trakt_auth_required = True
+            auth_error = str(e)
+            logger.info(
+                "Completed media requested before Trakt OAuth for user %s: %s",
+                request.user.id,
+                auth_error,
+            )
+            headers = None
         
-        # Get Trakt headers for API calls
-        headers = get_trakt_headers(request.user)
+        # Limit to recently watched shows (last 100 shows) to avoid checking all shows
+        shows = Show.objects.filter(user=request.user).order_by('-last_watched_at')[:100] if headers else []
         
         # First pass: identify shows that might be complete (all DB episodes are watched)
         # Database only contains watched episodes, so if all DB episodes have watches, it's a candidate
@@ -1574,31 +1620,17 @@ curl -X POST \\<br>
         ]
         completed_shows.sort(key=lambda x: x['last_watched_at'] or '', reverse=True)
         
-        # All movies are considered "completed" if watched
-        completed_movies = Movie.objects.filter(
-            user=request.user,
-            plays__gt=0
-        ).order_by('-last_watched_at').values('id', 'title', 'year', 'image_url', 'trakt_id', 'tmdb_id', 'last_watched_at')[:20]
-        
-        # Convert to list and ensure last_watched_at is ISO format
-        completed_movies_list = []
-        for movie in completed_movies:
-            movie_dict = dict(movie)
-            if movie_dict.get('last_watched_at'):
-                movie_dict['last_watched_at'] = movie_dict['last_watched_at'].isoformat()
-            else:
-                movie_dict['last_watched_at'] = None
-            completed_movies_list.append(movie_dict)
-        
-        completed_movies = completed_movies_list
-        
         result = {
             'completed_shows': completed_shows,  # Already sorted by most recent first
-            'completed_movies': list(completed_movies),
+            'completed_movies': completed_movies_list,
+            'trakt_auth_required': trakt_auth_required,
         }
+        if auth_error:
+            result['message'] = auth_error
         
-        # Cache for 5 minutes
-        cache.set(cache_key, result, 300)
+        # Cache for 5 minutes only when OAuth-dependent show completion was evaluated.
+        if not trakt_auth_required:
+            cache.set(cache_key, result, 300)
         
         return Response(result)
 

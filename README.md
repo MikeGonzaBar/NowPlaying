@@ -23,7 +23,7 @@ The application includes user authentication, profile management, integrated API
   - Music tab shows genre distribution and genre of the week.
   - Movies & TV tab shows recurring genres, binge streak, favorite director, and top studio/network.
   - Overview recurring genres combines content type, music tags, and media genres.
-- **Current Docker stack updated**: API defaults to `http://localhost:8001`, UI defaults to `http://localhost:3200`, PostgreSQL to `5433`, and Redis to `6380`.
+- **Current Docker stack updated**: API defaults to `http://localhost:8001`, UI defaults to `http://localhost:3200` with a same-origin `/api` proxy, PostgreSQL to `5433`, and Redis to `6380`.
 
 ### PlayStation Achievement Display Fix
 

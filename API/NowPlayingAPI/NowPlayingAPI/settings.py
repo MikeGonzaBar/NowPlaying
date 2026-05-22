@@ -65,7 +65,7 @@ ALLOWED_HOSTS = env_list(
 if IS_PRODUCTION and not ALLOWED_HOSTS:
     raise ImproperlyConfigured("ALLOWED_HOSTS must be set in production.")
 
-TRAKT_REDIRECT_URI = os.environ.get("TRAKT_REDIRECT_URI", "http://localhost:3000/profile")
+TRAKT_REDIRECT_URI = os.environ.get("TRAKT_REDIRECT_URI", "").strip()
 TRAKT_AUTH_CODE = os.environ.get("TRAKT_AUTH_CODE", "")
 TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "")
 SPOTIFY_ACCESS_TOKEN = os.environ.get("SPOTIFY_ACCESS_TOKEN", "")

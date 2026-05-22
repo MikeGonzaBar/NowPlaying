@@ -1,5 +1,8 @@
 from django.contrib.auth.models import User
 from django.test import TestCase
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.test import APITestCase
 from unittest.mock import patch
 
 from .models import Movie, Show, _process_single_movie, _process_single_show
@@ -100,3 +103,43 @@ class TraktShowSyncTests(TestCase):
         self.assertEqual(show.status, "Ended")
         self.assertEqual(show.runtime, 50)
         self.assertEqual(show.rating, 8.2)
+
+
+class TraktCompletedMediaTests(APITestCase):
+    def test_completed_media_without_trakt_token_returns_db_movies(self):
+        user = User.objects.create_user(username="no-token-user")
+        self.client.force_authenticate(user=user)
+        Movie.objects.create(
+            user=user,
+            title="Watched Movie",
+            year=2026,
+            plays=1,
+            trakt_id="123",
+            last_watched_at=timezone.now(),
+        )
+
+        response = self.client.get("/trakt/completed-media/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["trakt_auth_required"])
+        self.assertEqual(response.data["completed_shows"], [])
+        self.assertEqual(len(response.data["completed_movies"]), 1)
+        self.assertEqual(response.data["completed_movies"][0]["title"], "Watched Movie")
+
+
+class TraktOAuthCallbackTests(APITestCase):
+    def test_oauth_callback_get_allows_trakt_redirect_without_auth(self):
+        response = self.client.get("/trakt/oauth-callback/?code=test-code&state=1")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["Content-Type"], "text/html")
+        self.assertContains(response, "test-code")
+
+    def test_oauth_callback_post_requires_authentication(self):
+        response = self.client.post(
+            "/trakt/oauth-callback/",
+            {"code": "test-code", "state": "1"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

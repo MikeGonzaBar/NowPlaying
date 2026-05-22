@@ -16,19 +16,23 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   ui:
     build:
       context: ./UI/now-playing-ui
       dockerfile: ./Dockerfile
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8001}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
     ports:
       - "${UI_PORT:-3200}:80"
     environment:
       - NODE_ENV=production
+    depends_on:
+      - api
 
   db:
     build:
@@ -41,6 +45,11 @@ services:
       - ./DB/.env
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-nowplaying_user} -d $${POSTGRES_DB:-nowplaying}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
   redis:
     image: redis:7-alpine
@@ -50,6 +59,11 @@ services:
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
 volumes:
   postgres_data:

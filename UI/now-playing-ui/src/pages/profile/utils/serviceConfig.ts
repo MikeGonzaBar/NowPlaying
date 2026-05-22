@@ -95,7 +95,7 @@ export const getServiceTooltipContent = (serviceName: string): string => {
 
         trakt: `Trakt Setup:
 • Go to trakt.tv/oauth/applications
-• Create new app with redirect: localhost:8001/trakt/oauth-callback/
+• Default Docker redirect: http://<ui-host>:3200/api/trakt/oauth-callback/
 • Copy Client ID and Client Secret`,
 
         spotify: `Spotify Setup:

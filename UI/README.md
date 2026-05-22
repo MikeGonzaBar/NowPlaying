@@ -102,7 +102,9 @@ The NowPlaying UI is a modern React application that provides:
 Create `UI/now-playing-ui/.env` from `UI/now-playing-ui/.env.example` and fill in real values as needed:
 
 ```env
-VITE_API_BASE_URL=http://localhost:8001
+# Docker Compose defaults to /api, which Nginx proxies to the API container.
+# Set this only when running the UI against a separately hosted API.
+VITE_API_BASE_URL=/api
 VITE_REACT_APP_NEWS_API_KEY=<your_news_api_key>
 VITE_REACT_APP_TMDB_API_KEY=<your_tmdb_api_key>
 VITE_REACT_APP_SPOTIFY_API_KEY=<your_spotify_api_key>

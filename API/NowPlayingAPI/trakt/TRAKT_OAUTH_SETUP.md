@@ -19,7 +19,7 @@ The Trakt integration requires OAuth authentication to access your personal Trak
 3. Fill in the details:
    - **Name**: Your application name
    - **Description**: Brief description
-   - **Redirect URI**: This should match your `TRAKT_REDIRECT_URI` setting
+   - **Redirect URI**: This should match the redirect URI used by the app. With the default Docker Compose UI proxy, use `http://<ui-host>:3200/api/trakt/oauth-callback/`.
 4. Note down your **Client ID** and **Client Secret**
 
 ## Step 2: Configure API Credentials
@@ -54,7 +54,7 @@ You have several options to complete the OAuth flow:
    ```
 
 3. Follow the prompts:
-   - Enter your server URL (e.g., `http://localhost:8000`)
+   - Enter your server URL (for the default Docker Compose UI proxy, use `http://localhost:3200/api`; for a VM/LAN deployment, use the reachable UI host such as `http://192.168.1.19:3200/api`)
    - Enter your username and password
    - The script will open your browser for Trakt authorization
    - Authorize the application on Trakt
@@ -66,14 +66,14 @@ You have several options to complete the OAuth flow:
 
    ```bash
    curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-        http://localhost:8000/trakt/auth-status/
+        http://localhost:3200/api/trakt/auth-status/
    ```
 
 2. **Get authentication URL**:
 
    ```bash
    curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-        http://localhost:8000/trakt/authenticate/
+        http://localhost:3200/api/trakt/authenticate/
    ```
 
 3. **Visit the auth URL** in your browser and authorize the application
@@ -87,7 +87,7 @@ You have several options to complete the OAuth flow:
         -H "Authorization: Bearer YOUR_JWT_TOKEN" \
         -H "Content-Type: application/json" \
         -d '{"code": "AUTHORIZATION_CODE", "state": "USER_ID"}' \
-        http://localhost:8000/trakt/oauth-callback/
+        http://localhost:3200/api/trakt/oauth-callback/
    ```
 
 ### Option C: Using the HTML Helper Page
@@ -114,7 +114,7 @@ After successful authentication, you can use these endpoints:
 
 ### "Invalid redirect URI"
 
-- Ensure your `TRAKT_REDIRECT_URI` setting matches what's configured in your Trakt application
+- Ensure the redirect URI returned by `/trakt/authenticate/` matches what's configured in your Trakt application.
 - The redirect URI must be an exact match (including trailing slashes)
 
 ### "Invalid client credentials"
@@ -132,7 +132,9 @@ After successful authentication, you can use these endpoints:
 Make sure these are set in your `.env` file:
 
 ```env
-TRAKT_REDIRECT_URI=http://localhost:8000/trakt/oauth-callback/
+# Optional. Leave blank when using the default Docker UI /api proxy.
+# Trakt app redirect for default Compose UI: http://<ui-host>:3200/api/trakt/oauth-callback/
+TRAKT_REDIRECT_URI=
 ```
 
 ## Security Notes
