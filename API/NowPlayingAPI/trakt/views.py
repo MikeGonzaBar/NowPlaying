@@ -1,9 +1,13 @@
 from rest_framework.decorators import action
-from rest_framework import viewsets
+from rest_framework import serializers, viewsets
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework import status
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
+from django.contrib.auth.models import User
 from django.db import models
 from django.conf import settings
 from django.http import HttpResponse
@@ -36,7 +40,12 @@ from .models import (
 logger = logging.getLogger(__name__)
 
 
-def get_trakt_redirect_uri(request):
+class TraktSchemaSerializer(serializers.Serializer):
+    """Placeholder serializer for schema generation on action-only Trakt views."""
+
+
+def get_trakt_redirect_uri(request: Request) -> str:
+    """Return the Trakt OAuth callback URL for the current request."""
     configured_uri = getattr(settings, "TRAKT_REDIRECT_URI", "").strip()
     if configured_uri:
         return configured_uri
@@ -48,7 +57,7 @@ def get_trakt_redirect_uri(request):
     return request.build_absolute_uri(callback_path)
 
 
-def invalidate_trakt_caches(user_id):
+def invalidate_trakt_caches(user_id: int) -> None:
     """Clear analytics and media caches after Trakt data changes."""
     from analytics.services import AnalyticsService
 
@@ -59,13 +68,99 @@ def invalidate_trakt_caches(user_id):
     logger.info("Invalidated Trakt-dependent caches for user %s (%s analytics keys)", user_id, deleted_keys)
 
 
+TMDB_PROXY_CACHE_TTL = 600  # 10 minutes
+
+
+def _tmdb_proxy_get(path: str, params: dict | None = None) -> Response:
+    """Forward a request to TMDB server-side so the API key never reaches the browser."""
+    api_key = getattr(settings, "TMDB_API_KEY", "")
+    if not api_key:
+        return Response(
+            {"error": "TMDB API key is not configured on the server."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    query = dict(params or {})
+    query["api_key"] = api_key
+    url = f"https://api.themoviedb.org/3/{path}?{urlencode(query)}"
+
+    try:
+        response = http_client.get(url, logger_name="trakt")
+    except Exception as exc:
+        logger.warning("TMDB proxy request failed for %s: %s", path, exc)
+        return Response(
+            {"error": "Upstream TMDB request failed."},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    if response.status_code != 200:
+        logger.warning("TMDB proxy received HTTP %s for %s", response.status_code, path)
+        return Response(
+            {"error": "TMDB request failed."},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+    return Response(response.json())
+
+
+@extend_schema_view(
+    list=extend_schema(summary="List Trakt endpoints", responses={200: OpenApiTypes.OBJECT}),
+    get_stored_movies=extend_schema(summary="List stored Trakt movies", parameters=[OpenApiParameter("page", OpenApiTypes.INT, OpenApiParameter.QUERY), OpenApiParameter("page_size", OpenApiTypes.INT, OpenApiParameter.QUERY)], responses={200: OpenApiTypes.OBJECT}),
+    get_stored_shows=extend_schema(summary="List stored Trakt shows", parameters=[OpenApiParameter("page", OpenApiTypes.INT, OpenApiParameter.QUERY), OpenApiParameter("page_size", OpenApiTypes.INT, OpenApiParameter.QUERY)], responses={200: OpenApiTypes.OBJECT}),
+    media_detail=extend_schema(summary="Get movie or show detail", responses={200: OpenApiTypes.OBJECT}),
+    get_watched_seasons_episodes=extend_schema(summary="List watched seasons and episodes for a show", responses={200: OpenApiTypes.OBJECT}),
+    fetch_latest_movies=extend_schema(summary="Fetch and sync latest watched movies", responses={200: OpenApiTypes.OBJECT}),
+    fetch_latest_shows=extend_schema(summary="Fetch and sync latest watched shows", responses={200: OpenApiTypes.OBJECT}),
+    update_show=extend_schema(summary="Sync one Trakt show", responses={200: OpenApiTypes.OBJECT}),
+    watch_history=extend_schema(summary="List Trakt watch history", responses={200: OpenApiTypes.OBJECT}),
+    activity_heatmap=extend_schema(summary="Get Trakt activity heatmap", responses={200: OpenApiTypes.OBJECT}),
+    top_genres=extend_schema(summary="Get top Trakt genres", responses={200: OpenApiTypes.OBJECT}),
+    movie_stats=extend_schema(summary="Get Trakt movie statistics", responses={200: OpenApiTypes.OBJECT}),
+    update_movie=extend_schema(summary="Sync one Trakt movie", responses={200: OpenApiTypes.OBJECT}),
+    refresh_token=extend_schema(summary="Refresh the stored Trakt OAuth token", responses={200: OpenApiTypes.OBJECT}),
+    auth_status=extend_schema(summary="Return Trakt OAuth connection status", responses={200: OpenApiTypes.OBJECT}),
+    authenticate=extend_schema(summary="Start the Trakt OAuth flow", responses={200: OpenApiTypes.OBJECT}),
+    oauth_callback=extend_schema(summary="Handle Trakt OAuth callback", responses={200: OpenApiTypes.OBJECT}),
+    search=extend_schema(summary="Search Trakt movies and shows", parameters=[OpenApiParameter("query", OpenApiTypes.STR, OpenApiParameter.QUERY), OpenApiParameter("type", OpenApiTypes.STR, OpenApiParameter.QUERY)], responses={200: OpenApiTypes.OBJECT}),
+    recent_activity=extend_schema(summary="List recent Trakt activity", responses={200: OpenApiTypes.OBJECT}),
+    completed_media=extend_schema(summary="List completed movies and shows", responses={200: OpenApiTypes.OBJECT}),
+    profile_stats=extend_schema(summary="Get Trakt profile statistics", responses={200: OpenApiTypes.OBJECT}),
+    rating_comparison=extend_schema(summary="Compare Trakt ratings", responses={200: OpenApiTypes.OBJECT}),
+    trending=extend_schema(summary="List trending Trakt media", responses={200: OpenApiTypes.OBJECT}),
+    tmdb_detail=extend_schema(
+        summary="Proxy TMDB movie or show detail (keeps the TMDB key server-side)",
+        parameters=[
+            OpenApiParameter("tmdb_id", OpenApiTypes.STR, OpenApiParameter.QUERY),
+            OpenApiParameter("type", OpenApiTypes.STR, OpenApiParameter.QUERY, description="movie or tv"),
+            OpenApiParameter("append_to_response", OpenApiTypes.STR, OpenApiParameter.QUERY),
+        ],
+        responses={200: OpenApiTypes.OBJECT},
+    ),
+    tmdb_watch_providers=extend_schema(
+        summary="Proxy TMDB watch providers (keeps the TMDB key server-side)",
+        parameters=[
+            OpenApiParameter("tmdb_id", OpenApiTypes.STR, OpenApiParameter.QUERY),
+            OpenApiParameter("type", OpenApiTypes.STR, OpenApiParameter.QUERY, description="movie or tv"),
+        ],
+        responses={200: OpenApiTypes.OBJECT},
+    ),
+    tmdb_videos=extend_schema(
+        summary="Proxy TMDB videos/trailers (keeps the TMDB key server-side)",
+        parameters=[
+            OpenApiParameter("tmdb_id", OpenApiTypes.STR, OpenApiParameter.QUERY),
+            OpenApiParameter("type", OpenApiTypes.STR, OpenApiParameter.QUERY, description="movie or tv"),
+        ],
+        responses={200: OpenApiTypes.OBJECT},
+    ),
+)
 class TraktViewSet(viewsets.ViewSet):
     """
     A viewset that provides actions to fetch the latest watched movies,
     shows, and refresh the Trakt token.
     """
 
-    def list(self, request):
+    serializer_class = TraktSchemaSerializer
+
+    def list(self, request: Request) -> Response:
         """
         Default endpoint for /trakt/ that returns a list of available actions.
         """
@@ -97,12 +192,15 @@ class TraktViewSet(viewsets.ViewSet):
                     "activity-heatmap": request.build_absolute_uri("activity-heatmap/"),
                     "top-genres": request.build_absolute_uri("top-genres/"),
                     "completed-media": request.build_absolute_uri("completed-media/"),
+                    "tmdb-detail": request.build_absolute_uri("tmdb-detail/"),
+                    "tmdb-watch-providers": request.build_absolute_uri("tmdb-watch-providers/"),
+                    "tmdb-videos": request.build_absolute_uri("tmdb-videos/"),
                 }
             }
         )
 
     @action(detail=False, methods=["get"], url_path="get-stored-movies")
-    def get_stored_movies(self, request):
+    def get_stored_movies(self, request: Request) -> Response:
         """
         Returns the stored values from the Movie model for the authenticated user, 
         sorted by last_watched_at, and formatted like the fetch_latest_movies endpoint.
@@ -158,7 +256,7 @@ class TraktViewSet(viewsets.ViewSet):
         })
 
     @action(detail=False, methods=["get"], url_path="get-stored-shows")
-    def get_stored_shows(self, request):
+    def get_stored_shows(self, request: Request) -> Response:
         """
         Returns paginated stored values from the Show model for the authenticated user, 
         sorted by last_watched_at.
@@ -206,7 +304,8 @@ class TraktViewSet(viewsets.ViewSet):
         })
 
     @action(detail=False, methods=["get"], url_path="detail")
-    def media_detail(self, request):
+    def media_detail(self, request: Request) -> Response:
+        """Return enriched movie or show detail from stored and TMDB data."""
         media_type = request.query_params.get("type", "").strip().lower()
         tmdb_id = request.query_params.get("tmdb_id", "").strip()
 
@@ -258,7 +357,7 @@ class TraktViewSet(viewsets.ViewSet):
         })
 
     @action(detail=False, methods=["get"], url_path="get-watched-seasons-episodes")
-    def get_watched_seasons_episodes(self, request):
+    def get_watched_seasons_episodes(self, request: Request) -> Response:
         """
         Returns all seasons and episodes for a show, including watched status.
         Fetches all episodes from Trakt API and merges with watched data from database.
@@ -448,7 +547,12 @@ class TraktViewSet(viewsets.ViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    def _get_database_only_episodes(self, trakt_id, user, show_metadata=None):
+    def _get_database_only_episodes(
+        self,
+        trakt_id: str,
+        user: User,
+        show_metadata: dict[str, object] | None = None,
+    ) -> Response:
         """Fallback method to return only database episodes if Trakt API fails."""
         seasons = Season.objects.filter(
             show__trakt_id=trakt_id, 
@@ -488,7 +592,7 @@ class TraktViewSet(viewsets.ViewSet):
         })
 
     @action(detail=False, methods=["get"], url_path="fetch-latest-movies")
-    def fetch_latest_movies(self, request):
+    def fetch_latest_movies(self, request: Request) -> Response:
         """
         Fetches the latest watched movies from Trakt and updates the database for the authenticated user.
         Returns immediately while processing continues in the background.
@@ -512,7 +616,8 @@ class TraktViewSet(viewsets.ViewSet):
             user = request.user
             user_id = request.user.id
 
-            def sync_movies():
+            def sync_movies() -> None:
+                """Run the movie sync outside the request thread."""
                 try:
                     fetch_latest_watched_movies(user)
                     invalidate_trakt_caches(user_id)
@@ -538,7 +643,7 @@ class TraktViewSet(viewsets.ViewSet):
             )
 
     @action(detail=False, methods=["get"], url_path="fetch-latest-shows")
-    def fetch_latest_shows(self, request):
+    def fetch_latest_shows(self, request: Request) -> Response:
         """
         Fetches the latest watched TV shows (including episode details) from Trakt 
         and updates the database for the authenticated user.
@@ -563,7 +668,8 @@ class TraktViewSet(viewsets.ViewSet):
             user = request.user
             user_id = request.user.id
 
-            def sync_shows():
+            def sync_shows() -> None:
+                """Run the show sync outside the request thread."""
                 try:
                     fetch_latest_watched_shows(user)
                     invalidate_trakt_caches(user_id)
@@ -589,7 +695,7 @@ class TraktViewSet(viewsets.ViewSet):
             )
 
     @action(detail=False, methods=["get"], url_path="update-show")
-    def update_show(self, request):
+    def update_show(self, request: Request) -> Response:
         """
         Updates a specific show by trakt_id from Trakt API.
         Fetches latest data for the show, seasons, and episodes.
@@ -622,7 +728,8 @@ class TraktViewSet(viewsets.ViewSet):
             user = request.user
             user_id = request.user.id
 
-            def sync_show():
+            def sync_show() -> None:
+                """Run one show sync outside the request thread."""
                 try:
                     result = fetch_single_show(user, trakt_id)
                     invalidate_trakt_caches(user_id)
@@ -648,7 +755,7 @@ class TraktViewSet(viewsets.ViewSet):
             )
 
     @action(detail=False, methods=["get"], url_path="watch-history")
-    def watch_history(self, request):
+    def watch_history(self, request: Request) -> Response:
         """
         Returns combined watch history for movies and episodes, sorted by watched_at.
         Includes pagination and filtering options.
@@ -824,7 +931,7 @@ class TraktViewSet(viewsets.ViewSet):
         })
 
     @action(detail=False, methods=["get"], url_path="activity-heatmap")
-    def activity_heatmap(self, request):
+    def activity_heatmap(self, request: Request) -> Response:
         """
         Returns daily watch activity counts for the last 6 months for heatmap visualization.
         """
@@ -868,7 +975,7 @@ class TraktViewSet(viewsets.ViewSet):
         })
 
     @action(detail=False, methods=["get"], url_path="top-genres")
-    def top_genres(self, request):
+    def top_genres(self, request: Request) -> Response:
         """
         Returns top genres based on watch history from the last 12 months.
         """
@@ -881,7 +988,7 @@ class TraktViewSet(viewsets.ViewSet):
         })
 
     @action(detail=False, methods=["get"], url_path="movie-stats")
-    def movie_stats(self, request):
+    def movie_stats(self, request: Request) -> Response:
         """
         Fetches Trakt statistics for a specific movie.
         Returns: watchers, plays, collectors, comments, lists, votes
@@ -928,7 +1035,7 @@ class TraktViewSet(viewsets.ViewSet):
             )
 
     @action(detail=False, methods=["get"], url_path="update-movie")
-    def update_movie(self, request):
+    def update_movie(self, request: Request) -> Response:
         """
         Updates a specific movie by trakt_id from Trakt API.
         Fetches latest data for the movie and watch events.
@@ -968,7 +1075,8 @@ class TraktViewSet(viewsets.ViewSet):
             user = request.user
             user_id = request.user.id
 
-            def sync_movie():
+            def sync_movie() -> None:
+                """Run one movie sync outside the request thread."""
                 try:
                     result = fetch_single_movie(user, trakt_id)
                     invalidate_trakt_caches(user_id)
@@ -994,7 +1102,7 @@ class TraktViewSet(viewsets.ViewSet):
             )
 
     @action(detail=False, methods=["get"], url_path="refresh-token")
-    def refresh_token(self, request):
+    def refresh_token(self, request: Request) -> Response:
         """
         Manually refreshes the Trakt access token for the authenticated user.
         """
@@ -1018,7 +1126,7 @@ class TraktViewSet(viewsets.ViewSet):
             )
 
     @action(detail=False, methods=["get"], url_path="auth-status")
-    def auth_status(self, request):
+    def auth_status(self, request: Request) -> Response:
         """
         Check if the user has a valid Trakt token.
         """
@@ -1037,7 +1145,7 @@ class TraktViewSet(viewsets.ViewSet):
             })
 
     @action(detail=False, methods=["get"], url_path="authenticate")
-    def authenticate(self, request):
+    def authenticate(self, request: Request) -> Response:
         """
         Redirect user to Trakt OAuth authorization page.
         """
@@ -1065,7 +1173,7 @@ class TraktViewSet(viewsets.ViewSet):
         })
 
     @action(detail=False, methods=["get", "post"], url_path="oauth-callback", permission_classes=[AllowAny])
-    def oauth_callback(self, request):
+    def oauth_callback(self, request: Request) -> Response | HttpResponse:
         """
         Handle the OAuth callback from Trakt.
         GET: Receives redirect from Trakt with authorization code
@@ -1083,7 +1191,7 @@ class TraktViewSet(viewsets.ViewSet):
             # Handle the POST request with authorization code (requires authentication)
             return self._handle_oauth_token_exchange(request)
 
-    def _handle_oauth_redirect(self, request):
+    def _handle_oauth_redirect(self, request: Request) -> HttpResponse:
         """
         Handle the GET redirect from Trakt with authorization code.
         This displays an HTML page that will complete the authentication.
@@ -1224,7 +1332,7 @@ curl -X POST \\<br>
         
         return HttpResponse(html_content, content_type='text/html')
 
-    def _handle_oauth_token_exchange(self, request):
+    def _handle_oauth_token_exchange(self, request: Request) -> Response:
         """
         Handle the POST request to exchange authorization code for access token.
         Requires authentication.
@@ -1298,7 +1406,7 @@ curl -X POST \\<br>
             )
 
     @action(detail=False, methods=["get"], url_path="search")
-    def search(self, request):
+    def search(self, request: Request) -> Response:
         """
         Search for movies and shows by title for the authenticated user.
         Only returns items that the user has actually watched.
@@ -1443,7 +1551,7 @@ curl -X POST \\<br>
         return Response({'results': results})
 
     @action(detail=False, methods=["get"], url_path="recent-activity")
-    def recent_activity(self, request):
+    def recent_activity(self, request: Request) -> Response:
         """
         Returns recent activity including check-ins, ratings, and watchlist additions.
         """
@@ -1494,7 +1602,7 @@ curl -X POST \\<br>
         return Response({'activities': activities[:10]})
 
     @action(detail=False, methods=["get"], url_path="completed-media")
-    def completed_media(self, request):
+    def completed_media(self, request: Request) -> Response:
         """
         Returns shows and movies that are 100% completed.
         For shows, this means all episodes are watched.
@@ -1635,7 +1743,7 @@ curl -X POST \\<br>
         return Response(result)
 
     @action(detail=False, methods=["get"], url_path="profile-stats")
-    def profile_stats(self, request):
+    def profile_stats(self, request: Request) -> Response:
         """
         Returns user profile statistics for Trakt.
         """
@@ -1663,7 +1771,7 @@ curl -X POST \\<br>
         })
 
     @action(detail=False, methods=["get"], url_path="rating-comparison")
-    def rating_comparison(self, request):
+    def rating_comparison(self, request: Request) -> Response:
         """
         Returns average rating comparison between user ratings and Trakt global ratings.
         Note: This is a placeholder - actual Trakt global ratings would require API calls.
@@ -1688,7 +1796,7 @@ curl -X POST \\<br>
         })
 
     @action(detail=False, methods=["get"], url_path="trending")
-    def trending(self, request):
+    def trending(self, request: Request) -> Response:
         """
         Returns trending movies and shows from Trakt.
         This requires calling the Trakt API directly.
@@ -1742,3 +1850,64 @@ curl -X POST \\<br>
                 {'error': f'Failed to fetch trending content: {str(e)}'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+    @staticmethod
+    def _resolve_tmdb_target(request: Request):
+        """Validate tmdb_id/type query params for TMDB proxy actions."""
+        tmdb_id = str(request.query_params.get("tmdb_id", "")).strip()
+        media_type = request.query_params.get("type", "movie").strip()
+        if not tmdb_id.isdigit():
+            return Response({"error": "tmdb_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if media_type not in ("movie", "tv"):
+            media_type = "movie"
+        return tmdb_id, media_type
+
+    @action(detail=False, methods=["get"], url_path="tmdb-detail")
+    def tmdb_detail(self, request: Request) -> Response:
+        """Proxy TMDB detail so the TMDB API key stays server-side."""
+        target = self._resolve_tmdb_target(request)
+        if isinstance(target, Response):
+            return target
+        tmdb_id, media_type = target
+        append = request.query_params.get("append_to_response", "").strip()
+        cache_key = f"tmdb_proxy_detail_{media_type}_{tmdb_id}_{append}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+        params = {"append_to_response": append} if append else None
+        response = _tmdb_proxy_get(f"{media_type}/{tmdb_id}", params)
+        if response.status_code == 200:
+            cache.set(cache_key, response.data, TMDB_PROXY_CACHE_TTL)
+        return response
+
+    @action(detail=False, methods=["get"], url_path="tmdb-watch-providers")
+    def tmdb_watch_providers(self, request: Request) -> Response:
+        """Proxy TMDB watch providers so the TMDB API key stays server-side."""
+        target = self._resolve_tmdb_target(request)
+        if isinstance(target, Response):
+            return target
+        tmdb_id, media_type = target
+        cache_key = f"tmdb_proxy_providers_{media_type}_{tmdb_id}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+        response = _tmdb_proxy_get(f"{media_type}/{tmdb_id}/watch/providers")
+        if response.status_code == 200:
+            cache.set(cache_key, response.data, TMDB_PROXY_CACHE_TTL)
+        return response
+
+    @action(detail=False, methods=["get"], url_path="tmdb-videos")
+    def tmdb_videos(self, request: Request) -> Response:
+        """Proxy TMDB videos (trailers) so the TMDB API key stays server-side."""
+        target = self._resolve_tmdb_target(request)
+        if isinstance(target, Response):
+            return target
+        tmdb_id, media_type = target
+        cache_key = f"tmdb_proxy_videos_{media_type}_{tmdb_id}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+        response = _tmdb_proxy_get(f"{media_type}/{tmdb_id}/videos")
+        if response.status_code == 200:
+            cache.set(cache_key, response.data, TMDB_PROXY_CACHE_TTL)
+        return response

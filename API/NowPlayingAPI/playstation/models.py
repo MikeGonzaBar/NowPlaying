@@ -1,16 +1,20 @@
 from django.db import models
-from psnawp_api import PSNAWP
 from psnawp_api.models import Client
 from psnawp_api.models.trophies import PlatformType
 from psnawp_api.models.title_stats import PlatformCategory
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
+from utils import make_timezone_aware
 from django.contrib.auth.models import User
+from typing import Callable
 import logging
+from .auth import create_psnawp_from_stored_auth, serialize_psn_auth_payload
 
 logger = logging.getLogger("playstation")
 
 # Model for PSN games (titles)
 class PSNGame(models.Model):
+    """Stored PlayStation title owned by a local user."""
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='psn_games')
     appid = models.CharField(max_length=100)  # title_id from PSN
     name = models.CharField(max_length=255)
@@ -23,11 +27,14 @@ class PSNGame(models.Model):
     class Meta:
         unique_together = ('user', 'appid')  # A game can appear multiple times, but only once per user
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the PlayStation game name."""
         return self.name
 
 # Model for PSN achievements (trophies)
 class PSNAchievement(models.Model):
+    """Stored PlayStation trophy for a game."""
+
     game = models.ForeignKey(PSNGame, related_name="achievements", on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
@@ -36,20 +43,26 @@ class PSNAchievement(models.Model):
     unlock_time = models.DateTimeField(null=True, blank=True)
     trophy_type = models.CharField(max_length=50, blank=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the trophy name and lock state."""
         return f"{self.name} ({'Unlocked' if self.unlocked else 'Locked'})"
 
 class PSN:
+    """PSNAWP adapter that syncs PlayStation games and trophies."""
+
     @staticmethod
-    def timedelta_to_str(td):
+    def timedelta_to_str(td: timedelta | object) -> str | object:
+        """Serialize timedelta values while preserving already-serialized values."""
         return str(td) if isinstance(td, timedelta) else td
 
     @staticmethod
-    def datetime_to_str(dt):
+    def datetime_to_str(dt: datetime | object) -> str | object:
+        """Serialize datetime values while preserving already-serialized values."""
         return dt.isoformat() if isinstance(dt, datetime) else dt
 
     @classmethod
-    def fetch_achievements(cls, client: Client, title_id, title_category):
+    def fetch_achievements(cls, client: Client, title_id: str, title_category: PlatformCategory) -> dict[str, object]:
+        """Fetch trophy details for one PlayStation title."""
         try:
             TrophyTitleForTitle = list(client.trophy_titles_for_title([title_id]))[0]
             if not TrophyTitleForTitle:
@@ -97,15 +110,22 @@ class PSN:
             return {"achievements": [], "total": {}, "unlocked": {}}
 
     @classmethod
-    def get_games(cls, psn_npsso, psn_user_id=None, user=None):
+    def get_games(
+        cls,
+        psn_auth: str,
+        psn_user_id: str | None = None,
+        user: User | None = None,
+        auth_update_callback: Callable[[str], None] | None = None,
+    ) -> dict[str, object]:
+        """Fetch PlayStation titles and sync them into local storage."""
         if user is None:
             raise ValueError("User must be provided to associate games.")
         
-        if not psn_npsso:
-            return {"error": "No PlayStation NPSSO provided."}
+        if not psn_auth:
+            return {"error": "No PlayStation connection provided."}
             
         try:
-            psnawp = PSNAWP(psn_npsso)
+            psnawp, _ = create_psnawp_from_stored_auth(psn_auth)
             client = psnawp.me()
             titles = list(client.title_stats())
             
@@ -147,7 +167,7 @@ class PSN:
                                 "unlocked": ach["unlocked"],
                                 # Convert the ISO string to a datetime object if necessary.
                                 "unlock_time": (
-                                    datetime.fromisoformat(ach["unlock_time"]) if ach["unlock_time"] else None
+                                    make_timezone_aware(datetime.fromisoformat(ach["unlock_time"])) if ach["unlock_time"] else None
                                 ),
                                 "trophy_type": ach["type"],
                             },
@@ -176,13 +196,19 @@ class PSN:
                     "achievements": achievements_list,
                 })
             
+            if auth_update_callback:
+                refreshed_auth = serialize_psn_auth_payload(psnawp)
+                if refreshed_auth:
+                    auth_update_callback(refreshed_auth)
+
             return {"games": games_info}
         except Exception as e:
             logger.error(f"Error fetching PlayStation games: {e}")
             return {"error": f"Failed to fetch PlayStation games: {str(e)}"}
 
     @classmethod
-    def get_games_stored(cls, user=None):
+    def get_games_stored(cls, user: User | None = None) -> dict[str, object]:
+        """Return stored PlayStation games and trophies for a user."""
         if user is None:
             raise ValueError("User must be provided to retrieve their games.")
             
@@ -206,3 +232,5 @@ class PSN:
                 ),
             })
         return {"games": games_info}
+
+

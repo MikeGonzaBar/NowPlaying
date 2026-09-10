@@ -4,7 +4,7 @@ from .models import UserStatistics, GamingStreak
 
 class UserStatisticsSerializer(serializers.ModelSerializer):
     """Serializer for UserStatistics model"""
-    
+
     class Meta:
         model = UserStatistics
         fields = [
@@ -15,11 +15,11 @@ class UserStatisticsSerializer(serializers.ModelSerializer):
             'shows_started', 'shows_completed', 'total_engagement_time',
             'active_platforms'
         ]
-    
-    def to_representation(self, instance):
+
+    def to_representation(self, instance: UserStatistics) -> dict[str, object]:
         """Convert timedelta fields to string representation"""
         data = super().to_representation(instance)
-        
+
         # Convert timedelta fields to string
         if instance.total_gaming_time:
             data['total_gaming_time'] = str(instance.total_gaming_time)
@@ -29,25 +29,25 @@ class UserStatisticsSerializer(serializers.ModelSerializer):
             data['total_watch_time'] = str(instance.total_watch_time)
         if instance.total_engagement_time:
             data['total_engagement_time'] = str(instance.total_engagement_time)
-        
+
         return data
 
 
 class GamingStreakSerializer(serializers.ModelSerializer):
     """Serializer for GamingStreak model"""
-    
+
     class Meta:
         model = GamingStreak
         fields = [
             'start_date', 'end_date', 'streak_length', 'total_gaming_time',
             'games_played', 'achievements_earned'
         ]
-    
-    def to_representation(self, instance):
+
+    def to_representation(self, instance: GamingStreak) -> dict[str, object]:
         """Convert timedelta fields to string representation"""
         data = super().to_representation(instance)
-        
+
         if instance.total_gaming_time:
             data['total_gaming_time'] = str(instance.total_gaming_time)
-        
-        return data 
+
+        return data

@@ -5,7 +5,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def get_encryption_key():
+
+def get_encryption_key() -> str | bytes:
     """
     Get or generate an encryption key for API keys.
     
@@ -29,7 +30,7 @@ def get_encryption_key():
     except Exception as e:
         raise ImproperlyConfigured(f"Invalid API_KEY_ENCRYPTION_KEY format: {e}") from e
 
-def encrypt_api_key(raw_key):
+def encrypt_api_key(raw_key: str | None) -> str | None:
     """
     Encrypt an API key using Fernet symmetric encryption.
     
@@ -56,7 +57,7 @@ def encrypt_api_key(raw_key):
         logger.error(f"Failed to encrypt API key: {e}")
         return None
 
-def decrypt_api_key(encrypted_key):
+def decrypt_api_key(encrypted_key: str | None) -> str | None:
     """
     Decrypt an API key that was encrypted with encrypt_api_key.
     

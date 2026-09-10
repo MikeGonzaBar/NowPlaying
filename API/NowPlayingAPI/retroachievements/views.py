@@ -1,18 +1,34 @@
 from rest_framework.decorators import action
 from rest_framework import viewsets, status
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from .models import RetroAchievementsAPI
 from users.credentials import get_service_credentials
 
 
+@extend_schema_view(
+    list=extend_schema(summary="List RetroAchievements endpoints", responses={200: OpenApiTypes.OBJECT}),
+    fetch_recently_played_games=extend_schema(summary="Fetch recently played RetroAchievements games", responses={200: OpenApiTypes.OBJECT}),
+    get_most_achieved_games=extend_schema(summary="List RetroAchievements games by achievement completion", responses={200: OpenApiTypes.OBJECT}),
+    fetch_games=extend_schema(summary="List stored RetroAchievements games", responses={200: OpenApiTypes.OBJECT}),
+    fetch_game_details=extend_schema(
+        summary="Fetch one RetroAchievements game with achievements",
+        parameters=[
+            OpenApiParameter("game_id", OpenApiTypes.INT, OpenApiParameter.QUERY, required=True),
+        ],
+        responses={200: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT, 404: OpenApiTypes.OBJECT},
+    ),
+)
 class RetroAchievementsViewSet(viewsets.ViewSet):
     """
     A viewset that provides actions to fetch recently played games,
     achievements, and game details.
     """
 
-    def list(self, request):
+    def list(self, request: Request) -> Response:
         """
         Default endpoint for /retroachievements/ that returns a list of available actions.
         """
@@ -34,7 +50,7 @@ class RetroAchievementsViewSet(viewsets.ViewSet):
         )
 
     @action(detail=False, methods=["get"], url_path="fetch-recently-played-games")
-    def fetch_recently_played_games(self, request):
+    def fetch_recently_played_games(self, request: Request) -> Response:
         """
         Fetches and populates the latest 50 recently played games for the authenticated user.
         """
@@ -57,7 +73,7 @@ class RetroAchievementsViewSet(viewsets.ViewSet):
             )
 
     @action(detail=False, methods=["get"], url_path="get-most-achieved-games")
-    def get_most_achieved_games(self, request):
+    def get_most_achieved_games(self, request: Request) -> Response:
         """
         Returns the list of games ordered by the percentage of unlocked achievements.
         """
@@ -71,7 +87,7 @@ class RetroAchievementsViewSet(viewsets.ViewSet):
             )
 
     @action(detail=False, methods=["get"], url_path="fetch-games")
-    def fetch_games(self, request):
+    def fetch_games(self, request: Request) -> Response:
         """
         Fetches all games along with their achievements from the database.
         """
@@ -85,7 +101,7 @@ class RetroAchievementsViewSet(viewsets.ViewSet):
             )
 
     @action(detail=False, methods=["get"], url_path="fetch-game-details")
-    def fetch_game_details(self, request):
+    def fetch_game_details(self, request: Request) -> Response:
         """
         Fetches a game and its achievements by game ID.
         """

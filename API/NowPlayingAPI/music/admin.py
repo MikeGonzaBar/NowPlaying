@@ -5,6 +5,8 @@ from .models import Song
 
 @admin.register(Song)
 class SongAdmin(admin.ModelAdmin):
+    """Admin view for stored music scrobbles."""
+
     list_display = ('title', 'artist', 'user_username', 'album', 'source', 'loved', 'played_at', 'duration_formatted')
     list_filter = ('user', 'source', 'loved', 'streamable', 'played_at', 'artist', 'album')
     search_fields = ('title', 'artist', 'album', 'user__username', 'track_mbid', 'artist_mbid', 'album_mbid')
@@ -21,12 +23,13 @@ class SongAdmin(admin.ModelAdmin):
     ordering = ('-played_at',)
     date_hierarchy = 'played_at'
     
-    def user_username(self, obj):
+    def user_username(self, obj: Song) -> str:
+        """Return the owning username for list display."""
         return obj.user.username if obj.user else "No User"
     user_username.short_description = "User"
     user_username.admin_order_field = 'user__username'
     
-    def duration_formatted(self, obj):
+    def duration_formatted(self, obj: Song) -> str:
         """Convert milliseconds to MM:SS format"""
         if obj.duration_ms:
             total_seconds = obj.duration_ms // 1000
@@ -36,13 +39,14 @@ class SongAdmin(admin.ModelAdmin):
         return "0:00"
     duration_formatted.short_description = "Duration"
     
-    def album_thumbnail_display(self, obj):
+    def album_thumbnail_display(self, obj: Song) -> object:
+        """Render the primary album thumbnail in admin."""
         if obj.album_thumbnail:
             return mark_safe(f'<img src="{obj.album_thumbnail}" width="64" height="64" />')
         return ""
     album_thumbnail_display.short_description = "Album Cover"
     
-    def all_thumbnails_display(self, obj):
+    def all_thumbnails_display(self, obj: Song) -> object:
         """Display all available thumbnail sizes"""
         html = "<div style='display: flex; gap: 10px;'>"
         
@@ -61,8 +65,10 @@ class SongAdmin(admin.ModelAdmin):
         return mark_safe(html) if any(url for _, url in thumbnails) else "No thumbnails available"
     all_thumbnails_display.short_description = "All Thumbnail Sizes"
     
-    def has_add_permission(self, request):
+    def has_add_permission(self, request: object) -> bool:
+        """Prevent manual song creation in admin."""
         return False  # Prevent manual addition since data comes from API
     
-    def has_change_permission(self, request, obj=None):
+    def has_change_permission(self, request: object, obj: object | None = None) -> bool:
+        """Prevent manual song edits in admin."""
         return False  # Prevent editing since data should come from API

@@ -237,9 +237,11 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 | **Last.fm** | `lastfm` | `api_key` (API Key) | `service_user_id` (Username) |
 | **Trakt** | `trakt` | `api_key` (Client Secret) | `service_user_id` (Client ID) |
 | **Steam** | `steam` | `api_key` (API Key) | `service_user_id` (Steam ID) |
-| **PlayStation** | `psn` | `api_key` (NPSSO Token) | `service_user_id` (PSN User ID) |
+| **PlayStation** | `psn` | Encrypted token payload via `/psn/exchange-npsso/` | `service_user_id` (detected PSN Online ID) |
 | **Xbox** | `xbox` | `api_key` (OpenXBL API Key) | `service_user_id` (XUID) |
 | **RetroAchievements** | `retroachievements` | `api_key` (API Key) | `service_user_id` (Username) |
+
+PlayStation is listed for visibility because it appears in stored services, but new writes must use `/psn/exchange-npsso/` instead of the generic API-key endpoint.
 
 ### Service Setup Examples
 
@@ -295,13 +297,11 @@ curl -X POST "http://localhost:8000/users/api-keys/" \
      }'
 
 # PlayStation
-curl -X POST "http://localhost:8000/users/api-keys/" \
+curl -X POST "http://localhost:8000/psn/exchange-npsso/" \
      -H "Authorization: Bearer YOUR_JWT_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{
-       "service_name": "psn",
-       "api_key": "your_npsso_token",
-       "service_user_id": "your_psn_user_id"
+       "npsso": "your_npsso_token"
      }'
 
 # Xbox

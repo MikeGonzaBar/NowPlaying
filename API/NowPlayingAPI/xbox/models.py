@@ -8,6 +8,8 @@ import http_client
 logger = logging.getLogger("xbox")
 
 class XboxGame(models.Model):
+    """Stored Xbox title owned by a local user."""
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='xbox_games')
     appid = models.CharField(max_length=100)
     name = models.CharField(max_length=255)
@@ -20,10 +22,13 @@ class XboxGame(models.Model):
     class Meta:
         unique_together = ('user', 'appid')  # A game can appear multiple times, but only once per user
     
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the Xbox game name."""
         return self.name
     
 class XboxAchievement(models.Model):
+    """Stored Xbox achievement for a game."""
+
     game = models.ForeignKey(XboxGame, related_name="achievements", on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
@@ -32,22 +37,27 @@ class XboxAchievement(models.Model):
     unlock_time = models.DateTimeField(null=True, blank=True)
     achievement_value = models.CharField(max_length=255, blank=True)
     
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the achievement name and lock state."""
         return f"{self.name} ({'Unlocked' if self.unlocked else 'Locked'})"
     
 class XboxAPI:
+    """OpenXBL API adapter that syncs games and achievements."""
+
     XBOX_DEVICE_MARKERS = {"PC", "XboxOne", "XboxSeries", "Xbox360"}
     GENERIC_SERVICE_CONFIG_ID = "00000000-0000-0000-0000-000000000000"
 
     @staticmethod
-    def _safe_int(value):
+    def _safe_int(value: object) -> int:
+        """Return an integer value or zero for malformed API payloads."""
         try:
             return int(value)
         except (TypeError, ValueError):
             return 0
 
     @staticmethod
-    def make_request(url, api_key):
+    def make_request(url: str, api_key: str) -> dict[str, object]:
+        """Fetch an OpenXBL endpoint and normalize wrapped response content."""
         headers = {
             "x-authorization": api_key
         }
@@ -76,7 +86,7 @@ class XboxAPI:
             return {}
 
     @classmethod
-    def is_supported_xbox_title(cls, game):
+    def is_supported_xbox_title(cls, game: dict[str, object]) -> bool:
         """
         OpenXBL title history can include generic Windows game activity from
         Xbox/Game Bar. Keep real Xbox ecosystem titles and drop plain Win32
@@ -112,7 +122,7 @@ class XboxAPI:
         return has_package_identity and has_xbox_live_metadata
     
     @staticmethod
-    def needs_update(game: dict, user) -> bool:
+    def needs_update(game: dict[str, object], user: User) -> bool:
         """
         Returns True if the game should be created or updated (based on last_played),
         otherwise returns False.
@@ -139,7 +149,7 @@ class XboxAPI:
         return False
     
     @classmethod
-    def fetch_games(cls, user, xbox_api_key, xuid):
+    def fetch_games(cls, user: User, xbox_api_key: str, xuid: str) -> dict[str, object]:
         """Fetch Xbox games for a specific user."""
         if not xbox_api_key or not xuid:
             logger.error(f"Missing Xbox credentials for user {user.username}")
@@ -290,7 +300,7 @@ class XboxAPI:
             return {"error": f"Error fetching Xbox data: {str(e)}"}
     
     @classmethod
-    def get_games_stored(cls, user):
+    def get_games_stored(cls, user: User) -> dict[str, object]:
         """Get stored Xbox games for a specific user."""
         if user is None:
             raise ValueError("User must be provided to retrieve their games.")

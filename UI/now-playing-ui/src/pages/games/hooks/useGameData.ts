@@ -1,279 +1,358 @@
-import { useState, useEffect } from 'react';
-import { useApi } from '../../../hooks/useApi';
+import { useState, useEffect, useMemo } from "react";
+import { useApi } from "../../../hooks/useApi";
 import {
-    SteamGame,
-    PsnGame,
-    RetroAchievementsGame,
-    XboxGame,
-} from '../utils/types';
-import { parseDate, getPlaytime, calculateAchievementPercentage } from '../utils/utils';
+  SteamGame,
+  PsnGame,
+  RetroAchievementsGame,
+  XboxGame,
+} from "../utils/types";
+import {
+  parseDate,
+  getPlaytime,
+  calculateAchievementPercentage,
+} from "../utils/utils";
+import { consolidateRawGames, getCrossPlatformGames } from "../utils/grouping";
 
 type GameData = SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
 
 interface GameApiResponse {
-    result?: GameData[] | {
+  result?:
+    | GameData[]
+    | {
         games?: GameData[];
         error?: string;
-    };
+      };
 }
 
 interface RefreshResponse {
-    result?: {
-        error?: string;
-    };
+  result?: {
+    error?: string;
+  };
 }
 
 interface FailedRequest {
-    __error: unknown;
+  __error: unknown;
 }
 
-const isFailedRequest = (value: RefreshResponse | FailedRequest): value is FailedRequest => (
-    '__error' in value
-);
+const isFailedRequest = (
+  value: RefreshResponse | FailedRequest,
+): value is FailedRequest => "__error" in value;
 
 export const useGameData = (beBaseUrl: string) => {
-    const [latestPlayedGames, setLatestPlayedGames] = useState<GameData[]>([]);
-    const [mostPlayed, setMostPlayed] = useState<GameData[]>([]);
-    const [mostAchieved, setMostAchieved] = useState<GameData[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [missingServices, setMissingServices] = useState<string[]>([]);
-    const [configuredServices, setConfiguredServices] = useState<string[]>([]);
-    const [updatingPlatforms, setUpdatingPlatforms] = useState<Record<string, boolean>>({});
+  const [latestPlayedGames, setLatestPlayedGames] = useState<GameData[]>([]);
+  const [mostPlayed, setMostPlayed] = useState<GameData[]>([]);
+  const [mostAchieved, setMostAchieved] = useState<GameData[]>([]);
+  // The complete, unfiltered union of every provider's stored library. Unlike
+  // ``latestPlayedGames`` this keeps titles that have no ``last_played`` so the
+  // All Games library can honor "Unplayed" filters and complete archive scans
+  // (audit #1/#3: the canonical library must not silently drop older titles).
+  const [allGamesList, setAllGamesList] = useState<GameData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [missingServices, setMissingServices] = useState<string[]>([]);
+  const [configuredServices, setConfiguredServices] = useState<string[]>([]);
+  const [updatingPlatforms, setUpdatingPlatforms] = useState<
+    Record<string, boolean>
+  >({});
 
-    // Platform mapping - track which games belong to which platform
-    const [platformGameIds, setPlatformGameIds] = useState<Record<string, Set<string>>>({
-        steam: new Set(),
-        psn: new Set(),
-        xbox: new Set(),
-        retroachievements: new Set()
-    });
+  // Platform mapping - track which games belong to which platform
+  const [platformGameIds, setPlatformGameIds] = useState<
+    Record<string, Set<string>>
+  >({
+    steam: new Set(),
+    psn: new Set(),
+    xbox: new Set(),
+    retroachievements: new Set(),
+  });
 
-    const api = useApi();
+  const api = useApi();
 
-    const fetchGameData = async (url: string): Promise<GameData[]> => {
-        const data = await api.request<GameApiResponse>(url);
-        const result = data.result;
+  const fetchGameData = async (url: string): Promise<GameData[]> => {
+    const data = await api.request<GameApiResponse>(url);
+    const result = data.result;
 
-        if (Array.isArray(result)) {
-            return result;
-        }
+    if (Array.isArray(result)) {
+      return result;
+    }
 
-        if (result && typeof result === 'object' && 'games' in result && Array.isArray(result.games)) {
-            return result.games;
-        }
+    if (
+      result &&
+      typeof result === "object" &&
+      "games" in result &&
+      Array.isArray(result.games)
+    ) {
+      return result.games;
+    }
 
-        return [];
-    };
+    return [];
+  };
 
-    const mergeAndSortGames = (
-        steamArray: GameData[],
-        psnArray: GameData[],
-        retroArray: GameData[],
-        xboxArray: GameData[]
-    ): GameData[] => {
-        const invalidTimestamp = new Date(1970, 0, 1).getTime();
-        return [...steamArray, ...psnArray, ...retroArray, ...xboxArray]
-            .map((game) => ({
-                ...game,
-                lastPlayed: parseDate(game.last_played),
-            }))
-            .filter((game) => game.lastPlayed.getTime() !== invalidTimestamp)
-            .sort((a, b) => b.lastPlayed.getTime() - a.lastPlayed.getTime());
-    };
+  const mergeAndSortGames = (
+    steamArray: GameData[],
+    psnArray: GameData[],
+    retroArray: GameData[],
+    xboxArray: GameData[],
+  ): GameData[] => {
+    const invalidTimestamp = new Date(1970, 0, 1).getTime();
+    return [...steamArray, ...psnArray, ...retroArray, ...xboxArray]
+      .map((game) => ({
+        ...game,
+        lastPlayed: parseDate(game.last_played),
+      }))
+      .filter((game) => game.lastPlayed.getTime() !== invalidTimestamp)
+      .sort((a, b) => b.lastPlayed.getTime() - a.lastPlayed.getTime());
+  };
 
-    const fetchGames = async () => {
-        try {
-            setLoading(true);
+  const fetchGames = async () => {
+    try {
+      setLoading(true);
 
-            // Optimize: Make only 4 API calls instead of 11
-            const [steamArray, psnArray, retroArray, xboxArray] = await Promise.all([
-                fetchGameData(`${beBaseUrl}/steam/get-game-list-stored/`),
-                fetchGameData(`${beBaseUrl}/psn/get-game-list-stored/`),
-                fetchGameData(`${beBaseUrl}/retroachievements/fetch-games/`),
-                fetchGameData(`${beBaseUrl}/xbox/get-game-list-stored/`),
-            ]);
+      // Optimize: Make only 4 API calls instead of 11
+      const [steamArray, psnArray, retroArray, xboxArray] = await Promise.all([
+        fetchGameData(`${beBaseUrl}/steam/get-game-list-stored/`),
+        fetchGameData(`${beBaseUrl}/psn/get-game-list-stored/`),
+        fetchGameData(`${beBaseUrl}/retroachievements/fetch-games/`),
+        fetchGameData(`${beBaseUrl}/xbox/get-game-list-stored/`),
+      ]);
 
-            // Track platform membership based on original API response lists
-            const newPlatformGameIds: Record<string, Set<string>> = {
-                steam: new Set(steamArray.map((game) => String(game.appid))),
-                psn: new Set(psnArray.map((game) => String(game.appid))),
-                xbox: new Set(xboxArray.map((game) => String(game.appid))),
-                retroachievements: new Set(retroArray.map((game) => String(game.appid)))
-            };
-            setPlatformGameIds(newPlatformGameIds);
+      // Track platform membership based on original API response lists
+      const newPlatformGameIds: Record<string, Set<string>> = {
+        steam: new Set(steamArray.map((game) => String(game.appid))),
+        psn: new Set(psnArray.map((game) => String(game.appid))),
+        xbox: new Set(xboxArray.map((game) => String(game.appid))),
+        retroachievements: new Set(
+          retroArray.map((game) => String(game.appid)),
+        ),
+      };
+      setPlatformGameIds(newPlatformGameIds);
 
-            // Process all three views from the same data
-            const allGames = [...steamArray, ...psnArray, ...retroArray, ...xboxArray];
+      // Process all three views from the same data
+      const allGames = [
+        ...steamArray,
+        ...psnArray,
+        ...retroArray,
+        ...xboxArray,
+      ];
 
-            // Latest played games
-            const merged = mergeAndSortGames(steamArray, psnArray, retroArray, xboxArray);
-            setLatestPlayedGames(merged);
+      // Latest played games
+      const merged = mergeAndSortGames(
+        steamArray,
+        psnArray,
+        retroArray,
+        xboxArray,
+      );
+      setLatestPlayedGames(merged);
 
-            // Most played games - filter from all games instead of separate API calls
-            const mergedPlaytimeGames = allGames
-                .filter((game) => getPlaytime(game) > 0)
-                .sort((a, b) => getPlaytime(b) - getPlaytime(a));
-            setMostPlayed(mergedPlaytimeGames);
+      // Keep the complete union for the All Games archive (includes titles
+      // with no last_played timestamp, so "Unplayed" filtering stays honest).
+      setAllGamesList(allGames);
 
-            // Most achieved games - process from all games instead of separate API calls
-            const mergedMostAchievedGames = allGames
-                .map((game) => {
-                    const percentage = calculateAchievementPercentage(game);
-                    return {
-                        ...game,
-                        achievementPercentage: percentage,
-                    };
-                })
-                .filter((game) => {
-                    const percentage = game.achievementPercentage;
-                    return !isNaN(percentage) && percentage > 0;
-                })
-                .sort((a, b) => b.achievementPercentage - a.achievementPercentage);
-            setMostAchieved(mergedMostAchievedGames);
-        } catch (err) {
-            console.error(err);
-            setError("Failed to load games data");
-        } finally {
-            setLoading(false);
-        }
-    };
+      // Most played games - filter from all games instead of separate API calls
+      const mergedPlaytimeGames = allGames
+        .filter((game) => getPlaytime(game) > 0)
+        .sort((a, b) => getPlaytime(b) - getPlaytime(a));
+      setMostPlayed(mergedPlaytimeGames);
 
-    const refreshGames = async () => {
-        try {
-            const [_steamRes, psnRes, _retroRes, _xboxRes] = await Promise.all([
-                api.request<RefreshResponse>(`${beBaseUrl}/steam/get-game-list/`).catch((e): FailedRequest => ({ __error: e })),
-                api.request<RefreshResponse>(`${beBaseUrl}/psn/get-game-list/`).catch((e): FailedRequest => ({ __error: e })),
-                api.request<RefreshResponse>(`${beBaseUrl}/retroachievements/fetch-recently-played-games/`).catch((e): FailedRequest => ({ __error: e })),
-                api.request<RefreshResponse>(`${beBaseUrl}/xbox/get-game-list/`).catch((e): FailedRequest => ({ __error: e })),
-            ]);
+      // Most achieved games - process from all games instead of separate API calls
+      const mergedMostAchievedGames = allGames
+        .map((game) => {
+          const percentage = calculateAchievementPercentage(game);
+          return {
+            ...game,
+            achievementPercentage: percentage,
+          };
+        })
+        .filter((game) => {
+          const percentage = game.achievementPercentage;
+          return !isNaN(percentage) && percentage > 0;
+        })
+        .sort((a, b) => b.achievementPercentage - a.achievementPercentage);
+      setMostAchieved(mergedMostAchievedGames);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load games data");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            if (psnRes && !isFailedRequest(psnRes) && psnRes.result?.error) {
-                setError(psnRes.result.error);
-            } else if (psnRes && isFailedRequest(psnRes)) {
-                setError('An error occurred while refreshing PSN games');
-            } else {
-                setError(null);
-            }
+  const refreshGames = async () => {
+    try {
+      const [_steamRes, psnRes, _retroRes, _xboxRes] = await Promise.all([
+        api
+          .request<RefreshResponse>(`${beBaseUrl}/steam/get-game-list/`)
+          .catch((e): FailedRequest => ({ __error: e })),
+        api
+          .request<RefreshResponse>(`${beBaseUrl}/psn/get-game-list/`)
+          .catch((e): FailedRequest => ({ __error: e })),
+        api
+          .request<RefreshResponse>(
+            `${beBaseUrl}/retroachievements/fetch-recently-played-games/`,
+          )
+          .catch((e): FailedRequest => ({ __error: e })),
+        api
+          .request<RefreshResponse>(`${beBaseUrl}/xbox/get-game-list/`)
+          .catch((e): FailedRequest => ({ __error: e })),
+      ]);
 
-            await fetchGames();
-        } catch (error) {
-            console.error("Error refreshing games:", error);
-            setError("An error occurred while refreshing games");
-        }
-    };
+      if (psnRes && !isFailedRequest(psnRes) && psnRes.result?.error) {
+        setError(psnRes.result.error);
+      } else if (psnRes && isFailedRequest(psnRes)) {
+        setError("An error occurred while refreshing PSN games");
+      } else {
+        setError(null);
+      }
 
-    // Individual platform refresh functions
-    const refreshSteam = async () => {
-        try {
-            setUpdatingPlatforms(prev => ({ ...prev, steam: true }));
-            await api.request(`${beBaseUrl}/steam/get-game-list/`);
-            await fetchGames();
-            setError(null);
-        } catch (error) {
-            console.error("Error refreshing Steam games:", error);
-            setError("An error occurred while refreshing Steam games");
-        } finally {
-            setUpdatingPlatforms(prev => ({ ...prev, steam: false }));
-        }
-    };
+      await fetchGames();
+    } catch (error) {
+      console.error("Error refreshing games:", error);
+      setError("An error occurred while refreshing games");
+    }
+  };
 
-    const refreshPSN = async () => {
-        try {
-            setUpdatingPlatforms(prev => ({ ...prev, psn: true }));
-            const resp = await api.request<RefreshResponse>(`${beBaseUrl}/psn/get-game-list/`);
-            if (resp.result?.error) {
-                setError(resp.result.error);
-            } else {
-                setError(null);
-            }
-            await fetchGames();
-        } catch (error) {
-            console.error("Error refreshing PSN games:", error);
-            setError("An error occurred while refreshing PSN games");
-        } finally {
-            setUpdatingPlatforms(prev => ({ ...prev, psn: false }));
-        }
-    };
+  // Individual platform refresh functions
+  const refreshSteam = async () => {
+    try {
+      setUpdatingPlatforms((prev) => ({ ...prev, steam: true }));
+      await api.request(`${beBaseUrl}/steam/get-game-list/`);
+      await fetchGames();
+      setError(null);
+    } catch (error) {
+      console.error("Error refreshing Steam games:", error);
+      setError("An error occurred while refreshing Steam games");
+    } finally {
+      setUpdatingPlatforms((prev) => ({ ...prev, steam: false }));
+    }
+  };
 
-    const refreshXbox = async () => {
-        try {
-            setUpdatingPlatforms(prev => ({ ...prev, xbox: true }));
-            await api.request(`${beBaseUrl}/xbox/get-game-list/`);
-            await fetchGames();
-            setError(null);
-        } catch (error) {
-            console.error("Error refreshing Xbox games:", error);
-            setError("An error occurred while refreshing Xbox games");
-        } finally {
-            setUpdatingPlatforms(prev => ({ ...prev, xbox: false }));
-        }
-    };
+  const refreshPSN = async () => {
+    try {
+      setUpdatingPlatforms((prev) => ({ ...prev, psn: true }));
+      const resp = await api.request<RefreshResponse>(
+        `${beBaseUrl}/psn/get-game-list/`,
+      );
+      if (resp.result?.error) {
+        setError(resp.result.error);
+      } else {
+        setError(null);
+      }
+      await fetchGames();
+    } catch (error) {
+      console.error("Error refreshing PSN games:", error);
+      setError("An error occurred while refreshing PSN games");
+    } finally {
+      setUpdatingPlatforms((prev) => ({ ...prev, psn: false }));
+    }
+  };
 
-    const refreshRetroAchievements = async () => {
-        try {
-            setUpdatingPlatforms(prev => ({ ...prev, retroachievements: true }));
-            await api.request(`${beBaseUrl}/retroachievements/fetch-recently-played-games/`);
-            await fetchGames();
-            setError(null);
-        } catch (error) {
-            console.error("Error refreshing RetroAchievements games:", error);
-            setError("An error occurred while refreshing RetroAchievements games");
-        } finally {
-            setUpdatingPlatforms(prev => ({ ...prev, retroachievements: false }));
-        }
-    };
+  const refreshXbox = async () => {
+    try {
+      setUpdatingPlatforms((prev) => ({ ...prev, xbox: true }));
+      await api.request(`${beBaseUrl}/xbox/get-game-list/`);
+      await fetchGames();
+      setError(null);
+    } catch (error) {
+      console.error("Error refreshing Xbox games:", error);
+      setError("An error occurred while refreshing Xbox games");
+    } finally {
+      setUpdatingPlatforms((prev) => ({ ...prev, xbox: false }));
+    }
+  };
 
-    const checkApiKeys = async () => {
-        try {
-            const response = await api.request<string[]>(`${beBaseUrl}/users/api-keys/services/`);
-            const services = response || [];
-            setConfiguredServices(services);
+  const refreshRetroAchievements = async () => {
+    try {
+      setUpdatingPlatforms((prev) => ({ ...prev, retroachievements: true }));
+      await api.request(
+        `${beBaseUrl}/retroachievements/fetch-recently-played-games/`,
+      );
+      await fetchGames();
+      setError(null);
+    } catch (error) {
+      console.error("Error refreshing RetroAchievements games:", error);
+      setError("An error occurred while refreshing RetroAchievements games");
+    } finally {
+      setUpdatingPlatforms((prev) => ({ ...prev, retroachievements: false }));
+    }
+  };
 
-            const requiredServices = ['steam', 'xbox', 'psn', 'retroachievements'];
-            const missing = requiredServices.filter(service => !services.includes(service));
-            setMissingServices(missing);
+  const checkApiKeys = async () => {
+    try {
+      const response = await api.request<string[]>(
+        `${beBaseUrl}/users/api-keys/services/`,
+      );
+      const services = response || [];
+      setConfiguredServices(services);
 
-            if (missing.length > 0) {
-                console.warn(`Missing API keys for: ${missing.join(', ')}`);
-            }
-        } catch (error) {
-            console.error('Error checking API keys:', error);
-        }
-    };
+      const requiredServices = ["steam", "xbox", "psn", "retroachievements"];
+      const missing = requiredServices.filter(
+        (service) => !services.includes(service),
+      );
+      setMissingServices(missing);
 
-    // Function to get platform of a game based on stored mapping
-    const getGamePlatform = (game: GameData): string => {
-        const gameId = String(game.appid);
+      if (missing.length > 0) {
+        console.warn(`Missing API keys for: ${missing.join(", ")}`);
+      }
+    } catch (error) {
+      console.error("Error checking API keys:", error);
+    }
+  };
 
-        if (platformGameIds.steam.has(gameId)) return 'steam';
-        if (platformGameIds.psn.has(gameId)) return 'psn';
-        if (platformGameIds.xbox.has(gameId)) return 'xbox';
-        if (platformGameIds.retroachievements.has(gameId)) return 'retroachievements';
+  // Function to get platform of a game based on stored mapping
+  const getGamePlatform = (game: GameData): string => {
+    const gameId = String(game.appid);
 
-        return 'steam'; // fallback
-    };
+    if (platformGameIds.steam.has(gameId)) return "steam";
+    if (platformGameIds.psn.has(gameId)) return "psn";
+    if (platformGameIds.xbox.has(gameId)) return "xbox";
+    if (platformGameIds.retroachievements.has(gameId))
+      return "retroachievements";
 
-    useEffect(() => {
-        fetchGames();
-        checkApiKeys();
-    }, []);
+    return "steam"; // fallback
+  };
 
-    return {
-        latestPlayedGames,
-        mostPlayed,
-        mostAchieved,
-        loading,
-        error,
-        clearError: () => setError(null),
-        refreshGames,
-        refreshSteam,
-        refreshPSN,
-        refreshXbox,
-        refreshRetroAchievements,
-        missingServices,
-        configuredServices,
-        updatingPlatforms,
-        getGamePlatform,
-    };
-}; 
+  useEffect(() => {
+    fetchGames();
+    checkApiKeys();
+  }, []);
+
+  // Canonical cross-platform model
+  const consolidatedGames = useMemo(
+    () => consolidateRawGames(latestPlayedGames),
+    [latestPlayedGames],
+  );
+
+  const crossPlatformGames = useMemo(
+    () => getCrossPlatformGames(consolidatedGames),
+    [consolidatedGames],
+  );
+
+  // Canonical model built from the complete library (no last_played filter)
+  // — this is what the All Games archive renders (audit #1, #3).
+  const completeConsolidatedGames = useMemo(
+    () => consolidateRawGames(allGamesList),
+    [allGamesList],
+  );
+
+  return {
+    latestPlayedGames,
+    mostPlayed,
+    mostAchieved,
+    loading,
+    error,
+    clearError: () => setError(null),
+    refreshGames,
+    refreshSteam,
+    refreshPSN,
+    refreshXbox,
+    refreshRetroAchievements,
+    missingServices,
+    configuredServices,
+    updatingPlatforms,
+    getGamePlatform,
+    // Canonical cross-platform model
+    consolidatedGames,
+    crossPlatformGames,
+    completeGames: allGamesList,
+    completeConsolidatedGames,
+  };
+};

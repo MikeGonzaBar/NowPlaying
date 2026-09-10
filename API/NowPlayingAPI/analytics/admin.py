@@ -4,6 +4,8 @@ from .models import UserStatistics, GamingStreak
 
 @admin.register(UserStatistics)
 class UserStatisticsAdmin(admin.ModelAdmin):
+    """Admin view for daily aggregate user statistics."""
+
     list_display = [
         'user', 'date', 'games_played', 'achievements_earned',
         'songs_listened', 'movies_watched', 'episodes_watched',
@@ -13,13 +15,13 @@ class UserStatisticsAdmin(admin.ModelAdmin):
     search_fields = ['user__username']
     date_hierarchy = 'date'
     ordering = ['-date', 'user__username']
-    
+
     fieldsets = (
         ('User & Date', {
             'fields': ('user', 'date')
         }),
         ('Gaming Statistics', {
-            'fields': ('games_played', 'games_completed', 'total_gaming_time', 
+            'fields': ('games_played', 'games_completed', 'total_gaming_time',
                       'achievements_earned', 'gaming_streak_days')
         }),
         ('Music Statistics', {
@@ -33,12 +35,14 @@ class UserStatisticsAdmin(admin.ModelAdmin):
             'fields': ('total_engagement_time', 'active_platforms')
         }),
     )
-    
+
     readonly_fields = ('total_engagement_time',)
 
 
 @admin.register(GamingStreak)
 class GamingStreakAdmin(admin.ModelAdmin):
+    """Admin view for detected gaming streaks."""
+
     list_display = [
         'user', 'start_date', 'end_date', 'streak_length',
         'total_gaming_time', 'games_played', 'achievements_earned'
@@ -47,7 +51,7 @@ class GamingStreakAdmin(admin.ModelAdmin):
     search_fields = ['user__username']
     date_hierarchy = 'start_date'
     ordering = ['-streak_length', 'user__username']
-    
+
     fieldsets = (
         ('User & Dates', {
             'fields': ('user', 'start_date', 'end_date', 'streak_length')
@@ -55,4 +59,4 @@ class GamingStreakAdmin(admin.ModelAdmin):
         ('Streak Statistics', {
             'fields': ('total_gaming_time', 'games_played', 'achievements_earned')
         }),
-    ) 
+    )

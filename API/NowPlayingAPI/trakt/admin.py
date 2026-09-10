@@ -6,27 +6,34 @@ from .models import TraktToken, Movie, MovieWatch, Show, Season, Episode, Episod
 # Register your models here.
 @admin.register(TraktToken)
 class TraktTokenAdmin(admin.ModelAdmin):
+    """Admin view for stored Trakt OAuth tokens."""
+
     list_display = ("id", "user_username", "token_preview", "expires_at", "updated_at", "is_expired_display")
     list_filter = ("user", "expires_at", "updated_at")
     search_fields = ("user__username",)
     readonly_fields = ("user", "access_token", "refresh_token", "expires_at", "updated_at")
     fields = ("user", "access_token", "refresh_token", "expires_at", "updated_at")
     
-    def user_username(self, obj):
+    def user_username(self, obj: TraktToken) -> str:
+        """Return the owning username for list display."""
         return obj.user.username if obj.user else "No User"
     user_username.short_description = "User"
     user_username.admin_order_field = 'user__username'
     
-    def token_preview(self, obj):
+    def token_preview(self, obj: TraktToken) -> str:
+        """Return a safe preview of the access token."""
         return f"{obj.access_token[:10]}..." if obj.access_token else ""
     token_preview.short_description = "Access Token"
     
-    def is_expired_display(self, obj):
+    def is_expired_display(self, obj: TraktToken) -> bool:
+        """Return whether the stored token is expired."""
         return obj.is_expired()
     is_expired_display.boolean = True
     is_expired_display.short_description = "Expired"
 
 class MovieWatchInline(admin.TabularInline):
+    """Inline read-only watch events for a movie."""
+
     model = MovieWatch
     extra = 0
     readonly_fields = ('movie', 'watched_at', 'progress')
@@ -34,11 +41,14 @@ class MovieWatchInline(admin.TabularInline):
     can_delete = False
     max_num = 0
     
-    def has_add_permission(self, request, obj=None):
+    def has_add_permission(self, request: object, obj: object | None = None) -> bool:
+        """Prevent manual movie-watch creation in admin."""
         return False
 
 @admin.register(Movie)
 class MovieAdmin(admin.ModelAdmin):
+    """Admin view for stored Trakt movies."""
+
     list_display = ('title', 'user_username', 'year', 'plays', 'last_watched_at', 'last_updated_at')
     list_filter = ('user', 'year', 'last_watched_at')
     search_fields = ('title', 'trakt_id', 'imdb_id', 'tmdb_id', 'user__username')
@@ -48,12 +58,14 @@ class MovieAdmin(admin.ModelAdmin):
              'trakt_id', 'imdb_id', 'tmdb_id', 'slug')
     inlines = [MovieWatchInline]
     
-    def user_username(self, obj):
+    def user_username(self, obj: Movie) -> str:
+        """Return the owning username for list display."""
         return obj.user.username if obj.user else "No User"
     user_username.short_description = "User"
     user_username.admin_order_field = 'user__username'
     
-    def poster_display(self, obj):
+    def poster_display(self, obj: Movie) -> object:
+        """Render the movie poster in admin."""
         if obj.image_url:
             return mark_safe(f'<img src="{obj.image_url}" width="200" />')
         return ""
@@ -61,23 +73,29 @@ class MovieAdmin(admin.ModelAdmin):
 
 @admin.register(MovieWatch)
 class MovieWatchAdmin(admin.ModelAdmin):
+    """Admin view for Trakt movie watch events."""
+
     list_display = ('movie_title', 'movie_user', 'watched_at', 'progress')
     list_filter = ('watched_at', 'movie__user')
     search_fields = ('movie__title', 'movie__user__username')
     readonly_fields = ('movie', 'watched_at', 'progress')
     fields = ('movie', 'watched_at', 'progress')
     
-    def movie_title(self, obj):
+    def movie_title(self, obj: MovieWatch) -> str:
+        """Return the watched movie title."""
         return obj.movie.title
     movie_title.short_description = "Movie"
     movie_title.admin_order_field = 'movie__title'
     
-    def movie_user(self, obj):
+    def movie_user(self, obj: MovieWatch) -> str:
+        """Return the watched movie owner."""
         return obj.movie.user.username if obj.movie and obj.movie.user else "No User"
     movie_user.short_description = "User"
     movie_user.admin_order_field = 'movie__user__username'
 
 class EpisodeInline(admin.TabularInline):
+    """Inline read-only episodes for a show or season."""
+
     model = Episode
     extra = 0
     readonly_fields = ('episode_number', 'title', 'watched_at', 'plays')
@@ -85,10 +103,13 @@ class EpisodeInline(admin.TabularInline):
     can_delete = False
     max_num = 0
     
-    def has_add_permission(self, request, obj=None):
+    def has_add_permission(self, request: object, obj: object | None = None) -> bool:
+        """Prevent manual episode creation in admin."""
         return False
 
 class SeasonInline(admin.TabularInline):
+    """Inline read-only seasons for a show."""
+
     model = Season
     extra = 0
     readonly_fields = ('season_number', 'title', 'air_date')
@@ -96,11 +117,14 @@ class SeasonInline(admin.TabularInline):
     can_delete = False
     max_num = 0
     
-    def has_add_permission(self, request, obj=None):
+    def has_add_permission(self, request: object, obj: object | None = None) -> bool:
+        """Prevent manual season creation in admin."""
         return False
 
 @admin.register(Show)
 class ShowAdmin(admin.ModelAdmin):
+    """Admin view for stored Trakt shows."""
+
     list_display = ('title', 'user_username', 'year', 'last_watched_at', 'seasons_count', 'episodes_count')
     list_filter = ('user', 'year', 'last_watched_at')
     search_fields = ('title', 'trakt_id', 'tmdb_id', 'user__username')
@@ -109,27 +133,33 @@ class ShowAdmin(admin.ModelAdmin):
     fields = ('user', 'title', 'year', 'poster_display', 'last_watched_at', 'trakt_id', 'tmdb_id', 'slug')
     inlines = [SeasonInline]
     
-    def user_username(self, obj):
+    def user_username(self, obj: Show) -> str:
+        """Return the owning username for list display."""
         return obj.user.username if obj.user else "No User"
     user_username.short_description = "User"
     user_username.admin_order_field = 'user__username'
     
-    def poster_display(self, obj):
+    def poster_display(self, obj: Show) -> object:
+        """Render the show poster in admin."""
         if obj.image_url:
             return mark_safe(f'<img src="{obj.image_url}" width="200" />')
         return ""
     poster_display.short_description = "Poster"
     
-    def seasons_count(self, obj):
+    def seasons_count(self, obj: Show) -> int:
+        """Return the stored season count."""
         return obj.seasons.count()
     seasons_count.short_description = "Seasons"
     
-    def episodes_count(self, obj):
+    def episodes_count(self, obj: Show) -> int:
+        """Return the stored episode count."""
         return obj.episodes.count()
     episodes_count.short_description = "Episodes"
 
 @admin.register(Season)
 class SeasonAdmin(admin.ModelAdmin):
+    """Admin view for stored Trakt seasons."""
+
     list_display = ('show_title', 'show_user', 'season_number', 'title', 'air_date', 'episodes_count')
     list_filter = ('show', 'show__user', 'air_date')
     search_fields = ('show__title', 'title', 'show__user__username')
@@ -137,21 +167,26 @@ class SeasonAdmin(admin.ModelAdmin):
     fields = ('show', 'season_number', 'title', 'air_date')
     inlines = [EpisodeInline]
     
-    def show_title(self, obj):
+    def show_title(self, obj: Season) -> str:
+        """Return the parent show title."""
         return obj.show.title
     show_title.short_description = "Show"
     show_title.admin_order_field = 'show__title'
     
-    def show_user(self, obj):
+    def show_user(self, obj: Season) -> str:
+        """Return the parent show owner."""
         return obj.show.user.username if obj.show and obj.show.user else "No User"
     show_user.short_description = "User"
     show_user.admin_order_field = 'show__user__username'
     
-    def episodes_count(self, obj):
+    def episodes_count(self, obj: Season) -> int:
+        """Return the stored episode count for the season."""
         return obj.episodes.count()
     episodes_count.short_description = "Episodes"
 
 class EpisodeWatchInline(admin.TabularInline):
+    """Inline read-only watch events for an episode."""
+
     model = EpisodeWatch
     extra = 0
     readonly_fields = ('watched_at', 'progress')
@@ -159,11 +194,14 @@ class EpisodeWatchInline(admin.TabularInline):
     can_delete = False
     max_num = 0
     
-    def has_add_permission(self, request, obj=None):
+    def has_add_permission(self, request: object, obj: object | None = None) -> bool:
+        """Prevent manual episode-watch creation in admin."""
         return False
 
 @admin.register(Episode)
 class EpisodeAdmin(admin.ModelAdmin):
+    """Admin view for stored Trakt episodes."""
+
     list_display = ('__str__', 'show_user', 'title', 'air_date', 'plays', 'watched_at')
     list_filter = ('show', 'show__user', 'season', 'watched_at', 'air_date')
     search_fields = ('title', 'show__title', 'show__user__username')
@@ -174,12 +212,14 @@ class EpisodeAdmin(admin.ModelAdmin):
              'plays', 'watched_at', 'overview', 'rating', 'runtime')
     inlines = [EpisodeWatchInline]
     
-    def show_user(self, obj):
+    def show_user(self, obj: Episode) -> str:
+        """Return the parent show owner."""
         return obj.show.user.username if obj.show and obj.show.user else "No User"
     show_user.short_description = "User"
     show_user.admin_order_field = 'show__user__username'
     
-    def image_display(self, obj):
+    def image_display(self, obj: Episode) -> object:
+        """Render the episode image in admin."""
         if obj.image_url:
             return mark_safe(f'<img src="{obj.image_url}" width="300" />')
         return ""
@@ -187,17 +227,21 @@ class EpisodeAdmin(admin.ModelAdmin):
 
 @admin.register(EpisodeWatch)
 class EpisodeWatchAdmin(admin.ModelAdmin):
+    """Admin view for Trakt episode watch events."""
+
     list_display = ('episode_display', 'episode_user', 'watched_at', 'progress')
     list_filter = ('watched_at', 'episode__show__user')
     search_fields = ('episode__title', 'episode__show__title', 'episode__show__user__username')
     readonly_fields = ('episode', 'watched_at', 'progress')
     fields = ('episode', 'watched_at', 'progress')
     
-    def episode_display(self, obj):
+    def episode_display(self, obj: EpisodeWatch) -> str:
+        """Return the watched episode label."""
         return str(obj.episode)
     episode_display.short_description = "Episode"
     
-    def episode_user(self, obj):
+    def episode_user(self, obj: EpisodeWatch) -> str:
+        """Return the watched episode owner."""
         return obj.episode.show.user.username if obj.episode and obj.episode.show and obj.episode.show.user else "No User"
     episode_user.short_description = "User"
     episode_user.admin_order_field = 'episode__show__user__username'

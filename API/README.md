@@ -253,6 +253,10 @@ API_KEY_ENCRYPTION_KEY=<your_fernet_key>
 ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:3200
 CORS_ALLOW_ALL_ORIGINS=false
+ENABLE_ADMIN_SITE=true
+ENABLE_API_DOCS=true
+RUN_MIGRATIONS=true
+STATIC_ROOT=
 
 # Database Configuration (Optional - PostgreSQL)
 POSTGRES_DB=<your_psql_db>
@@ -281,7 +285,7 @@ TRAKT_REDIRECT_URI=
 | **Last.fm** | API Key + Username | [Last.fm API](https://www.last.fm/api) |
 | **Trakt** | Client ID + Client Secret | [Trakt API Applications](https://trakt.tv/oauth/applications) |
 | **Steam** | API Key + Steam ID | [Steam API Key](https://steamcommunity.com/dev/apikey) |
-| **PlayStation** | NPSSO Token | Browser cookies (see PlayStation docs) |
+| **PlayStation** | NPSSO Token | Sony `ssocookie` JSON after signing in (see PlayStation docs) |
 | **Xbox** | OpenXBL API Key + XUID | [OpenXBL.com](https://xbl.io) |
 | **RetroAchievements** | API Key + Username | [RetroAchievements](https://retroachievements.org) |
 
@@ -300,22 +304,35 @@ The API can be deployed using Docker:
    Default Compose ports:
 
    - API: <http://localhost:8001>
+   - Admin/API docs service: `127.0.0.1:8011` by default, configurable with `ADMIN_API_PORT`
    - UI: <http://localhost:3200>
    - UI API proxy: `/api` on the UI host, for example <http://localhost:3200/api>
    - PostgreSQL: `localhost:5433`
    - Redis: `localhost:6380`
 
    The production UI defaults to `VITE_API_BASE_URL=/api`, and Nginx proxies
-   those requests to the API container. For a LAN/VM deployment, open the UI at
-   `http://<vm-ip>:3200` and use this Trakt application redirect URI:
+   those requests to the public API container. The public API disables Django
+   admin and API docs; use an SSH tunnel to the local-only admin service when
+   you need `/admin/`, `/docs/`, `/redoc/`, or `/schema/`:
+
+   ```bash
+   ssh -L 8011:127.0.0.1:8011 <user>@<vm-host>
+   ```
+
+   Then open <http://127.0.0.1:8011/admin/> or
+   <http://127.0.0.1:8011/docs/> locally.
+
+   For a LAN/VM deployment, open the UI at `http://<vm-ip>:3200` and use this
+   Trakt application redirect URI:
 
    ```text
    http://<vm-ip>:3200/api/trakt/oauth-callback/
    ```
 
-   The API container runs database migrations before starting Gunicorn after
-   PostgreSQL and Redis are healthy. If you need to apply migrations to an
-   already-running deployment, run:
+   The public API container runs database migrations before starting Gunicorn
+   after PostgreSQL and Redis are healthy. The local-only admin service does not
+   run migrations. If you need to apply migrations to an already-running
+   deployment, run:
 
    ```bash
    docker compose exec api sh -lc "cd /app/NowPlayingAPI && python manage.py migrate"

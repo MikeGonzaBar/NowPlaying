@@ -2,6 +2,8 @@ from rest_framework import serializers
 from .models import PSNGame, PSNAchievement
 
 class PSNAchievementSerializer(serializers.ModelSerializer):
+    """Serialize stored PlayStation trophies."""
+
     class Meta:
         model = PSNAchievement
         fields = [
@@ -14,6 +16,8 @@ class PSNAchievementSerializer(serializers.ModelSerializer):
         ]
 
 class PSNGameSerializer(serializers.ModelSerializer):
+    """Serialize stored PlayStation games with trophy summaries."""
+
     achievements = PSNAchievementSerializer(many=True, read_only=True)
     # Computed fields that will return dictionaries
     total_achievements = serializers.SerializerMethodField()
@@ -35,7 +39,8 @@ class PSNGameSerializer(serializers.ModelSerializer):
             'achievements'
         ]
 
-    def get_total_achievements(self, obj):
+    def get_total_achievements(self, obj: PSNGame) -> dict[str, int]:
+        """Return total trophies grouped by trophy type."""
         # Initialize counters for each trophy type
         counts = {"platinum": 0, "gold": 0, "silver": 0, "bronze": 0}
         # Iterate over all related achievements to count each type.
@@ -45,7 +50,8 @@ class PSNGameSerializer(serializers.ModelSerializer):
                 counts[trophy_type] += 1
         return counts
 
-    def get_unlocked_achievements(self, obj):
+    def get_unlocked_achievements(self, obj: PSNGame) -> dict[str, int]:
+        """Return unlocked trophies grouped by trophy type."""
         counts = {"platinum": 0, "gold": 0, "silver": 0, "bronze": 0}
         # Iterate over unlocked achievements only.
         for achievement in obj.achievements.filter(unlocked=True):

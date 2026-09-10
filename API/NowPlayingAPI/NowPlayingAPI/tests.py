@@ -71,6 +71,41 @@ class DetailEndpointTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_games_detail_by_id_psn_id_does_not_500(self):
+        """/game/PPSA01649_00 must resolve to 404, not crash the ORM with an
+        integer-backed Steam appid (audit finding #4)."""
+        response = self.client.get("/games/detail-by-id/?appid=PPSA01649_00")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_games_detail_by_id_unknown_numeric_id_returns_404(self):
+        response = self.client.get("/games/detail-by-id/?appid=1145360")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_games_detail_by_id_rejects_object_platform_param(self):
+        """A serialized '[object Object]' platform leaks from the old router
+        and must be rejected as a typed 400 before any request runs."""
+        response = self.client.get(
+            "/games/detail-by-id/?appid=1145360&platform=%5Bobject%20Object%5D"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_games_detail_by_id_resolves_owned_steam_id(self):
+        Game.objects.create(user=self.user, appid=1145360, name="Owned Legacy Game")
+
+        response = self.client.get("/games/detail-by-id/?appid=1145360")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["platforms"][0]["platform"], "steam")
+        self.assertEqual(response.data["title"], "Owned Legacy Game")
+
+    def test_games_detail_steam_non_numeric_appid_returns_404(self):
+        response = self.client.get("/games/detail/?platform=steam&appid=abc-123")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_trakt_detail_returns_authorized_movie(self):
         Movie.objects.create(
             user=self.user,

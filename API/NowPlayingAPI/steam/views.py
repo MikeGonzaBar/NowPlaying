@@ -1,22 +1,37 @@
 from django.conf import settings
 from django.core.cache import cache
+from django.db.models import QuerySet
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.request import Request
 from rest_framework.response import Response
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from .models import Game, SteamAPI  # Using the new Game model instead of a JSON-field-based model.
 from .serializers import SteamSerializer
 from users.credentials import get_service_credentials
 # This is our helper that wraps fetching/updating logic.
 
+
+@extend_schema_view(
+    getGameList=extend_schema(summary="Fetch and sync the authenticated user's Steam library", responses={200: OpenApiTypes.OBJECT}),
+    getGameListStored=extend_schema(summary="List stored Steam games", responses={200: SteamSerializer(many=True)}),
+    getGameListPlaytimeForever=extend_schema(summary="List stored Steam games sorted by total playtime", responses={200: SteamSerializer(many=True)}),
+    getGameListMostAchieved=extend_schema(summary="List stored Steam games sorted by achievement completion", responses={200: SteamSerializer(many=True)}),
+)
 class SteamViewSet(viewsets.ModelViewSet):
+    """Expose Steam library sync and stored game views for the current user."""
+
     queryset = Game.objects.all()
     serializer_class = SteamSerializer
 
-    def get_queryset(self):
+    def get_queryset(self) -> QuerySet[Game]:
+        """Return only Steam games owned by the authenticated user."""
         return Game.objects.filter(user=self.request.user).order_by("id")
 
     @action(detail=False, methods=["get"], url_path="get-game-list")
-    def getGameList(self, request):
+    def getGameList(self, request: Request) -> Response:
+        """Fetch Steam games from the external API and update stored records."""
         api_key = get_service_credentials(request.user, "steam", require_user_id=True)
         steam_id = api_key.service_user_id
         steam_api_key = api_key.api_key
@@ -46,7 +61,8 @@ class SteamViewSet(viewsets.ModelViewSet):
         return Response({"result": result})
             
     @action(detail=False, methods=["get"], url_path="get-game-list-stored")
-    def getGameListStored(self, request):
+    def getGameListStored(self, request: Request) -> Response:
+        """Return stored Steam games ordered by most recent play."""
         # Check cache first - SAFE OPTIMIZATION
         cache_key = f"steam_stored_{request.user.id}"
         cached_result = cache.get(cache_key)
@@ -63,7 +79,8 @@ class SteamViewSet(viewsets.ModelViewSet):
         return Response({"result": serializer.data})
 
     @action(detail=False, methods=["get"], url_path="get-game-list-total-playtime")
-    def getGameListPlaytimeForever(self, request):
+    def getGameListPlaytimeForever(self, request: Request) -> Response:
+        """Return stored Steam games ordered by total playtime."""
         # Check cache first - SAFE OPTIMIZATION
         cache_key = f"steam_playtime_{request.user.id}"
         cached_result = cache.get(cache_key)
@@ -80,7 +97,8 @@ class SteamViewSet(viewsets.ModelViewSet):
         return Response({"result": serializer.data})
 
     @action(detail=False, methods=["get"], url_path="get-game-list-most-achieved")
-    def getGameListMostAchieved(self, request):
+    def getGameListMostAchieved(self, request: Request) -> Response:
+        """Return stored Steam games ordered by achievement completion."""
         # Check cache first - SAFE OPTIMIZATION
         cache_key = f"steam_achievements_{request.user.id}"
         cached_result = cache.get(cache_key)
@@ -91,7 +109,8 @@ class SteamViewSet(viewsets.ModelViewSet):
         games = list(self.get_queryset().prefetch_related("achievements").select_related('user'))
 
         # Helper function: Calculate unlocked achievement percentage.
-        def achievement_percentage(game):
+        def achievement_percentage(game: Game) -> float:
+            """Return the unlocked-achievement percentage for sorting."""
             total = game.achievements.count()
             if total == 0:
                 return 0

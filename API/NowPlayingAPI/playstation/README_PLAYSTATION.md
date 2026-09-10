@@ -15,29 +15,28 @@ The PlayStation service allows you to:
 
 ## Setup & Authentication
 
-### 1. Get PlayStation API Credentials
+### 1. Connect PlayStation
 
 1. **Obtain NPSSO Token**:
    - Visit [PlayStation.com](https://www.playstation.com) and log in
-   - Use browser developer tools to find NPSSO cookie
-   - Follow [PSNAWP library guide](https://github.com/isFakeAccount/psnawp) for detailed instructions
+   - In the same browser, open <https://ca.account.sony.com/api/v1/ssocookie>
+   - Copy the `npsso` value from the JSON response
 
-2. **Find Your PSN User ID** (Optional):
-   - Your PSN username or User ID
-   - Can be left blank to use default account
-
-3. **Store PlayStation Credentials**:
+2. **Store PlayStation Credentials**:
+   - Paste the NPSSO value in the profile PlayStation card
+   - The API validates it, detects your PSN Online ID, exchanges it for PlayStation access/refresh tokens, and stores only the encrypted token payload
 
    ```bash
-   curl -X POST "http://localhost:8000/users/api-keys/" \
+   curl -X POST "http://localhost:8000/psn/exchange-npsso/" \
         -H "Authorization: Bearer YOUR_JWT_TOKEN" \
         -H "Content-Type: application/json" \
         -d '{
-          "service_name": "psn",
-          "api_key": "YOUR_NPSSO_TOKEN",
-          "service_user_id": "your_psn_user_id"
+          "npsso": "YOUR_NPSSO_TOKEN"
         }'
    ```
+
+3. **Legacy Records**:
+   Older raw-NPSSO records can still be read for backward compatibility, but new PlayStation writes through `/users/api-keys/` are rejected. Use `/psn/exchange-npsso/`.
 
 ---
 
@@ -49,7 +48,7 @@ The PlayStation service allows you to:
 
 **Description**: Fetches your complete PlayStation game library with trophies from PSN and stores it in the database.
 
-**Authentication**: Required (JWT Token + PlayStation NPSSO)
+**Authentication**: Required (JWT Token + stored PlayStation token payload)
 
 **Example Request**:
 
@@ -209,15 +208,16 @@ platinum_count = user_games.filter(
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `No PlayStation NPSSO found` | Missing PSN credentials | Add NPSSO token in profile settings |
-| `Invalid NPSSO token` | Expired/invalid token | Refresh NPSSO token from browser |
+| `No PlayStation connection found` | Missing PSN credentials | Connect PlayStation in profile settings |
+| `Your npsso code has expired or is incorrect` | Expired/invalid NPSSO during setup | Refresh NPSSO from Sony's `ssocookie` JSON |
 | `Private profile` | PSN profile is private | Set PSN profile to public |
 | `PSN API unavailable` | PlayStation Network down | Retry later, check PSN status |
 
-### NPSSO Token Notes
+### NPSSO and Token Notes
 
-- **Expiration**: NPSSO tokens expire periodically
-- **Refresh Required**: Must manually refresh from browser
+- **Expiration**: NPSSO tokens and PlayStation refresh tokens expire periodically
+- **Refresh Required**: NPSSO is only needed for the initial exchange or when the stored refresh token can no longer be refreshed
+- **Storage**: The app stores an encrypted access/refresh token payload, not the raw NPSSO, after `/psn/exchange-npsso/` succeeds
 - **Privacy**: Respects PlayStation Network privacy settings
 - **Rate Limits**: Built-in delays to respect PSN API limits
 

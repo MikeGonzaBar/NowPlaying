@@ -3,6 +3,8 @@ from django.utils.safestring import mark_safe
 from .models import XboxGame, XboxAchievement
 
 class XboxAchievementInline(admin.TabularInline):
+    """Inline read-only Xbox achievements for a game."""
+
     model = XboxAchievement
     extra = 0
     readonly_fields = ['name', 'description', 'image', 'unlocked', 'unlock_time', 'achievement_value', 'image_display']
@@ -10,10 +12,12 @@ class XboxAchievementInline(admin.TabularInline):
     can_delete = False
     max_num = 0
     
-    def has_add_permission(self, request, obj=None):
+    def has_add_permission(self, request: object, obj: object | None = None) -> bool:
+        """Prevent manual achievement creation in admin."""
         return False
     
-    def image_display(self, obj):
+    def image_display(self, obj: XboxAchievement) -> object:
+        """Render the achievement image in the admin table."""
         if obj.image:
             return mark_safe(f'<img src="{obj.image}" width="64" height="64" />')
         return ""
@@ -21,6 +25,8 @@ class XboxAchievementInline(admin.TabularInline):
 
 @admin.register(XboxGame)
 class XboxGameAdmin(admin.ModelAdmin):
+    """Admin view for stored Xbox games."""
+
     list_display = ["name", "user_username", "platform", "total_playtime", "last_played", "achievement_progress"]
     list_filter = ["user", "platform", "last_played"]
     search_fields = ["name", "appid", "user__username"]
@@ -30,12 +36,14 @@ class XboxGameAdmin(admin.ModelAdmin):
              'first_played', 'last_played', 'achievement_progress']
     inlines = [XboxAchievementInline]
     
-    def user_username(self, obj):
+    def user_username(self, obj: XboxGame) -> str:
+        """Return the owning username for list display."""
         return obj.user.username if obj.user else "No User"
     user_username.short_description = "User"
     user_username.admin_order_field = 'user__username'
     
-    def achievement_progress(self, obj):
+    def achievement_progress(self, obj: XboxGame) -> str:
+        """Return unlocked and total achievement progress."""
         total = obj.achievements.count()
         unlocked = obj.achievements.filter(unlocked=True).count()
         if total:
@@ -44,7 +52,8 @@ class XboxGameAdmin(admin.ModelAdmin):
         return "0/0 (0%)"
     achievement_progress.short_description = "Achievement Progress"
     
-    def game_image_display(self, obj):
+    def game_image_display(self, obj: XboxGame) -> object:
+        """Render the game image in admin."""
         if obj.img_icon_url:
             return mark_safe(f'<img src="{obj.img_icon_url}" width="200" />')
         return ""
@@ -52,6 +61,8 @@ class XboxGameAdmin(admin.ModelAdmin):
 
 @admin.register(XboxAchievement)
 class XboxAchievementAdmin(admin.ModelAdmin):
+    """Admin view for stored Xbox achievements."""
+
     list_display = ['name', 'game_name', 'game_user', 'unlocked', 'unlock_time', 'achievement_value']
     list_filter = ['unlocked', 'game', 'game__user']
     search_fields = ['name', 'description', 'game__name', 'game__user__username']
@@ -59,17 +70,20 @@ class XboxAchievementAdmin(admin.ModelAdmin):
                       'achievement_value', 'image_display']
     fields = ['game', 'game_user', 'name', 'description', 'image_display', 'unlocked', 'unlock_time', 'achievement_value']
     
-    def game_name(self, obj):
+    def game_name(self, obj: XboxAchievement) -> str:
+        """Return the parent game name."""
         return obj.game.name
     game_name.short_description = "Game"
     game_name.admin_order_field = 'game__name'
     
-    def game_user(self, obj):
+    def game_user(self, obj: XboxAchievement) -> str:
+        """Return the parent game owner."""
         return obj.game.user.username if obj.game and obj.game.user else "No User"
     game_user.short_description = "User"
     game_user.admin_order_field = 'game__user__username'
     
-    def image_display(self, obj):
+    def image_display(self, obj: XboxAchievement) -> object:
+        """Render the achievement image in admin."""
         if obj.image:
             return mark_safe(f'<img src="{obj.image}" width="64" height="64" />')
         return ""

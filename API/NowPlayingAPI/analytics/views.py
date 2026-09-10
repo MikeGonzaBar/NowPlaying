@@ -1,24 +1,65 @@
-from rest_framework import viewsets, status
+from rest_framework import serializers, viewsets, status
 from rest_framework.decorators import action
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from django.utils import timezone
 from django.core.cache import cache
 from django.conf import settings
 from .services import AnalyticsService
 from query_params import bounded_int
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 
 
+class AnalyticsSchemaSerializer(serializers.Serializer):
+    """Placeholder serializer for schema generation on computed analytics views."""
+
+
+@extend_schema_view(
+    list=extend_schema(
+        summary="Get comprehensive analytics dashboard data",
+        parameters=[
+            OpenApiParameter("days", OpenApiTypes.INT, OpenApiParameter.QUERY, description="Lookback window from 1 to 365 days."),
+            OpenApiParameter("nocache", OpenApiTypes.STR, OpenApiParameter.QUERY, description="Set to 1 to bypass the cached analytics payload."),
+        ],
+        responses={200: OpenApiTypes.OBJECT},
+    ),
+    calculate_today_stats=extend_schema(summary="Calculate today's analytics snapshot", responses={200: OpenApiTypes.OBJECT}),
+)
 class AnalyticsViewSet(viewsets.ViewSet):
     """Optimized ViewSet for comprehensive analytics and statistics"""
+
+    serializer_class = AnalyticsSchemaSerializer
     permission_classes = [IsAuthenticated]
     
-    def list(self, request):
-        """Get comprehensive analytics data - main endpoint used by UI"""
+    def list(self, request: Request) -> Response:
+        """Get comprehensive analytics data - main endpoint used by UI.
+
+        Each dashboard section is computed independently: a failure in one
+        provider/section degrades to a safe fallback (reported in
+        ``partial_failures``) instead of failing the entire dashboard.
+        """
         days = bounded_int(request.query_params, 'days', default=30, minimum=1, maximum=365)
+        request_id = uuid.uuid4().hex[:12]
+        partial_failures = {}
+
+        def load_section(section, loader, fallback):
+            """Run one analytics section; never let it fail the dashboard."""
+            try:
+                return loader()
+            except Exception as exc:
+                partial_failures[section] = str(exc)
+                logger.error(
+                    "analytics_section_failed request_id=%s section=%s user=%s days=%s error=%s",
+                    request_id, section, getattr(request.user, "id", None), days, exc,
+                    exc_info=True,
+                )
+                return fallback
 
         try:
             # Check cache first - SAFE OPTIMIZATION
@@ -44,22 +85,32 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 return Response(cached_result)
             
             # Get comprehensive statistics with caching
-            comprehensive_stats = AnalyticsService.get_comprehensive_statistics(
-                request.user, days=days
+            comprehensive_stats = load_section(
+                "comprehensive_stats",
+                lambda: AnalyticsService.get_comprehensive_statistics(request.user, days=days),
+                {},
             )
             
             # Get platform distribution with caching
-            platform_distribution = AnalyticsService.get_platform_distribution(
-                request.user, days=days
+            platform_distribution = load_section(
+                "platform_distribution",
+                lambda: AnalyticsService.get_platform_distribution(request.user, days=days),
+                {},
             )
             
             # Get achievement efficiency
-            achievement_efficiency = AnalyticsService.get_achievement_efficiency(
-                request.user, days=days
+            achievement_efficiency = load_section(
+                "achievement_efficiency",
+                lambda: AnalyticsService.get_achievement_efficiency(request.user, days=days),
+                {},
             )
             
             # Get gaming streaks
-            gaming_streaks = AnalyticsService.get_gaming_streaks(request.user)
+            gaming_streaks = load_section(
+                "gaming_streaks",
+                lambda: AnalyticsService.get_gaming_streaks(request.user),
+                {},
+            )
             
             # Get additional dashboard data with error handling
             try:
@@ -204,22 +255,36 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 'media_genre_distribution': media_genre_distribution,
                 'media_completion_rate': media_completion_rate,
                 'media_insights': media_insights,
+                'partial_failures': partial_failures,
+                'request_id': request_id,
             }
             
-            # Cache for 1 hour - SAFE OPTIMIZATION
-            cache.set(cache_key, result, getattr(settings, 'CACHE_TIMEOUTS', {}).get('ANALYTICS', 3600))
+            # Cache for 1 hour - SAFE OPTIMIZATION.
+            # Only cache fully successful dashboards so partial failures
+            # recover on the next request instead of persisting for an hour.
+            if not partial_failures:
+                cache.set(cache_key, result, getattr(settings, 'CACHE_TIMEOUTS', {}).get('ANALYTICS', 3600))
             
             return Response(result)
             
         except Exception as e:
-            logger.error(f"Error in analytics list: {str(e)}")
+            logger.error(
+                "analytics_load_failed request_id=%s user=%s days=%s error=%s",
+                request_id, getattr(request.user, "id", None), days, e,
+                exc_info=True,
+            )
             return Response(
-                {'error': 'Failed to load analytics data'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {
+                    'error': 'Failed to load analytics data',
+                    'request_id': request_id,
+                    'retryable': True,
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                headers={'X-Request-ID': request_id},
             )
     
     @action(detail=False, methods=['post'], url_path='calculate-today')
-    def calculate_today_stats(self, request):
+    def calculate_today_stats(self, request: Request) -> Response:
         """Calculate and store statistics for today (for potential future use)"""
         try:
             # For now, just return success - the live calculation handles this

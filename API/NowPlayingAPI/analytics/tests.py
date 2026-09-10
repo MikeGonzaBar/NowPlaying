@@ -2,6 +2,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from django.utils import timezone
 from datetime import timedelta
+from rest_framework.test import APITestCase
 
 from analytics.services import AnalyticsService
 from music.models import Song
@@ -97,3 +98,65 @@ class MediaAnalyticsTests(TestCase):
 
     def test_genre_of_the_week_uses_top_music_tag(self):
         self.assertEqual(AnalyticsService.get_genre_of_the_week(self.user, days=7), "Pop")
+
+
+class AnalyticsApiContractTests(APITestCase):
+    """Contract tests for the /api/analytics/ response shape.
+
+    The frontend normalizes every section before rendering, and the backend
+    must never collapse a partially failing provider into a non-200 response
+    (audit: Analytics 500 / blank page). These tests lock both guarantees.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="contract-user")
+        self.client.force_authenticate(user=self.user)
+
+    def test_partial_failure_still_returns_200_with_partial_failures(self):
+        """A failing analytics section must degrade, not 500."""
+        from unittest.mock import patch
+
+        with patch(
+            "analytics.views.AnalyticsService.get_comprehensive_statistics",
+            side_effect=RuntimeError("boom"),
+        ):
+            response = self.client.get("/analytics/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("partial_failures", response.data)
+        self.assertIn("comprehensive_stats", response.data["partial_failures"])
+        # Correlatable id must be present on success too.
+        self.assertIn("request_id", response.data)
+        self.assertTrue(response.data["request_id"])
+
+    def test_success_response_has_required_top_level_schema(self):
+        """Every section the dashboard renders must exist in the payload."""
+        response = self.client.get("/analytics/")
+        self.assertEqual(response.status_code, 200)
+        required_keys = {
+            "comprehensive_stats",
+            "platform_distribution",
+            "achievement_efficiency",
+            "gaming_streaks",
+            "weekly_trend",
+            "monthly_comparison",
+            "genre_distribution",
+            "music_genre_distribution",
+            "music_weekly_scrobbles",
+            "media_watch_breakdown",
+            "media_genre_distribution",
+            "media_insights",
+        }
+        self.assertTrue(
+            required_keys.issubset(response.data.keys()),
+            f"Missing keys: {required_keys - set(response.data.keys())}",
+        )
+        # comprehensive_stats must include the period/totals/averages the
+        # frontend reads (and which previously crashed when empty).
+        stats = response.data["comprehensive_stats"]
+        for section in ("period", "totals", "averages"):
+            self.assertIn(section, stats)
+
+    def test_unknown_route_returns_404_not_500(self):
+        """An unknown analytics path must not raise."""
+        response = self.client.get("/api/nonexistent/")
+        self.assertEqual(response.status_code, 404)

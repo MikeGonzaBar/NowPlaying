@@ -7,9 +7,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Command(BaseCommand):
+    """Recalculate analytics rows for one user or all users."""
+
     help = 'Fix analytics by clearing existing UserStatistics and recalculating'
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: object) -> None:
+        """Register command-line arguments."""
         parser.add_argument(
             '--user',
             type=str,
@@ -22,10 +25,11 @@ class Command(BaseCommand):
             help='Number of days to recalculate (default: 30)',
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: object, **options: object) -> None:
+        """Delete existing analytics rows and trigger recalculation."""
         username = options['user']
         days = options['days']
-        
+
         if username:
             try:
                 users = [User.objects.get(username=username)]
@@ -36,20 +40,20 @@ class Command(BaseCommand):
         else:
             users = User.objects.all()
             self.stdout.write(f"Fixing analytics for {users.count()} users")
-        
+
         for user in users:
             self.stdout.write(f"\n--- Processing user: {user.username} ---")
-            
+
             # Delete existing UserStatistics for this user
             deleted_count = UserStatistics.objects.filter(user=user).count()
             UserStatistics.objects.filter(user=user).delete()
             self.stdout.write(f"Deleted {deleted_count} existing UserStatistics records")
-            
+
             # Trigger recalculation
             try:
                 result = AnalyticsService.get_comprehensive_statistics(user, days=days)
                 totals = result['totals']
-                
+
                 self.stdout.write(self.style.SUCCESS(
                     f"✅ Fixed analytics for {user.username}:\n"
                     f"   Movies: {totals['total_movies_watched']}\n"
@@ -59,5 +63,5 @@ class Command(BaseCommand):
                 ))
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f"❌ Failed to fix analytics for {user.username}: {str(e)}"))
-        
-        self.stdout.write(self.style.SUCCESS("\n🎉 Analytics fix completed!")) 
+
+        self.stdout.write(self.style.SUCCESS("\n🎉 Analytics fix completed!"))

@@ -1,65 +1,68 @@
-import { useState, useEffect } from 'react';
-import { useApi } from '../../../hooks/useApi';
-import { Movie, Show } from '../utils/types';
+import { useState, useEffect } from "react";
+import { useApi } from "../../../hooks/useApi";
+import { getApiUrl, API_CONFIG } from "../../../config/api";
+import { Movie, Show } from "../utils/types";
 
-const movieCache = new Map<number, any>();
-const showCache = new Map<number, any>();
+const mediaCache = new Map<string, any>();
 
-const getMovieDetails = async (tmdb: number, api: any): Promise<any | null> => {
-    if (movieCache.has(tmdb)) {
-        return movieCache.get(tmdb);
-    }
+const getMediaDetails = async (
+  tmdbId: number,
+  mediaType: "movie" | "show",
+  request: (url: string) => Promise<any>,
+): Promise<any | null> => {
+  const cacheKey = `${mediaType}-${tmdbId}`;
+  if (mediaCache.has(cacheKey)) {
+    return mediaCache.get(cacheKey);
+  }
 
-    const apiKey = import.meta.env.VITE_REACT_APP_TMDB_API_KEY;
-    const url = `https://api.themoviedb.org/3/movie/${tmdb}?api_key=${apiKey}`;
+  const type = mediaType === "show" ? "tv" : "movie";
+  const url = getApiUrl(
+    `${API_CONFIG.TRAKT_ENDPOINT}/tmdb-detail/?tmdb_id=${tmdbId}&type=${type}&append_to_response=credits,similar`,
+  );
 
-    try {
-        const data = await api.request(url);
-        movieCache.set(tmdb, data);
-        return data;
-    } catch (error) {
-        console.error('Error fetching movie details from API:', error);
-        return null;
-    }
+  try {
+    const data = await request(url);
+    mediaCache.set(cacheKey, data);
+    return data;
+  } catch (error) {
+    console.error("Error fetching media details from API:", error);
+    return null;
+  }
 };
 
-const getShowDetails = async (tmdbId: number, api: any): Promise<any | null> => {
-    if (showCache.has(tmdbId)) {
-        return showCache.get(tmdbId);
+export const useMediaDetails = (
+  media: Movie | Show,
+  mediaType: "movie" | "show",
+) => {
+  const [mediaDetails, setMediaDetails] = useState<any | null>(null);
+  // Only `request` is consumed so the effect never depends on the unstable
+  // hook state object (which would retrigger fetching every render).
+  const { request } = useApi();
+
+  // Key the effect on the canonical TMDB id (a primitive) instead of the
+  // media object, so a stable id can never re-trigger a fetch loop.
+  const tmdbId =
+    mediaType === "movie"
+      ? Number((media as Movie)?.movie?.ids?.tmdb)
+      : Number((media as Show)?.show?.ids?.tmdb);
+
+  useEffect(() => {
+    if (!tmdbId || !Number.isFinite(tmdbId)) {
+      setMediaDetails(null);
+      return;
     }
 
-    const apiKey = import.meta.env.VITE_REACT_APP_TMDB_API_KEY;
-    const url = `https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${apiKey}`;
+    let cancelled = false;
+    getMediaDetails(tmdbId, mediaType, request).then((details) => {
+      if (!cancelled) {
+        setMediaDetails(details);
+      }
+    });
 
-    try {
-        const data = await api.request(url);
-        showCache.set(tmdbId, data);
-        return data;
-    } catch (error) {
-        console.error('Error fetching show details from API:', error);
-        return null;
-    }
+    return () => {
+      cancelled = true;
+    };
+  }, [tmdbId, mediaType, request]);
+
+  return mediaDetails;
 };
-
-export const useMediaDetails = (media: Movie | Show, mediaType: "movie" | "show") => {
-    const [mediaDetails, setMediaDetails] = useState<any | null>(null);
-    const api = useApi();
-
-    useEffect(() => {
-        const fetchDetails = async () => {
-            if (mediaType === "movie") {
-                const movie = media as Movie;
-                const details = await getMovieDetails(movie.movie.ids.tmdb, api);
-                setMediaDetails(details);
-            } else if (mediaType === "show") {
-                const show = media as Show;
-                const tmdbId = parseInt(show.show.ids.tmdb);
-                const details = await getShowDetails(tmdbId, api);
-                setMediaDetails(details);
-            }
-        };
-        fetchDetails();
-    }, [media, mediaType]);
-
-    return mediaDetails;
-}; 

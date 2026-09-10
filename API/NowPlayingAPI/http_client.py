@@ -8,9 +8,12 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = (5, 30)
 RETRY_STATUSES = {429, 500, 502, 503, 504}
+RequestTimeout = float | tuple[float, float]
 
 
 class ExternalRequestError(Exception):
+    """Raised when an outbound HTTP request fails or returns invalid content."""
+
     pass
 
 
@@ -19,10 +22,11 @@ def request_json(
     url: str,
     *,
     retries: int = 2,
-    timeout=DEFAULT_TIMEOUT,
+    timeout: RequestTimeout = DEFAULT_TIMEOUT,
     logger_name: str | None = None,
     **kwargs: Any,
 ) -> Any:
+    """Run an HTTP request and decode the response body as JSON."""
     response = request(method, url, retries=retries, timeout=timeout, logger_name=logger_name, **kwargs)
     try:
         return response.json()
@@ -35,10 +39,11 @@ def request(
     url: str,
     *,
     retries: int = 2,
-    timeout=DEFAULT_TIMEOUT,
+    timeout: RequestTimeout = DEFAULT_TIMEOUT,
     logger_name: str | None = None,
     **kwargs: Any,
 ) -> requests.Response:
+    """Run an HTTP request with retry handling for transient failures."""
     log = logging.getLogger(logger_name) if logger_name else logger
 
     for attempt in range(retries + 1):
@@ -66,17 +71,20 @@ def request(
 
 
 def get(url: str, **kwargs: Any) -> requests.Response:
+    """Send a GET request through the shared retry wrapper."""
     return request("get", url, **kwargs)
 
 
 def post(url: str, **kwargs: Any) -> requests.Response:
+    """Send a POST request through the shared retry wrapper."""
     return request("post", url, **kwargs)
 
 
 def get_json(url: str, **kwargs: Any) -> Any:
+    """Send a GET request and return the decoded JSON body."""
     return request_json("get", url, **kwargs)
 
 
 def post_json(url: str, **kwargs: Any) -> Any:
+    """Send a POST request and return the decoded JSON body."""
     return request_json("post", url, **kwargs)
-

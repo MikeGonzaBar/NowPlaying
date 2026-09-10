@@ -17,84 +17,103 @@ interface GameCardProps {
     game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
 }
 
+const platformConfig = [
+    {
+        key: "platform",
+        value: "PS5",
+        src: "/Platforms/playstation-5.webp",
+        alt: "PS5 Logo",
+        width: "45px",
+        marginTop: "0px",
+    },
+    {
+        key: "platform",
+        value: "PS4",
+        src: "/Platforms/playstation-4.png",
+        alt: "PS4 Logo",
+        width: "50px",
+        marginTop: "0px",
+    },
+    {
+        key: "platform",
+        value: "PC, XboxOne, XboxSeries, Xbox360",
+        src: "/Platforms/xbox.svg",
+        alt: "XBOX Logo",
+        width: "55px",
+        marginTop: "0px",
+    },
+    {
+        key: "console_name",
+        value: "PlayStation 2",
+        src: "/Platforms/playstation-2.png",
+        alt: "PS2 Logo",
+        width: "45px",
+        marginTop: "0px",
+    },
+    {
+        key: "console_name",
+        value: "PlayStation",
+        src: "/Platforms/playstation.webp",
+        alt: "PS1 Logo",
+        width: "25px",
+        marginTop: "0px",
+    },
+    {
+        key: "console_name",
+        value: "Nintendo DS",
+        src: "/Platforms/nintendo-ds.png",
+        alt: "Nintendo DS Logo",
+        width: "80px",
+        marginTop: "0px",
+    },
+    {
+        key: "console_name",
+        value: "Game Boy Color",
+        src: "/Platforms/gameboy-color.png",
+        alt: "Game Boy Color Logo",
+        width: "50px",
+        marginTop: "0px",
+    },
+    {
+        key: "console_name",
+        value: "Game Boy Advance",
+        src: "/Platforms/gameboy-advance.png",
+        alt: "Game Boy Advance Logo",
+        width: "85px",
+        marginTop: "0px",
+    },
+];
+
+const normalize = (text: string) =>
+    text
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .replace(/[\-–—:]/g, " ");
+
 const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
-    const platformConfig = [
-        {
-            key: "platform",
-            value: "PS5",
-            src: "/Platforms/playstation-5.webp",
-            alt: "PS5 Logo",
-            width: "45px",
-            style: { marginTop: "-10px" },
-        },
-        {
-            key: "platform",
-            value: "PS4",
-            src: "/Platforms/playstation-4.png",
-            alt: "PS4 Logo",
-            width: "50px",
-        },
-        {
-            key: "platform",
-            value: "PC, XboxOne, XboxSeries, Xbox360",
-            src: "/Platforms/xbox.svg",
-            alt: "XBOX Logo",
-            width: "55px",
-            style: { marginTop: "-5px" },
-        },
-        {
-            key: "console_name",
-            value: "PlayStation 2",
-            src: "/Platforms/playstation-2.png",
-            alt: "PS2 Logo",
-            width: "45px",
-            style: { marginTop: "8px" },
-        },
-        {
-            key: "console_name",
-            value: "PlayStation",
-            src: "/Platforms/playstation.webp",
-            alt: "PS1 Logo",
-            width: "25px",
-        },
-        {
-            key: "console_name",
-            value: "Nintendo DS",
-            src: "/Platforms/nintendo-ds.png",
-            alt: "Nintendo DS Logo",
-            width: "80px",
-            style: { marginTop: "8px" },
-        },
-        {
-            key: "console_name",
-            value: "Game Boy Color",
-            src: "/Platforms/gameboy-color.png",
-            alt: "Game Boy Color Logo",
-            width: "50px",
-            style: { marginTop: "3px" },
-        },
-        {
-            key: "console_name",
-            value: "Game Boy Advance",
-            src: "/Platforms/gameboy-advance.png",
-            alt: "Game Boy Advance Logo",
-            width: "85px",
-            style: { marginTop: "-30px" },
-        },
-    ];
     const playMins = formatPlaytime(game);
-    const matchedPlatform = platformConfig.find(({ key, value }) => {
-        if (!(key in game)) return false;
+    const gameRecord = game as unknown as Record<string, unknown>;
+    const platformText = typeof gameRecord.platform === "string" ? gameRecord.platform : "";
+    const consoleText = typeof gameRecord.console_name === "string" ? gameRecord.console_name : "";
 
-        const gameValue = (game as unknown as Record<string, unknown>)[key];
-        if (typeof gameValue !== "string") return false;
+    const matchedPlatform = platformConfig.find((candidate) => {
+        const source = candidate.key === "platform" ? platformText : consoleText;
+        if (!source) return false;
+        const sourceValues = normalize(source)
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+        const configValues = normalize(candidate.value)
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
 
-        const gameValues = gameValue.split(",").map((v) => v.trim().toLowerCase());
-        const configValues = value.split(",").map((v) => v.trim().toLowerCase());
-
-        // Check if any value matches
-        return configValues.some((configVal) => gameValues.includes(configVal));
+        return configValues.some((configVal) =>
+            sourceValues.some((sourceVal) => sourceVal === configVal || sourceVal.includes(configVal)),
+        );
     });
+
     const platformImg = matchedPlatform ? (
         <Box
             component="img"
@@ -102,9 +121,15 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
             alt={matchedPlatform.alt}
             sx={{
                 width: matchedPlatform.width,
+                maxHeight: "40px",
                 height: "auto",
+                objectFit: "contain",
                 backgroundColor: "transparent",
-                marginTop: matchedPlatform.style?.marginTop || "0px",
+                display: "block",
+                marginTop: matchedPlatform.marginTop,
+                marginBottom: "0px",
+                alignSelf: "center",
+                filter: "none",
             }}
         />
     ) : (
@@ -114,10 +139,14 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
             alt="Steam Logo"
             sx={{
                 width: "22px",
+                maxHeight: "40px",
                 height: "auto",
+                objectFit: "contain",
                 backgroundColor: "transparent",
+                display: "block",
                 marginTop: "2px",
                 marginBottom: "-3px",
+                filter: "none",
             }}
         />
     );
@@ -241,22 +270,22 @@ const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
                                     }[] = [
                                             {
                                                 type: "platinum",
-                                                src: "PSN_Trophies/PSN_platinum.png",
+                                                src: "/PSN_Trophies/PSN_platinum.png",
                                                 alt: "Platinum Trophy",
                                             },
                                             {
                                                 type: "gold",
-                                                src: "PSN_Trophies/PSN_gold.png",
+                                                src: "/PSN_Trophies/PSN_gold.png",
                                                 alt: "Gold Trophy",
                                             },
                                             {
                                                 type: "silver",
-                                                src: "PSN_Trophies/PSN_silver.png",
+                                                src: "/PSN_Trophies/PSN_silver.png",
                                                 alt: "Silver Trophy",
                                             },
                                             {
                                                 type: "bronze",
-                                                src: "PSN_Trophies/PSN_bronze.png",
+                                                src: "/PSN_Trophies/PSN_bronze.png",
                                                 alt: "Bronze Trophy",
                                             },
                                         ];

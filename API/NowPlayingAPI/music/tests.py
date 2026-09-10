@@ -321,3 +321,75 @@ class LastFmIntegrationTestCase(APITestCase):
         response = self.client.get('/music/top-tracks/?source=itunes')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('source', response.data)
+
+    def test_top_tracks_normalizes_album_edition_variants(self):
+        now = timezone.now()
+        Song.objects.create(
+            user=self.user,
+            title='Judas',
+            artist='Lady Gaga',
+            album='Born This Way',
+            played_at=now - timedelta(days=1),
+            source='lastfm',
+        )
+        Song.objects.create(
+            user=self.user,
+            title='Judas (International Special Edition)',
+            artist='Lady Gaga',
+            album='Born This Way',
+            played_at=now - timedelta(days=2),
+            source='lastfm',
+        )
+        Song.objects.create(
+            user=self.user,
+            title='Judas - International Special Edition',
+            artist='Lady Gaga',
+            album='Born This Way',
+            played_at=now - timedelta(days=3),
+            source='lastfm',
+        )
+
+        response = self.client.get('/music/top-tracks/?source=lastfm')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['tracks']), 1)
+        self.assertEqual(response.data['tracks'][0]['title'], 'Judas')
+        self.assertEqual(response.data['tracks'][0]['count'], 3)
+
+    def test_detail_and_history_share_scope_and_dates(self):
+        now = timezone.now()
+        Song.objects.create(
+            user=self.user,
+            title='Scoped Song',
+            artist='Scoped Artist',
+            album='Scoped Album',
+            played_at=now - timedelta(days=2),
+            source='lastfm',
+        )
+        Song.objects.create(
+            user=self.user,
+            title='Scoped Song',
+            artist='Scoped Artist',
+            album='Scoped Album',
+            played_at=now - timedelta(days=40),
+            source='lastfm',
+        )
+        Song.objects.create(
+            user=self.user,
+            title='Scoped Song',
+            artist='Scoped Artist',
+            album='Scoped Album',
+            played_at=now - timedelta(days=1),
+            source='spotify',
+        )
+
+        params = '&days=30&source=lastfm'
+        detail = self.client.get(f'/music/track-detail/?name=Scoped%20Song&artist=Scoped%20Artist{params}')
+        history = self.client.get(f'/music/track-plays/?name=Scoped%20Song&artist=Scoped%20Artist{params}')
+
+        self.assertEqual(detail.status_code, status.HTTP_200_OK)
+        self.assertEqual(history.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail.data['count'], history.data['total_items'])
+        self.assertEqual(detail.data['count'], 1)
+        self.assertEqual(detail.data['scope']['label'], 'Last 30 days')
+        self.assertEqual(detail.data['first_played'], detail.data['last_played'])

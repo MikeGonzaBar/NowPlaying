@@ -13,7 +13,7 @@ logger = logging.getLogger("retroachievements")
 # api_key = settings.RETROACHIEVEMENTS_API_KEY
 # username = settings.RETROACHIEVEMENTS_USER
 
-def get_json_response(url):
+def get_json_response(url: str) -> object | None:
     """Helper function to GET a URL and return JSON data, handling errors."""
     try:
         response = http_client.get(url, logger_name="retroachievements")
@@ -30,7 +30,7 @@ def get_json_response(url):
         logger.error("Request failed: %s", req_err)
         return None
 
-def parse_datetime(datetime_str):
+def parse_datetime(datetime_str: str | None) -> datetime | None:
     """Convert a naive datetime string to a timezone-aware datetime object."""
     if not datetime_str:  # Check if the datetime string is None or empty
         return None
@@ -41,6 +41,8 @@ def parse_datetime(datetime_str):
         return None
 
 class RetroAchievementsGame(models.Model):
+    """Stored RetroAchievements game owned by a local user."""
+
     # Django will automatically add an id field as primary key
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='retroachievements_games')
     game_id = models.IntegerField()  # Not a primary key
@@ -65,10 +67,13 @@ class RetroAchievementsGame(models.Model):
             models.UniqueConstraint(fields=['user', 'game_id'], name='unique_user_game')
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the game title and console."""
         return f"{self.title} ({self.console_name})"
 
 class GameAchievement(models.Model):
+    """Stored RetroAchievements achievement for a game."""
+
     # Django will automatically add an id field as primary key
     game = models.ForeignKey(RetroAchievementsGame, related_name="achievements", on_delete=models.CASCADE)
     achievement_id = models.IntegerField()  # Not a primary key
@@ -89,12 +94,15 @@ class GameAchievement(models.Model):
             models.UniqueConstraint(fields=['game', 'achievement_id'], name='unique_game_achievement')
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the achievement title and point value."""
         return f"{self.title} ({self.points} points)"
 
 class RetroAchievementsAPI:
+    """RetroAchievements API adapter that syncs games and achievements."""
+
     @staticmethod
-    def populate_recently_played_games(user, ra_username, ra_api_key):
+    def populate_recently_played_games(user: User, ra_username: str, ra_api_key: str) -> dict[str, object]:
         """Fetch and populate the latest 50 played games for a specific user."""
         if not ra_username or not ra_api_key:
             logger.error("Missing RetroAchievements credentials for user %s", user.username)
@@ -179,7 +187,7 @@ class RetroAchievementsAPI:
             return {"error": f"Error fetching RetroAchievements data: {str(e)}"}
 
     @staticmethod
-    def populate_achievements_for_game(game, ra_username, ra_api_key):
+    def populate_achievements_for_game(game: RetroAchievementsGame, ra_username: str, ra_api_key: str) -> None:
         """Fetch and populate achievements for a specific game."""
         try:
             progress_url = f'https://retroachievements.org/API/API_GetGameInfoAndUserProgress.php?g={game.game_id}&u={ra_username}&y={ra_api_key}&a=1'
@@ -212,7 +220,7 @@ class RetroAchievementsAPI:
             logger.error("Error populating achievements for game %s: %s", game.game_id, str(e))
 
     @staticmethod
-    def get_most_achieved_games(user):
+    def get_most_achieved_games(user: User) -> dict[str, object]:
         """Get the list of games ordered by the percentage of unlocked achievements."""
         try:
             # Exclude games with no achievements to avoid division by zero
@@ -269,7 +277,7 @@ class RetroAchievementsAPI:
             return {"error": f"Error fetching RetroAchievements data: {str(e)}"}
 
     @staticmethod
-    def fetch_games(user):
+    def fetch_games(user: User) -> dict[str, object]:
         """Fetch all games for a specific user."""
         try:
             games = RetroAchievementsGame.objects.filter(user=user).order_by('-last_played')
@@ -317,7 +325,7 @@ class RetroAchievementsAPI:
             return {"error": f"Error fetching RetroAchievements data: {str(e)}"}
 
     @staticmethod
-    def fetch_game_details(user, game_id):
+    def fetch_game_details(user: User, game_id: int) -> dict[str, object] | None:
         """Fetch a game and its achievements by game ID for a specific user."""
         try:
             game = RetroAchievementsGame.objects.get(user=user, game_id=game_id)

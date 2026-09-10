@@ -7,6 +7,7 @@ import { visualizer } from 'rollup-plugin-visualizer'
 dotenv.config();
 
 export default defineConfig(({ mode }) => ({
+  cacheDir: 'C:/Users/gonza/AppData/Local/Temp/vite-tmp',
   plugins: [
     react(),
     // Bundle analyzer (opt-in: vite build --mode analyze)

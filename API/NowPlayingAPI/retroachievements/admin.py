@@ -3,6 +3,8 @@ from django.utils.safestring import mark_safe
 from .models import RetroAchievementsGame, GameAchievement
 
 class GameAchievementInline(admin.TabularInline):
+    """Inline read-only RetroAchievements achievements for a game."""
+
     model = GameAchievement
     extra = 0
     readonly_fields = ['achievement_id', 'title', 'description', 'points', 'true_ratio', 
@@ -12,10 +14,12 @@ class GameAchievementInline(admin.TabularInline):
     can_delete = False
     max_num = 0
     
-    def has_add_permission(self, request, obj=None):
+    def has_add_permission(self, request: object, obj: object | None = None) -> bool:
+        """Prevent manual achievement creation in admin."""
         return False
         
-    def badge_image(self, obj):
+    def badge_image(self, obj: GameAchievement) -> object:
+        """Render the achievement badge image in admin."""
         if obj.badge_name:
             image_url = f"https://s3-eu-west-1.amazonaws.com/i.retroachievements.org/Badge/{obj.badge_name}.png"
             return mark_safe(f'<img src="{image_url}" width="64" height="64" />')
@@ -24,6 +28,8 @@ class GameAchievementInline(admin.TabularInline):
 
 @admin.register(RetroAchievementsGame)
 class RetroAchievementsGameAdmin(admin.ModelAdmin):
+    """Admin view for stored RetroAchievements games."""
+
     list_display = ['title', 'user_username', 'console_name', 'achievement_progress', 'score_progress', 'last_played']
     list_filter = ['user', 'console_name', 'last_played']
     search_fields = ['title', 'game_id', 'user__username']
@@ -36,32 +42,37 @@ class RetroAchievementsGameAdmin(admin.ModelAdmin):
              'achievement_progress', 'score_progress']
     inlines = [GameAchievementInline]
     
-    def user_username(self, obj):
+    def user_username(self, obj: RetroAchievementsGame) -> str:
+        """Return the owning username for list display."""
         return obj.user.username if obj.user else "No User"
     user_username.short_description = "User"
     user_username.admin_order_field = 'user__username'
 
-    def achievement_progress(self, obj):
+    def achievement_progress(self, obj: RetroAchievementsGame) -> str:
+        """Return earned and total achievement progress."""
         if obj.achievements_total:
             percentage = (obj.num_achieved / obj.achievements_total) * 100
             return f"{obj.num_achieved}/{obj.achievements_total} ({percentage:.1f}%)"
         return "0/0 (0%)"
     achievement_progress.short_description = "Achievement Progress"
 
-    def score_progress(self, obj):
+    def score_progress(self, obj: RetroAchievementsGame) -> str:
+        """Return earned and possible score progress."""
         if obj.possible_score:
             percentage = (obj.score_achieved / obj.possible_score) * 100
             return f"{obj.score_achieved}/{obj.possible_score} ({percentage:.1f}%)"
         return "0/0 (0%)"
     score_progress.short_description = "Score Progress"
 
-    def box_art_display(self, obj):
+    def box_art_display(self, obj: RetroAchievementsGame) -> object:
+        """Render game box art in admin."""
         if obj.image_box_art:
             return mark_safe(f'<img src="{obj.image_box_art}" width="150" />')
         return ""
     box_art_display.short_description = "Box Art"
 
-    def title_image_display(self, obj):
+    def title_image_display(self, obj: RetroAchievementsGame) -> object:
+        """Render game title-screen art in admin."""
         if obj.image_title:
             return mark_safe(f'<img src="{obj.image_title}" width="300" />')
         return ""
@@ -69,6 +80,8 @@ class RetroAchievementsGameAdmin(admin.ModelAdmin):
 
 @admin.register(GameAchievement)
 class GameAchievementAdmin(admin.ModelAdmin):
+    """Admin view for stored RetroAchievements achievements."""
+
     list_display = ['title', 'game_title', 'game_user', 'points', 'author', 'is_earned', 'date_earned']
     list_filter = ['game__console_name', 'date_earned', 'author', 'game__user']
     search_fields = ['title', 'description', 'game__title', 'game__user__username']
@@ -78,23 +91,27 @@ class GameAchievementAdmin(admin.ModelAdmin):
     fields = ['game', 'game_user', 'title', 'description', 'points', 'badge_image', 
              'author', 'date_created', 'date_earned']
 
-    def game_title(self, obj):
+    def game_title(self, obj: GameAchievement) -> str:
+        """Return the parent game title."""
         return obj.game.title
     game_title.short_description = "Game"
     game_title.admin_order_field = 'game__title'
     
-    def game_user(self, obj):
+    def game_user(self, obj: GameAchievement) -> str:
+        """Return the parent game owner."""
         return obj.game.user.username if obj.game and obj.game.user else "No User"
     game_user.short_description = "User"
     game_user.admin_order_field = 'game__user__username'
     
-    def is_earned(self, obj):
+    def is_earned(self, obj: GameAchievement) -> bool:
+        """Return whether the achievement has been earned."""
         return obj.date_earned is not None
     is_earned.boolean = True
     is_earned.short_description = "Earned"
     is_earned.admin_order_field = 'date_earned'
     
-    def badge_image(self, obj):
+    def badge_image(self, obj: GameAchievement) -> object:
+        """Render the achievement badge image in admin."""
         if obj.badge_name:
             image_url = f"https://s3-eu-west-1.amazonaws.com/i.retroachievements.org/Badge/{obj.badge_name}.png"
             return mark_safe(f'<img src="{image_url}" width="64" height="64" />')

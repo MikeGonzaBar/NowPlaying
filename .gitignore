@@ -81,3 +81,13 @@ Thumbs.db
 
 # Local notes
 UI/NOTE.md
+
+# Codex
+.codex/
+.codex-*
+codex-tests/
+codex_tests/
+
+# Local build/dev log artifacts and throwaway scripts
+*.log.err
+_update_fields.py

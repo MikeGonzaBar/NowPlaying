@@ -46,19 +46,19 @@ class XboxGameSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id']
 
-    def get_total_achievements(self, obj):
+    def get_total_achievements(self, obj: XboxGame) -> int:
         """
         Return the total number of achievements for this game.
         """
         return obj.achievements.count()
 
-    def get_unlocked_achievements(self, obj):
+    def get_unlocked_achievements(self, obj: XboxGame) -> int:
         """
         Return the count of achievements that have been unlocked.
         """
         return obj.achievements.filter(unlocked=True).count()
 
-    def get_locked_achievements(self, obj):
+    def get_locked_achievements(self, obj: XboxGame) -> int:
         """
         Return the count of achievements that remain locked.
         """

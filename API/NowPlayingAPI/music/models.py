@@ -5,10 +5,33 @@ import hashlib
 import time
 import logging
 import re
+import unicodedata
 from utils import parse_datetime_aware
 import http_client
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_music_text(value) -> str:
+    """Aggressively fold text for canonical music identity matching.
+
+    Casefolds, applies Unicode NFKD folding, strips accents and
+    non-alphanumeric characters so that "Judas (80s Ver.)" and
+    "judas 80s ver" collapse to the same key while different
+    recordings ("Judas" vs "Judas - Live") stay distinct.
+    """
+    if not value:
+        return ""
+    text = str(value).casefold()
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    return text.strip()
+
+
+def recording_identity_key(artist, title) -> str:
+    """Canonical identity for a recording: artist + exact title."""
+    return f"{normalize_music_text(artist)}::{normalize_music_text(title)}"
 
 
 MUSIC_TAG_STOPWORDS = {
@@ -66,6 +89,8 @@ MUSIC_TAG_LABELS = {
 
 
 class Song(models.Model):
+    """Stored music play from Spotify or Last.fm."""
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='music_songs')
     title = models.CharField(max_length=255)
     artist = models.CharField(max_length=255)
@@ -101,11 +126,43 @@ class Song(models.Model):
         ]
         unique_together = ('user', 'title', 'artist', 'played_at')
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the song label with artist and owner."""
         return f"{self.title} by {self.artist} ({self.user.username})"
 
     @staticmethod
-    def _format_music_tag_name(raw_name):
+    def normalize_match_key(value: object) -> str:
+        """Return a stable key for matching title/artist variants such as editions and extras."""
+        if value is None:
+            return ""
+
+        text = str(value).strip()
+        if not text:
+            return ""
+
+        text = re.sub(r"\s*\([^)]*\)", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*\[[^\]]*\]", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*[-–—:]\s*(?:feat|ft|featuring|with)\b.*$", "", text, flags=re.IGNORECASE)
+        text = re.sub(
+            r"\s*[-–—:]\s*(?:deluxe|special|collector|anniversary|ultimate|complete|expanded|international|bonus|radio|live|remaster(?:ed)?|edition|version|explicit|single|remix)\b.*$",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            r"\b(?:deluxe|special|collector|anniversary|ultimate|complete|expanded|international|bonus|radio|live|remaster(?:ed)?|edition|version|explicit|single|remix)\b",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(r"[\u2018\u2019\u201c\u201d]", "'", text)
+        text = re.sub(r"[^\w\s&]", " ", text, flags=re.UNICODE)
+        text = re.sub(r"\s+", " ", text).strip().lower()
+        return text
+
+    @staticmethod
+    def _format_music_tag_name(raw_name: object) -> str | None:
+        """Normalize one raw Last.fm tag into a display label."""
         if not raw_name:
             return None
 
@@ -127,7 +184,7 @@ class Song(models.Model):
         )
 
     @staticmethod
-    def normalize_lastfm_tags(tags, limit=5):
+    def normalize_lastfm_tags(tags: object, limit: int = 5) -> list[str]:
         """Convert Last.fm tag payloads into a small, display-ready genre list."""
         normalized = []
         seen = set()
@@ -159,7 +216,12 @@ class Song(models.Model):
         return [name for name, _ in normalized[:limit]]
 
     @staticmethod
-    def fetch_lastfm_artist_tags(lastfm_api_key, artist, artist_mbid="", limit=5):
+    def fetch_lastfm_artist_tags(
+        lastfm_api_key: str,
+        artist: str,
+        artist_mbid: str = "",
+        limit: int = 5,
+    ) -> list[str]:
         """Fetch normalized top tags for a Last.fm artist."""
         if not lastfm_api_key or not (artist or artist_mbid):
             return []
@@ -207,7 +269,7 @@ class Song(models.Model):
             return []
 
     @staticmethod
-    def fetch_recently_played_songs(user, spotify_token):
+    def fetch_recently_played_songs(user: User, spotify_token: str) -> list[dict[str, object]]:
         """
         Fetches the latest 50 recently played songs from Spotify using the API,
         stores them in the database for a specific user, and returns the data.
@@ -276,7 +338,13 @@ class Song(models.Model):
         return result
 
     @staticmethod
-    def fetch_lastfm_recent_tracks(user, lastfm_api_key, lastfm_username, limit=None, max_tag_lookups=300):
+    def fetch_lastfm_recent_tracks(
+        user: User,
+        lastfm_api_key: str,
+        lastfm_username: str,
+        limit: int | None = None,
+        max_tag_lookups: int = 300,
+    ) -> list[dict[str, object]]:
         """
         Fetches ALL recent tracks from Last.fm using the user.getRecentTracks API method,
         stores them in the database for a specific user, and returns the data.

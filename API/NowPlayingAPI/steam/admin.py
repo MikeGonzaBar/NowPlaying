@@ -3,6 +3,8 @@ from django.utils.safestring import mark_safe
 from .models import Game, Achievement
 
 class AchievementInline(admin.TabularInline):
+    """Inline read-only Steam achievements for a game."""
+
     model = Achievement
     extra = 0
     readonly_fields = ['name', 'description', 'image', 'unlocked', 'unlock_time', 'image_display']
@@ -10,10 +12,12 @@ class AchievementInline(admin.TabularInline):
     can_delete = False
     max_num = 0
     
-    def has_add_permission(self, request, obj=None):
+    def has_add_permission(self, request: object, obj: object | None = None) -> bool:
+        """Prevent manual achievement creation in admin."""
         return False
     
-    def image_display(self, obj):
+    def image_display(self, obj: Achievement) -> object:
+        """Render the achievement icon in the admin table."""
         if obj.image:
             return mark_safe(f'<img src="{obj.image}" width="64" height="64" />')
         return ""
@@ -21,6 +25,8 @@ class AchievementInline(admin.TabularInline):
 
 @admin.register(Game)
 class GameAdmin(admin.ModelAdmin):
+    """Admin view for stored Steam games."""
+
     list_display = ['name', 'user_username', 'playtime_formatted', 'last_played', 'achievement_progress']
     list_filter = ['user', 'last_played', 'has_community_visible_stats']
     search_fields = ['name', 'appid', 'user__username']
@@ -31,12 +37,14 @@ class GameAdmin(admin.ModelAdmin):
              'has_community_visible_stats', 'achievement_progress']
     inlines = [AchievementInline]
     
-    def user_username(self, obj):
+    def user_username(self, obj: Game) -> str:
+        """Return the owning username for list display."""
         return obj.user.username if obj.user else "No User"
     user_username.short_description = "User"
     user_username.admin_order_field = 'user__username'
 
-    def achievement_progress(self, obj):
+    def achievement_progress(self, obj: Game) -> str:
+        """Return unlocked and total achievement progress."""
         total = obj.achievements.count()
         unlocked = obj.achievements.filter(unlocked=True).count()
         if total:
@@ -45,7 +53,8 @@ class GameAdmin(admin.ModelAdmin):
         return "0/0 (0%)"
     achievement_progress.short_description = "Achievement Progress"
 
-    def game_image_display(self, obj):
+    def game_image_display(self, obj: Game) -> object:
+        """Render the game image in the admin detail page."""
         if obj.img_icon_url:
             return mark_safe(f'<img src="{obj.img_icon_url}" width="200" />')
         return ""
@@ -53,23 +62,28 @@ class GameAdmin(admin.ModelAdmin):
 
 @admin.register(Achievement)
 class AchievementAdmin(admin.ModelAdmin):
+    """Admin view for stored Steam achievements."""
+
     list_display = ['name', 'game_name', 'game_user', 'unlocked', 'unlock_time']
     list_filter = ['unlocked', 'game', 'game__user']
     search_fields = ['name', 'description', 'game__name', 'game__user__username']
     readonly_fields = ['game', 'game_user', 'name', 'description', 'image', 'unlocked', 'unlock_time', 'image_display']
     fields = ['game', 'game_user', 'name', 'description', 'image_display', 'unlocked', 'unlock_time']
 
-    def game_name(self, obj):
+    def game_name(self, obj: Achievement) -> str:
+        """Return the parent game name."""
         return obj.game.name
     game_name.short_description = "Game"
     game_name.admin_order_field = 'game__name'
     
-    def game_user(self, obj):
+    def game_user(self, obj: Achievement) -> str:
+        """Return the parent game owner."""
         return obj.game.user.username if obj.game and obj.game.user else "No User"
     game_user.short_description = "User"
     game_user.admin_order_field = 'game__user__username'
     
-    def image_display(self, obj):
+    def image_display(self, obj: Achievement) -> object:
+        """Render the achievement icon in admin."""
         if obj.image:
             return mark_safe(f'<img src="{obj.image}" width="64" height="64" />')
         return ""

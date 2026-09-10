@@ -2,7 +2,7 @@ from datetime import datetime
 from django.utils import timezone
 
 
-def make_timezone_aware(dt):
+def make_timezone_aware(dt: datetime | None) -> datetime | None:
     """
     Convert a naive datetime to timezone-aware datetime.
     If the datetime is already timezone-aware, return it as is.
@@ -14,7 +14,10 @@ def make_timezone_aware(dt):
     return timezone.make_aware(dt)
 
 
-def parse_datetime_aware(datetime_str, format_str="%Y-%m-%dT%H:%M:%S.%fZ"):
+def parse_datetime_aware(
+    datetime_str: str | None,
+    format_str: str = "%Y-%m-%dT%H:%M:%S.%fZ",
+) -> datetime | None:
     """
     Parse a datetime string and return a timezone-aware datetime object.
     """
@@ -27,9 +30,17 @@ def parse_datetime_aware(datetime_str, format_str="%Y-%m-%dT%H:%M:%S.%fZ"):
         return None
 
 
-def create_datetime_aware(year, month, day, hour=0, minute=0, second=0, microsecond=0):
+def create_datetime_aware(
+    year: int,
+    month: int,
+    day: int,
+    hour: int = 0,
+    minute: int = 0,
+    second: int = 0,
+    microsecond: int = 0,
+) -> datetime | None:
     """
     Create a timezone-aware datetime object from components.
     """
     naive_datetime = datetime(year, month, day, hour, minute, second, microsecond)
-    return make_timezone_aware(naive_datetime) 
+    return make_timezone_aware(naive_datetime)

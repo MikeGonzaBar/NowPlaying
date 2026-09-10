@@ -1,3 +1,3 @@
-export { ServiceCard } from './ServiceCard';
-export { ServiceSection } from './ServiceSection';
-export { TraktOAuthDialog } from './TraktOAuthDialog'; 
+export { ServiceCard } from "./ServiceCard";
+export { ServiceSection } from "./ServiceSection";
+export { TraktOAuthDialog } from "./TraktOAuthDialog";

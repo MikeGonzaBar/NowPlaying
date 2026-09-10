@@ -3,12 +3,29 @@ from django.utils import timezone
 from django.conf import settings
 import logging
 from datetime import datetime, timedelta
+from utils import make_timezone_aware
 from dateutil.parser import isoparse
 from django.contrib.auth.models import User
 import http_client
 
-# Create your models here.
 logger = logging.getLogger(__name__)
+
+def _parse_trakt_datetime(value):
+    """Parse a Trakt timestamp string into a naive datetime.
+
+    Returns None for empty/invalid input. ``make_timezone_aware`` is then
+    expected to attach ``TIME_ZONE`` so the value can be stored in a
+    ``USE_TZ=True`` ``DateTimeField`` without Django's naive-datetime warning.
+    """
+    if not value:
+        return None
+    try:
+        return isoparse(value)
+    except (ValueError, TypeError):
+        return None
+
+
+# Create your models here.
 
 
 class TraktToken(models.Model):
@@ -24,14 +41,18 @@ class TraktToken(models.Model):
     class Meta:
         unique_together = ('user',)  # Each user can have only one token
 
-    def is_expired(self):
+    def is_expired(self) -> bool:
+        """Return whether the token has expired."""
         return timezone.now() >= self.expires_at
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a readable token label."""
         return f"TraktToken for {self.user.username} (expiring at {self.expires_at})"
 
 
 class Movie(models.Model):
+    """Stored Trakt movie owned by a local user."""
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trakt_movies')
     trakt_id = models.CharField(max_length=255)
     title = models.CharField(max_length=255)
@@ -56,7 +77,8 @@ class Movie(models.Model):
     class Meta:
         unique_together = ('user', 'trakt_id')  # Each user can have their own copy of the same movie
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the movie title and owner."""
         return f"{self.title} ({self.user.username})"
 
 
@@ -71,7 +93,8 @@ class MovieWatch(models.Model):
         default=100.0
     )  # Percentage watched (100 means finished)
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the watched movie and timestamp."""
         return f"{self.movie.title} watched by {self.movie.user.username} at {self.watched_at}"
 
 
@@ -99,7 +122,8 @@ class Show(models.Model):
     class Meta:
         unique_together = ('user', 'trakt_id')  # Each user can have their own copy of the same show
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the show title and owner."""
         return f"{self.title} ({self.user.username})"
 
 
@@ -117,7 +141,8 @@ class Season(models.Model):
     class Meta:
         unique_together = ("show", "season_number")
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the season label."""
         return f"{self.show.title} - Season {self.season_number} ({self.show.user.username})"
 
 
@@ -155,7 +180,8 @@ class Episode(models.Model):
     class Meta:
         unique_together = ("show", "season", "episode_number")
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the episode label."""
         return f"{self.show.title} S{self.season.season_number}E{self.episode_number} ({self.show.user.username})"
 
 
@@ -172,11 +198,12 @@ class EpisodeWatch(models.Model):
         default=100.0
     )  # Percentage progress (100 means finished)
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the watched episode and timestamp."""
         return f"{self.episode} watched at {self.watched_at}"
 
 
-def get_trakt_api_credentials(user):
+def get_trakt_api_credentials(user: User) -> tuple[str | None, str]:
     """
     Get Trakt API credentials for a specific user from UserApiKey model.
     """
@@ -186,7 +213,7 @@ def get_trakt_api_credentials(user):
     return credentials.service_user_id, credentials.api_key
 
 
-def refresh_trakt_token(token_instance):
+def refresh_trakt_token(token_instance: TraktToken) -> TraktToken:
     """
     Refreshes the Trakt access token using the stored refresh token.
     """
@@ -212,7 +239,7 @@ def refresh_trakt_token(token_instance):
     return token_instance
 
 
-def get_trakt_headers(user):
+def get_trakt_headers(user: User) -> dict[str, str] | None:
     """
     Retrieves the latest token for a specific user and returns headers for Trakt API requests.
     Refreshes the token if it is expired.
@@ -235,7 +262,7 @@ def get_trakt_headers(user):
     }
 
 
-def fetch_tmdb_poster_for_movie(tmdb_id):
+def fetch_tmdb_poster_for_movie(tmdb_id: str | int | None) -> str | None:
     """
     Fetches poster image URL from TMDB API for a movie.
     Returns the full image URL or None if not found.
@@ -261,7 +288,8 @@ def fetch_tmdb_poster_for_movie(tmdb_id):
     return None
 
 
-def _normalize_genres(genres):
+def _normalize_genres(genres: object) -> list[str]:
+    """Normalize genre payloads from Trakt or TMDB into display labels."""
     normalized = []
     for genre in genres or []:
         if isinstance(genre, dict):
@@ -280,7 +308,8 @@ def _normalize_genres(genres):
     return normalized
 
 
-def _names_from_dicts(items):
+def _names_from_dicts(items: object) -> list[str]:
+    """Extract unique names from a list of API dictionaries."""
     names = []
     for item in items or []:
         if not isinstance(item, dict):
@@ -291,7 +320,7 @@ def _names_from_dicts(items):
     return names
 
 
-def fetch_tmdb_movie_metadata(tmdb_id):
+def fetch_tmdb_movie_metadata(tmdb_id: str | int | None) -> dict[str, object]:
     """
     Fetches movie metadata needed by analytics from TMDB.
     """
@@ -336,7 +365,7 @@ def fetch_tmdb_movie_metadata(tmdb_id):
         return {}
 
 
-def fetch_tmdb_poster_for_show(tmdb_id):
+def fetch_tmdb_poster_for_show(tmdb_id: str | int | None) -> str | None:
     """
     Fetches poster image URL from TMDB API for a TV show.
     Returns the full image URL or None if not found.
@@ -362,7 +391,7 @@ def fetch_tmdb_poster_for_show(tmdb_id):
     return None
 
 
-def fetch_tmdb_show_metadata(tmdb_id):
+def fetch_tmdb_show_metadata(tmdb_id: str | int | None) -> dict[str, object]:
     """
     Fetches show metadata needed by analytics from TMDB.
     """
@@ -403,7 +432,7 @@ def fetch_tmdb_show_metadata(tmdb_id):
         return {}
 
 
-def _process_single_movie(user, item):
+def _process_single_movie(user: User, item: dict[str, object]) -> dict[str, object] | None:
     """
     Helper function to process a single movie item from Trakt API.
     Updates/creates records for movie and watch events.
@@ -483,7 +512,7 @@ def _process_single_movie(user, item):
             "year": year,
             "image_url": poster,
             "plays": plays,
-            "last_watched_at": watched_at,
+            "last_watched_at": make_timezone_aware(_parse_trakt_datetime(watched_at)) if watched_at else None,
             "last_updated_at": last_updated_at,
             "slug": slug,
             "imdb_id": imdb_id,
@@ -498,13 +527,15 @@ def _process_single_movie(user, item):
 
     # Create a watch record for this movie
     MovieWatch.objects.create(
-        movie=movie_obj, watched_at=watched_at, progress=100.0
+        movie=movie_obj,
+        watched_at=make_timezone_aware(_parse_trakt_datetime(watched_at)) if watched_at else None,
+        progress=100.0,
     )
     
     return {"success": True, "title": title, "trakt_id": trakt_id}
 
 
-def fetch_latest_watched_movies(user):
+def fetch_latest_watched_movies(user: User) -> list[dict[str, object]]:
     """
     Fetches the latest watched movies from Trakt and updates/creates records in the database for a specific user.
     """
@@ -521,7 +552,7 @@ def fetch_latest_watched_movies(user):
     return sorted_data
 
 
-def fetch_single_movie(user, trakt_id):
+def fetch_single_movie(user: User, trakt_id: str | int) -> dict[str, object]:
     """
     Fetches and updates a specific movie by trakt_id from Trakt API.
     Updates/creates records for movie and watch events.
@@ -579,7 +610,11 @@ def fetch_single_movie(user, trakt_id):
     return {"message": f"Movie {result.get('title', trakt_id)} updated successfully", "trakt_id": trakt_id}
 
 
-def _process_single_show(user, item, headers):
+def _process_single_show(
+    user: User,
+    item: dict[str, object],
+    headers: dict[str, str] | None,
+) -> dict[str, object] | None:
     """
     Helper function to process a single show item from Trakt API.
     Updates/creates records for show, seasons, episodes, and watch events.
@@ -763,7 +798,9 @@ def _process_single_show(user, item, headers):
                 progress = 100.0  # Adjust if you receive partial progress
                 try:
                     EpisodeWatch.objects.create(
-                        episode=episode_obj, watched_at=watched_at, progress=progress
+                        episode=episode_obj,
+                        watched_at=make_timezone_aware(_parse_trakt_datetime(watched_at)) if watched_at else None,
+                        progress=progress,
                     )
                 except Exception as e:
                     logger.warning(f"Error creating EpisodeWatch: {e}")
@@ -777,7 +814,7 @@ def _process_single_show(user, item, headers):
     return {"success": True, "title": title, "trakt_id": trakt_id}
 
 
-def fetch_latest_watched_shows(user):
+def fetch_latest_watched_shows(user: User) -> dict[str, object] | list[object]:
     """
     Fetches the latest watched TV shows from Trakt and updates/creates records for shows,
     seasons, episodes, and watch events for a specific user.
@@ -811,7 +848,7 @@ def fetch_latest_watched_shows(user):
     return {"message": "Shows fetched and stored successfully", "count": len(sorted_data)}
 
 
-def fetch_single_show(user, trakt_id):
+def fetch_single_show(user: User, trakt_id: str | int) -> dict[str, object]:
     """
     Fetches and updates a specific show by trakt_id from Trakt API.
     Updates/creates records for show, seasons, episodes, and watch events.
@@ -868,3 +905,8 @@ def fetch_single_show(user, trakt_id):
         return {"message": f"Show {result.get('title', trakt_id)} skipped - no updates needed"}
     
     return {"message": f"Show {result.get('title', trakt_id)} updated successfully", "trakt_id": trakt_id}
+
+
+
+
+

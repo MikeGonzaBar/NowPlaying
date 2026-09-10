@@ -10,9 +10,12 @@ from users.credentials import get_service_credentials
 
 
 class Command(BaseCommand):
+    """Backfill Last.fm genre tags for existing music rows."""
+
     help = "Backfill music genre tags from Last.fm artist top-tags."
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: object) -> None:
+        """Register command-line arguments."""
         parser.add_argument("--user-id", type=int, help="Only backfill one user.")
         parser.add_argument("--days", type=int, default=365, help="Only inspect songs played in this many days.")
         parser.add_argument(
@@ -23,7 +26,8 @@ class Command(BaseCommand):
         )
         parser.add_argument("--dry-run", action="store_true", help="Fetch tags but do not save them.")
 
-    def handle(self, *args, **options):
+    def handle(self, *args: object, **options: object) -> None:
+        """Fetch artist tags and update matching songs."""
         user_id = options.get("user_id")
         days = options["days"]
         artist_limit = options["artist_limit"]

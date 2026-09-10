@@ -39,6 +39,19 @@ import MusicStats from './components/MusicStats';
 import MediaStats from './components/MediaStats';
 
 
+// Analytics data availability states
+interface AnalyticsTotals {
+    total_games_played: number | 'unavailable';
+    total_achievements_earned: number | 'unavailable';
+    total_gaming_time: string | 'unavailable';
+    total_songs_listened: number | 'unavailable';
+    total_listening_time: string | 'unavailable';
+    total_movies_watched: number | 'unavailable';
+    total_episodes_watched: number | 'unavailable';
+    total_watch_time: string | 'unavailable';
+    total_engagement_time: string | 'unavailable';
+}
+
 interface AnalyticsData {
     comprehensive_stats: {
         period: {
@@ -46,17 +59,7 @@ interface AnalyticsData {
             end_date: string;
             days: number;
         };
-        totals: {
-            total_games_played: number;
-            total_achievements_earned: number;
-            total_gaming_time: string;
-            total_songs_listened: number;
-            total_listening_time: string;
-            total_movies_watched: number;
-            total_episodes_watched: number;
-            total_watch_time: string;
-            total_engagement_time: string;
-        };
+        totals: AnalyticsTotals;
         averages: {
             avg_games_per_day: number;
             avg_achievements_per_day: number;
@@ -143,6 +146,52 @@ interface AnalyticsData {
     media_insights?: { binge_streak: string | null; favorite_director: string | null; top_studio: string | null };
 }
 
+// Normalizes analytics payload — partial sections become "unavailable" (never zero)
+const normalizeAnalyticsData = (raw: AnalyticsData | null): AnalyticsData => {
+    const src = (raw && typeof raw === "object" ? raw : {}) as Record<string, any>;
+    const rawStats = src.comprehensive_stats;
+    const hasRealStats =
+        rawStats &&
+        typeof rawStats === "object" &&
+        rawStats.period?.start_date &&
+        rawStats.totals &&
+        Object.keys(rawStats.totals).length > 0;
+    const period = {
+        start_date: "",
+        end_date: "",
+        days: 30,
+        ...(hasRealStats && rawStats.period),
+    };
+    const unavailable = 'unavailable' as const;
+    const totals: AnalyticsTotals = {
+        total_games_played: hasRealStats && rawStats.totals?.total_games_played != null ? rawStats.totals.total_games_played : unavailable,
+        total_achievements_earned: hasRealStats && rawStats.totals?.total_achievements_earned != null ? rawStats.totals.total_achievements_earned : unavailable,
+        total_gaming_time: hasRealStats && rawStats.totals?.total_gaming_time ? rawStats.totals.total_gaming_time : unavailable,
+        total_songs_listened: hasRealStats && rawStats.totals?.total_songs_listened != null ? rawStats.totals.total_songs_listened : unavailable,
+        total_listening_time: hasRealStats && rawStats.totals?.total_listening_time ? rawStats.totals.total_listening_time : unavailable,
+        total_movies_watched: hasRealStats && rawStats.totals?.total_movies_watched != null ? rawStats.totals.total_movies_watched : unavailable,
+        total_episodes_watched: hasRealStats && rawStats.totals?.total_episodes_watched != null ? rawStats.totals.total_episodes_watched : unavailable,
+        total_watch_time: hasRealStats && rawStats.totals?.total_watch_time ? rawStats.totals.total_watch_time : unavailable,
+        total_engagement_time: hasRealStats && rawStats.totals?.total_engagement_time ? rawStats.totals.total_engagement_time : unavailable,
+    };
+    return {
+        ...src,
+        comprehensive_stats: { ...rawStats, period, totals },
+        platform_distribution: rawStats?.platform_distribution || {},
+        achievement_efficiency: { efficiency_per_hour: 0, ...rawStats?.achievement_efficiency },
+        gaming_streaks: Array.isArray(rawStats?.gaming_streaks) ? rawStats.gaming_streaks : [],
+        weekly_trend: Array.isArray(rawStats?.weekly_trend) ? rawStats.weekly_trend : [],
+        monthly_comparison: { change_percentage: 0, ...rawStats?.monthly_comparison },
+        genre_distribution: rawStats?.genre_distribution || {},
+        music_genre_distribution: rawStats?.music_genre_distribution || {},
+        music_weekly_scrobbles: Array.isArray(rawStats?.music_weekly_scrobbles) ? rawStats.music_weekly_scrobbles : [],
+        music_listening_insights: rawStats?.music_listening_insights || {},
+        media_watch_breakdown: rawStats?.media_watch_breakdown || {},
+        media_genre_distribution: rawStats?.media_genre_distribution || {},
+        media_insights: rawStats?.media_insights || {},
+    } as AnalyticsData;
+};
+
 const AnalyticsPage: React.FC = () => {
     const { request } = useApi<AnalyticsData>();
     const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
@@ -160,10 +209,11 @@ const AnalyticsPage: React.FC = () => {
             setError(null);
 
             const response = await request(getApiUrl('/analytics/'));
-            setAnalyticsData(response);
+            setAnalyticsData(normalizeAnalyticsData(response));
         } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to load analytics data.';
             console.error('Error fetching analytics data:', err);
-            setError('Failed to load analytics data. Please try again later.');
+            setError(message.includes('request_id=') ? message : `${message} Please try again later.`);
         } finally {
             setLoading(false);
         }
@@ -244,6 +294,20 @@ const AnalyticsPage: React.FC = () => {
         return `${start.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}`;
     };
 
+    // Render unavailable sentinel as em-dash (audit: never show false zero)
+    const renderUnavailable = (value: number | string | 'unavailable', fallback: string = '—') => {
+        if (value === 'unavailable') return fallback;
+        return value;
+    };
+
+    // Prevent duplicate section rendering (audit P0: Time Dedicated Trend + Recurring Genres duplicated)
+    const renderedSections = new Set<string>();
+    const renderOnce = (id: string, content: React.ReactNode) => {
+        if (renderedSections.has(id)) return null;
+        renderedSections.add(id);
+        return content;
+    };
+
     const getMostActivePlatform = () => {
         const platforms = analyticsData.platform_distribution;
         const gamingPlatforms = ['steam', 'psn', 'xbox', 'retroachievements'];
@@ -300,7 +364,9 @@ const AnalyticsPage: React.FC = () => {
                                     mt: 1
                                 }}
                             >
-                                Your entertainment statistics for the last {analyticsData.comprehensive_stats.period.days} days
+                                {analyticsData.comprehensive_stats.period.start_date
+                                    ? `Your entertainment statistics for the last ${analyticsData.comprehensive_stats.period.days} days`
+                                    : "Summary totals are unavailable. Platform and trend data below may still be used."}
                             </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -413,17 +479,17 @@ const AnalyticsPage: React.FC = () => {
                                         </Typography>
                                     </Box>
                                     <Typography sx={{ fontSize: '2.25rem', fontWeight: 700, mb: 1, color: '#fff' }}>
-                                        {analyticsData.comprehensive_stats.totals.total_games_played}
+                                        {renderUnavailable(analyticsData.comprehensive_stats.totals.total_games_played, '—')}
                                     </Typography>
                                     <Typography sx={{ fontSize: '0.875rem', mb: 4, opacity: 0.8, fontWeight: 500, color: '#fff' }}>
                                         Games Played
                                     </Typography>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                         <Typography sx={{ fontSize: '0.75rem', opacity: 0.7, color: '#fff' }}>
-                                            {analyticsData.comprehensive_stats.totals.total_achievements_earned} achievements
+                                            {renderUnavailable(analyticsData.comprehensive_stats.totals.total_achievements_earned, '—')} achievements
                                         </Typography>
                                         <Typography sx={{ fontSize: '0.75rem', opacity: 0.7, color: '#fff' }}>
-                                            {analyticsData.comprehensive_stats.totals.total_gaming_time}
+                                            {renderUnavailable(analyticsData.comprehensive_stats.totals.total_gaming_time, '—')}
                                         </Typography>
                                     </Box>
                                 </Card>
@@ -455,14 +521,16 @@ const AnalyticsPage: React.FC = () => {
                                         </Typography>
                                     </Box>
                                     <Typography sx={{ fontSize: '2.25rem', fontWeight: 700, mb: 1, color: '#fff' }}>
-                                        {analyticsData.comprehensive_stats.totals.total_songs_listened}
+                                        {renderUnavailable(analyticsData.comprehensive_stats.totals.total_songs_listened, '—')}
                                     </Typography>
                                     <Typography sx={{ fontSize: '0.875rem', mb: 4, opacity: 0.8, fontWeight: 500, color: '#fff' }}>
                                         Songs Listened
                                     </Typography>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                         <Typography sx={{ fontSize: '0.75rem', opacity: 0.7, color: '#fff' }}>
-                                            {analyticsData.comprehensive_stats.averages.avg_songs_per_day.toFixed(1)} per day
+                                            {analyticsData.comprehensive_stats.averages?.avg_songs_per_day != null
+                                                ? `${analyticsData.comprehensive_stats.averages.avg_songs_per_day.toFixed(1)} per day`
+                                                : '—'}
                                         </Typography>
                                         <Typography sx={{ fontSize: '0.75rem', opacity: 0.7, color: '#fff' }}>
                                             Last played: {analyticsData.last_played_time || 'Never'}
@@ -497,18 +565,23 @@ const AnalyticsPage: React.FC = () => {
                                         </Typography>
                                     </Box>
                                     <Typography sx={{ fontSize: '2.25rem', fontWeight: 700, mb: 1, color: '#1f2937' }}>
-                                        {analyticsData.comprehensive_stats.totals.total_movies_watched +
-                                            analyticsData.comprehensive_stats.totals.total_episodes_watched}
+                                        {(() => {
+                                            const movies = analyticsData.comprehensive_stats.totals.total_movies_watched;
+                                            const episodes = analyticsData.comprehensive_stats.totals.total_episodes_watched;
+                                            if (movies === 'unavailable' || episodes === 'unavailable') return '—';
+                                            if (movies != null && episodes != null) return movies + episodes;
+                                            return '—';
+                                        })()}
                                     </Typography>
                                     <Typography sx={{ fontSize: '0.875rem', mb: 4, color: '#4b5563', fontWeight: 500 }}>
                                         Items Watched
                                     </Typography>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                         <Typography sx={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                                            {analyticsData.comprehensive_stats.totals.total_movies_watched} movies, {analyticsData.comprehensive_stats.totals.total_episodes_watched} episodes
+                                            {renderUnavailable(analyticsData.comprehensive_stats.totals.total_movies_watched, '—')} movies, {renderUnavailable(analyticsData.comprehensive_stats.totals.total_episodes_watched, '—')} episodes
                                         </Typography>
                                         <Typography sx={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                                            {analyticsData.comprehensive_stats.totals.total_watch_time}
+                                            {renderUnavailable(analyticsData.comprehensive_stats.totals.total_watch_time, '—')}
                                         </Typography>
                                     </Box>
                                 </Card>
@@ -541,7 +614,7 @@ const AnalyticsPage: React.FC = () => {
                                         </Typography>
                                     </Box>
                                     <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, mb: 1, lineHeight: 1.25, color: '#fff' }}>
-                                        {analyticsData.comprehensive_stats.totals.total_engagement_time}
+                                        {renderUnavailable(analyticsData.comprehensive_stats.totals.total_engagement_time, '—')}
                                     </Typography>
                                     <Typography sx={{ fontSize: '0.875rem', mb: 4, opacity: 0.8, fontWeight: 500, color: '#fff' }}>
                                         Time Spent
@@ -550,11 +623,12 @@ const AnalyticsPage: React.FC = () => {
                                         <Typography sx={{ fontSize: '0.75rem', opacity: 0.7, color: '#fff' }}>
                                             Across {analyticsData.platform_count || 0} platforms
                                         </Typography>
-                                        <Typography sx={{ fontSize: '0.75rem', opacity: 0.7, color: '#fff' }}>
-                                            {analyticsData.monthly_comparison
-                                                ? `${analyticsData.monthly_comparison.change_percentage > 0 ? '+' : ''}${analyticsData.monthly_comparison.change_percentage.toFixed(1)}% vs last month`
-                                                : 'No comparison data'}
-                                        </Typography>
+                                        {analyticsData.comprehensive_stats.totals.total_engagement_time !== 'unavailable' &&
+                                            analyticsData.monthly_comparison && (
+                                                <Typography sx={{ fontSize: '0.75rem', opacity: 0.7, color: '#fff' }}>
+                                                    {analyticsData.monthly_comparison.change_percentage > 0 ? '+' : ''}{analyticsData.monthly_comparison.change_percentage.toFixed(1)}% vs last month
+                                                </Typography>
+                                            )}
                                     </Box>
                                 </Card>
                             </Box>
@@ -596,125 +670,129 @@ const AnalyticsPage: React.FC = () => {
                                         mb: 8
                                     }}>
                                         {/* Time Dedicated Trend - all 7 days, Gaming + Music + TV */}
-                                        <Card sx={{ bgcolor: '#1a1d23', border: '1px solid #27272a', p: 6, borderRadius: '1rem' }}>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 6 }}>
-                                                <Typography sx={{ fontSize: '1.125rem', fontWeight: 700, color: '#fff' }}>
-                                                    Time Dedicated Trend
-                                                </Typography>
-                                                <Box sx={{ display: 'flex', gap: 4, fontSize: '0.75rem', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#ff5f40' }} />
-                                                        <Typography sx={{ color: '#e2e8f0' }}>Gaming</Typography>
-                                                    </Box>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#40b3b2' }} />
-                                                        <Typography sx={{ color: '#e2e8f0' }}>Music</Typography>
-                                                    </Box>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#60a5fa' }} />
-                                                        <Typography sx={{ color: '#e2e8f0' }}>TV</Typography>
+                                        {renderOnce('time-dedicated-trend',
+                                            <Card sx={{ bgcolor: '#1a1d23', border: '1px solid #27272a', p: 6, borderRadius: '1rem' }}>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 6 }}>
+                                                    <Typography sx={{ fontSize: '1.125rem', fontWeight: 700, color: '#fff' }}>
+                                                        Time Dedicated Trend
+                                                    </Typography>
+                                                    <Box sx={{ display: 'flex', gap: 4, fontSize: '0.75rem', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#ff5f40' }} />
+                                                            <Typography sx={{ color: '#e2e8f0' }}>Gaming</Typography>
+                                                        </Box>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#40b3b2' }} />
+                                                            <Typography sx={{ color: '#e2e8f0' }}>Music</Typography>
+                                                        </Box>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#60a5fa' }} />
+                                                            <Typography sx={{ color: '#e2e8f0' }}>TV</Typography>
+                                                        </Box>
                                                     </Box>
                                                 </Box>
-                                            </Box>
-                                            <ResponsiveContainer width="100%" height={256}>
-                                                <BarChart
-                                                    data={trendPadded}
-                                                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                                                >
-                                                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                                                    <XAxis
-                                                        dataKey="name"
-                                                        stroke="#e2e8f0"
-                                                        style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}
-                                                    />
-                                                    <YAxis
-                                                        stroke="#e2e8f0"
-                                                        style={{ fontSize: '0.75rem' }}
-                                                        label={{ value: 'Hours', angle: -90, position: 'insideLeft', style: { fill: '#e2e8f0' } }}
-                                                    />
-                                                    <Tooltip
-                                                        contentStyle={{
-                                                            backgroundColor: '#1a1d23',
-                                                            border: '1px solid #27272a',
-                                                            borderRadius: '0.5rem',
-                                                            color: '#e2e8f0'
-                                                        }}
-                                                        formatter={(value: number | undefined) => [`${Number(value ?? 0).toFixed(1)} hrs`, '']}
-                                                    />
-                                                    <Legend
-                                                        wrapperStyle={{ paddingTop: '20px' }}
-                                                        iconType="circle"
-                                                        formatter={(value) => <span style={{ color: '#e2e8f0', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{value}</span>}
-                                                    />
-                                                    <Bar dataKey="Gaming" stackId="a" fill="#ff5f40" />
-                                                    <Bar dataKey="Music" stackId="a" fill="#40b3a2" />
-                                                    <Bar dataKey="TV" stackId="a" fill="#60a5fa" />
-                                                </BarChart>
-                                            </ResponsiveContainer>
-                                        </Card>
+                                                <ResponsiveContainer width="100%" height={256}>
+                                                    <BarChart
+                                                        data={trendPadded}
+                                                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                                                    >
+                                                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                                                        <XAxis
+                                                            dataKey="name"
+                                                            stroke="#e2e8f0"
+                                                            style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                                                        />
+                                                        <YAxis
+                                                            stroke="#e2e8f0"
+                                                            style={{ fontSize: '0.75rem' }}
+                                                            label={{ value: 'Hours', angle: -90, position: 'insideLeft', style: { fill: '#e2e8f0' } }}
+                                                        />
+                                                        <Tooltip
+                                                            contentStyle={{
+                                                                backgroundColor: '#1a1d23',
+                                                                border: '1px solid #27272a',
+                                                                borderRadius: '0.5rem',
+                                                                color: '#e2e8f0'
+                                                            }}
+                                                            formatter={(value: number | undefined) => [`${Number(value ?? 0).toFixed(1)} hrs`, '']}
+                                                        />
+                                                        <Legend
+                                                            wrapperStyle={{ paddingTop: '20px' }}
+                                                            iconType="circle"
+                                                            formatter={(value) => <span style={{ color: '#e2e8f0', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{value}</span>}
+                                                        />
+                                                        <Bar dataKey="Gaming" stackId="a" fill="#ff5f40" />
+                                                        <Bar dataKey="Music" stackId="a" fill="#40b3a2" />
+                                                        <Bar dataKey="TV" stackId="a" fill="#60a5fa" />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </Card>
+                                        )}
 
                                         {/* Recurring Genres - merged from content types + music + media */}
-                                        <Card sx={{ bgcolor: '#1a1d23', border: '1px solid #27272a', p: 6, borderRadius: '1rem', display: 'flex', flexDirection: 'column' }}>
-                                            <Typography sx={{ fontSize: '1.125rem', fontWeight: 700, color: '#e2e8f0', mb: 6 }}>
-                                                Recurring Genres
-                                            </Typography>
-                                            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', mb: 6, height: 200 }}>
-                                                {overviewGenres.length > 0 ? (
-                                                    <ResponsiveContainer width="100%" height={200}>
-                                                        <PieChart>
-                                                            <Pie
-                                                                data={overviewGenres}
-                                                                dataKey="percentage"
-                                                                nameKey="name"
-                                                                cx="50%"
-                                                                cy="50%"
-                                                                innerRadius={56}
-                                                                outerRadius={80}
-                                                                paddingAngle={1}
-                                                            >
-                                                                {overviewGenres.map((g: { type?: string }, idx: number) => (
-                                                                    <Cell key={idx} fill={getGenreColor(g.type || 'tv')} stroke="#1a1d23" strokeWidth={2} />
-                                                                ))}
-                                                            </Pie>
-                                                            <Tooltip
-                                                                contentStyle={{ backgroundColor: '#1a1d23', border: '1px solid #27272a', borderRadius: '0.5rem', color: '#e2e8f0' }}
-                                                                formatter={(value: number | undefined, name?: string) => [`${value ?? 0}%`, name ?? '']}
-                                                            />
-                                                        </PieChart>
-                                                    </ResponsiveContainer>
-                                                ) : null}
-                                                <Box sx={{
-                                                    position: 'absolute',
-                                                    top: '50%',
-                                                    left: '50%',
-                                                    transform: 'translate(-50%, -50%)',
-                                                    textAlign: 'center',
-                                                    pointerEvents: 'none'
-                                                }}>
-                                                    <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#e2e8f0' }}>
-                                                        {overviewGenres.length > 0 ? overviewGenres.length : (analyticsData.genre_distribution?.total_tags ?? 0)}
-                                                    </Typography>
-                                                    <Typography sx={{ fontSize: '0.625rem', color: '#e2e8f0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                        Tags
-                                                    </Typography>
-                                                </Box>
-                                            </Box>
-                                            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 4 }}>
-                                                {(overviewGenres.length > 0 ? overviewGenres : (analyticsData.genre_distribution?.genres || [])).slice(0, 6).map((genre: { name: string; percentage: number; type?: string }, index: number) => (
-                                                    <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                        <Box sx={{
-                                                            width: 12,
-                                                            height: 12,
-                                                            borderRadius: '50%',
-                                                            bgcolor: getGenreColor(genre.type || 'tv')
-                                                        }} />
-                                                        <Typography sx={{ fontSize: '0.75rem', fontWeight: 500, color: '#e2e8f0' }}>
-                                                            {genre.name} ({genre.percentage}%)
+                                        {renderOnce('recurring-genres',
+                                            <Card sx={{ bgcolor: '#1a1d23', border: '1px solid #27272a', p: 6, borderRadius: '1rem', display: 'flex', flexDirection: 'column' }}>
+                                                <Typography sx={{ fontSize: '1.125rem', fontWeight: 700, color: '#e2e8f0', mb: 6 }}>
+                                                    Recurring Genres
+                                                </Typography>
+                                                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', mb: 6, height: 200 }}>
+                                                    {overviewGenres.length > 0 ? (
+                                                        <ResponsiveContainer width="100%" height={200}>
+                                                            <PieChart>
+                                                                <Pie
+                                                                    data={overviewGenres}
+                                                                    dataKey="percentage"
+                                                                    nameKey="name"
+                                                                    cx="50%"
+                                                                    cy="50%"
+                                                                    innerRadius={56}
+                                                                    outerRadius={80}
+                                                                    paddingAngle={1}
+                                                                >
+                                                                    {overviewGenres.map((g: { type?: string }, idx: number) => (
+                                                                        <Cell key={idx} fill={getGenreColor(g.type || 'tv')} stroke="#1a1d23" strokeWidth={2} />
+                                                                    ))}
+                                                                </Pie>
+                                                                <Tooltip
+                                                                    contentStyle={{ backgroundColor: '#1a1d23', border: '1px solid #27272a', borderRadius: '0.5rem', color: '#e2e8f0' }}
+                                                                    formatter={(value: number | undefined, name?: string) => [`${value ?? 0}%`, name ?? '']}
+                                                                />
+                                                            </PieChart>
+                                                        </ResponsiveContainer>
+                                                    ) : null}
+                                                    <Box sx={{
+                                                        position: 'absolute',
+                                                        top: '50%',
+                                                        left: '50%',
+                                                        transform: 'translate(-50%, -50%)',
+                                                        textAlign: 'center',
+                                                        pointerEvents: 'none'
+                                                    }}>
+                                                        <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#e2e8f0' }}>
+                                                            {overviewGenres.length > 0 ? overviewGenres.length : (analyticsData.genre_distribution?.total_tags ?? 0)}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: '0.625rem', color: '#e2e8f0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                            Tags
                                                         </Typography>
                                                     </Box>
-                                                ))}
-                                            </Box>
-                                        </Card>
+                                                </Box>
+                                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 4 }}>
+                                                    {(overviewGenres.length > 0 ? overviewGenres : (analyticsData.genre_distribution?.genres || [])).slice(0, 6).map((genre: { name: string; percentage: number; type?: string }, index: number) => (
+                                                        <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                                            <Box sx={{
+                                                                width: 12,
+                                                                height: 12,
+                                                                borderRadius: '50%',
+                                                                bgcolor: getGenreColor(genre.type || 'tv')
+                                                            }} />
+                                                            <Typography sx={{ fontSize: '0.75rem', fontWeight: 500, color: '#e2e8f0' }}>
+                                                                {genre.name} ({genre.percentage}%)
+                                                            </Typography>
+                                                        </Box>
+                                                    ))}
+                                                </Box>
+                                            </Card>
+                                        )}
                                     </Box>
                                 );
                             })()}

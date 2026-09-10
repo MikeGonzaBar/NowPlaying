@@ -41,7 +41,7 @@ The movies and shows dashboard features **real-time search functionality** that 
 #### Technical Implementation
 
 - **Backend Integration**: New `/trakt/search/` endpoint that queries Trakt API
-- **Frontend Component**: `MovieShowSearch` component with Material-UI Autocomplete
+- **Frontend Component**: `MediaSearch` component with accessible movie and show results
 - **TMDB Integration**: Automatic poster fetching for enhanced visual results
 - **Performance Optimization**: Debounced input with configurable delay (300ms default)
 
@@ -85,9 +85,9 @@ Specialized component for displaying detailed media information:
 
 ### Search Components
 
-#### `MovieShowSearch.tsx` (Global Component)
+#### `MediaSearch.tsx`
 
-Advanced search component with autocomplete functionality for movies and shows:
+Search component for movies and shows:
 
 **Features:**
 

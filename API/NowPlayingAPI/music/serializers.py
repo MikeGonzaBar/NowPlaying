@@ -3,6 +3,8 @@ from .models import Song
 
 
 class StreamedSongSerializer(serializers.ModelSerializer):
+    """Serialize stored songs from Spotify and Last.fm."""
+
     class Meta:
         model = Song
         fields = ['id', 'title', 'artist', 'album', 'played_at', 'album_thumbnail', 

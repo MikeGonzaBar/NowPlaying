@@ -1,9 +1,10 @@
 from rest_framework.decorators import action
 from rest_framework import viewsets
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
-from .models import Song
+from .models import Song, recording_identity_key
 from .serializers import StreamedSongSerializer  # Import the serializer
 from users.models import UserApiKey  # Import UserApiKey from the correct location
 from users.credentials import get_service_credentials
@@ -44,6 +45,21 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
     queryset = Song.objects.all()
     serializer_class = StreamedSongSerializer
 
+    def _grouped_track_counts(self, songs):
+        grouped = {}
+        for song in songs.order_by('-played_at'):
+            key = (Song.normalize_match_key(song.artist), Song.normalize_match_key(song.title))
+            entry = grouped.setdefault(key, {
+                'title': song.title,
+                'artist': song.artist,
+                'count': 0,
+                'latest_song': song,
+            })
+            entry['count'] += 1
+            if entry['latest_song'].played_at < song.played_at:
+                entry['latest_song'] = song
+        return grouped
+
     def _filtered_top_songs(self, request):
         songs = Song.objects.filter(user=request.user)
 
@@ -66,6 +82,71 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                 raise ValidationError({"source": "Must be one of: spotify, lastfm."})
             songs = songs.filter(source=source)
 
+        return songs
+
+    def _recording_songs(self, request, recording_id: str):
+        """Return songs belonging to one canonical recording (artist + exact title key)."""
+        try:
+            artist_key, title_key = recording_id.split("::", 1)
+        except ValueError:
+            raise ValidationError({"recording_id": "Malformed recording identifier."})
+
+        all_songs = self._filtered_top_songs(request)
+        matching_ids = [
+            song.id
+            for song in all_songs.only("id", "title", "artist")
+            if Song.normalize_match_key(song.title) == title_key
+            and Song.normalize_match_key(song.artist) == artist_key
+        ]
+        if not matching_ids:
+            return all_songs.none()
+        return all_songs.filter(id__in=matching_ids)
+
+    def _resolve_track_songs(self, request, name: str, artist: str, recording_id: str):
+        """Resolve track songs by canonical recording_id, falling back to
+        artist + exact title. Title-only matching is allowed only when the
+        title maps to exactly one artist; ambiguous titles are rejected rather
+        than merged (remixes, covers, other artists)."""
+        if recording_id:
+            return self._recording_songs(request, recording_id)
+        if artist:
+            return self._entity_songs(request, 'track', name, artist)
+        songs = self._entity_songs(request, 'track', name)
+        distinct_artists = set(
+            songs.values_list('artist', flat=True)[:500]
+        )
+        if len(distinct_artists) == 1:
+            return songs
+        raise ValidationError(
+            {"identity": "recording_id or artist is required to identify a track."}
+        )
+
+    def _scope_payload(self, request):
+        days_param = request.query_params.get("days")
+        source = request.query_params.get("source")
+        if days_param in (None, "", "all"):
+            days = None
+        else:
+            days = bounded_int(request.query_params, 'days', default=30, minimum=1, maximum=365)
+        return {
+            "days": days,
+            "source": source.strip().lower() if source else None,
+            "label": "All time" if days is None else f"Last {days} days",
+        }
+
+    def _entity_songs(self, request, entity, name, artist=None):
+        songs = self._filtered_top_songs(request)
+        field = {"artist": "artist", "album": "album", "track": "title"}[entity]
+        if entity == "track":
+            normalized_name = Song.normalize_match_key(name)
+            title_matches = [
+                song.title for song in songs.only("title") if Song.normalize_match_key(song.title) == normalized_name
+            ]
+            songs = songs.filter(title__in=title_matches) if title_matches else songs.none()
+        else:
+            songs = songs.filter(**{f"{field}__iexact": name})
+        if entity in {"album", "track"} and artist:
+            songs = songs.filter(artist__iexact=artist)
         return songs
 
     def get_queryset(self):
@@ -216,7 +297,8 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
         - Milestones
         - Loved highlights
         """
-        days = bounded_int(request.query_params, 'days', default=30, minimum=1, maximum=365)
+        days_param = request.query_params.get('days')
+        days = 9999 if days_param == 'all' else bounded_int(request.query_params, 'days', default=30, minimum=1, maximum=365)
 
         try:
             user = request.user
@@ -235,20 +317,22 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
             songs = Song.objects.filter(user=user)
             songs_in_range = songs.filter(played_at__gte=start_date, played_at__lte=end_date)
             
-            # Total scrobbles (all time)
-            total_scrobbles = songs.count()
+            # Use the selected dashboard period consistently for rankings and totals.
+            scoped_songs = songs_in_range if days != 9999 else songs
+
+            total_scrobbles = scoped_songs.count()
             
             # Artist count (all time, unique)
-            artist_count = songs.values('artist').distinct().count()
+            artist_count = scoped_songs.values('artist').distinct().count()
             
             # Top Artists (all time, limit 10)
-            top_artists = songs.values('artist').annotate(
+            top_artists = scoped_songs.values('artist').annotate(
                 count=Count('id')
             ).order_by('-count')[:10]
             top_artists_list = []
             max_count = top_artists[0]['count'] if top_artists else 1
             for artist_data in top_artists:
-                artist_songs = songs.filter(artist=artist_data['artist'])
+                artist_songs = scoped_songs.filter(artist=artist_data['artist'])
                 # Get most recent album thumbnail for this artist
                 latest_song = artist_songs.order_by('-played_at').first()
                 top_artists_list.append({
@@ -260,14 +344,14 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                 })
             
             # Top Albums (all time, limit 10)
-            top_albums = songs.exclude(album__isnull=True).exclude(album='').values(
+            top_albums = scoped_songs.exclude(album__isnull=True).exclude(album='').values(
                 'album', 'artist'
             ).annotate(
                 count=Count('id')
             ).order_by('-count')[:10]
             top_albums_list = []
             for album_data in top_albums:
-                album_songs = songs.filter(album=album_data['album'], artist=album_data['artist'])
+                album_songs = scoped_songs.filter(album=album_data['album'], artist=album_data['artist'])
                 latest_song = album_songs.order_by('-played_at').first()
                 top_albums_list.append({
                     'name': album_data['album'],
@@ -279,16 +363,18 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                 })
             
             # Top Tracks (all time, limit 10)
-            top_tracks = songs.values('title', 'artist').annotate(
-                count=Count('id')
-            ).order_by('-count')[:10]
+            grouped_tracks = self._grouped_track_counts(scoped_songs)
+            top_tracks = sorted(
+                grouped_tracks.values(),
+                key=lambda item: (-item['count'], -(item['latest_song'].played_at.timestamp() if item['latest_song'].played_at else 0)),
+            )[:10]
             top_tracks_list = []
             for track_data in top_tracks:
-                track_songs = songs.filter(title=track_data['title'], artist=track_data['artist'])
-                latest_song = track_songs.order_by('-played_at').first()
+                latest_song = track_data['latest_song']
                 top_tracks_list.append({
-                    'title': track_data['title'],
-                    'artist': track_data['artist'],
+                    'title': latest_song.title,
+                    'artist': latest_song.artist,
+                    'recording_id': recording_identity_key(latest_song.artist, latest_song.title),
                     'count': track_data['count'],
                     'thumbnail': latest_song.album_thumbnail if latest_song else None,
                     'track_url': latest_song.track_url if latest_song else None,
@@ -360,7 +446,7 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
             })
             
             # Loved highlights (loved tracks)
-            loved_tracks = songs.filter(loved=True).order_by('-played_at')[:1]
+            loved_tracks = scoped_songs.filter(loved=True).order_by('-played_at')[:1]
             loved_highlight = None
             if loved_tracks.exists():
                 track = loved_tracks.first()
@@ -389,6 +475,10 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
             result = {
                 'user_info': user_info,
                 'total_scrobbles': total_scrobbles,
+                'scope': {
+                    'days': None if days == 9999 else days,
+                    'label': 'All time' if days == 9999 else f'Last {days} days',
+                },
                 'artist_count': artist_count,
                 'top_artists': top_artists_list,
                 'top_albums': top_albums_list,
@@ -420,28 +510,29 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
 
         try:
             songs = self._filtered_top_songs(request)
-            top_tracks = songs.values('title', 'artist').annotate(
-                count=Count('id')
-            ).order_by('-count')[:limit]
-            
+            grouped = self._grouped_track_counts(songs)
+            ordered = sorted(
+                grouped.values(),
+                key=lambda item: (-item['count'], -(item['latest_song'].played_at.timestamp() if item['latest_song'].played_at else 0)),
+            )[:limit]
+
             tracks_list = []
-            for track_data in top_tracks:
-                track_songs = songs.filter(title=track_data['title'], artist=track_data['artist'])
-                latest_song = track_songs.order_by('-played_at').first()
-                if latest_song:
-                    tracks_list.append({
-                        'title': track_data['title'],
-                        'artist': track_data['artist'],
-                        'album': latest_song.album or '',
-                        'count': track_data['count'],
-                        'thumbnail': latest_song.album_thumbnail,
-                        'track_url': latest_song.track_url,
-                        'artist_lastfm_url': latest_song.artist_lastfm_url,
-                        'loved': latest_song.loved,
-                        'streamable': latest_song.streamable,
-                        'played_at': latest_song.played_at.isoformat() if latest_song.played_at else None,
-                        'source': latest_song.source,
-                    })
+            for item in ordered:
+                latest_song = item['latest_song']
+                tracks_list.append({
+                    'title': latest_song.title,
+                    'artist': latest_song.artist,
+                    'album': latest_song.album or '',
+                    'recording_id': recording_identity_key(latest_song.artist, latest_song.title),
+                    'count': item['count'],
+                    'thumbnail': latest_song.album_thumbnail,
+                    'track_url': latest_song.track_url,
+                    'artist_lastfm_url': latest_song.artist_lastfm_url,
+                    'loved': latest_song.loved,
+                    'streamable': latest_song.streamable,
+                    'played_at': latest_song.played_at.isoformat() if latest_song.played_at else None,
+                    'source': latest_song.source,
+                })
             
             return Response({'tracks': tracks_list})
         except ValidationError:
@@ -479,6 +570,7 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                     track_songs = artist_songs.filter(title=track_data['title'])
                     top_tracks.append({
                         'title': track_data['title'],
+                        'recording_id': recording_identity_key(artist_data['artist'], track_data['title']),
                         'count': track_data['count']
                     })
                 
@@ -528,6 +620,7 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                     track_songs = album_songs.filter(title=track_data['title'])
                     top_tracks.append({
                         'title': track_data['title'],
+                        'recording_id': recording_identity_key(album_data['artist'], track_data['title']),
                         'count': track_data['count']
                     })
                 
@@ -548,4 +641,305 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=["get"], url_path="artist-detail")
+    def artistDetail(self, request: Request) -> Response:
+        """Return artist detail with top tracks for the authenticated user."""
+        name = request.query_params.get("name", "").strip()
+        if not name:
+            return Response({"error": "name is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            songs = self._entity_songs(request, 'artist', name)
+            if not songs.exists():
+                return Response({"error": "Artist not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            total_plays = songs.count()
+            latest_song = songs.order_by("-played_at").first()
+            earliest_song = songs.order_by("played_at").first()
+
+            # Get top tracks for this artist
+            top_tracks_qs = (
+                songs.values("title")
+                .annotate(count=Count("id"))
+                .order_by("-count")[:10]
+            )
+            top_tracks = [
+                {"title": t["title"], "recording_id": recording_identity_key(name, t["title"]), "count": t["count"]}
+                for t in top_tracks_qs
+            ]
+
+            # Get unique albums count
+            albums_count = songs.exclude(album__isnull=True).exclude(album="").values("album").distinct().count()
+
+            return Response({
+                "name": name,
+                "count": total_plays,
+                "scope": self._scope_payload(request),
+                "first_played": earliest_song.played_at.isoformat() if earliest_song else None,
+                "last_played": latest_song.played_at.isoformat() if latest_song else None,
+                "thumbnail": latest_song.album_thumbnail if latest_song else None,
+                "artist_lastfm_url": latest_song.artist_lastfm_url if latest_song else None,
+                "top_tracks": top_tracks,
+                "albums_count": albums_count,
+                "latest_played": latest_song.played_at.isoformat() if latest_song else None,
+            })
+        except Exception as e:
+            logger.error(f"Error fetching artist detail: {e}", exc_info=True)
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @action(detail=False, methods=["get"], url_path="album-detail")
+    def albumDetail(self, request: Request) -> Response:
+        """Return album detail with top tracks for the authenticated user."""
+        name = request.query_params.get("name", "").strip()
+        artist = request.query_params.get("artist", "").strip()
+        if not name:
+            return Response({"error": "name is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            songs = self._entity_songs(request, 'album', name, artist)
+            if artist:
+                songs = songs.filter(artist__iexact=artist)
+
+            if not songs.exists():
+                return Response({"error": "Album not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            total_plays = songs.count()
+            latest_song = songs.order_by("-played_at").first()
+            earliest_song = songs.order_by("played_at").first()
+            actual_artist = latest_song.artist if latest_song else artist
+
+            # Get top tracks for this album
+            top_tracks_qs = (
+                songs.values("title")
+                .annotate(count=Count("id"))
+                .order_by("-count")[:10]
+            )
+            top_tracks = [
+                {"title": t["title"], "recording_id": recording_identity_key(actual_artist, t["title"]), "count": t["count"]}
+                for t in top_tracks_qs
+            ]
+
+            return Response({
+                "name": name,
+                "artist": actual_artist,
+                "count": total_plays,
+                "scope": self._scope_payload(request),
+                "first_played": earliest_song.played_at.isoformat() if earliest_song else None,
+                "last_played": latest_song.played_at.isoformat() if latest_song else None,
+                "thumbnail": latest_song.album_thumbnail if latest_song else None,
+                "track_url": latest_song.track_url if latest_song else None,
+                "top_tracks": top_tracks,
+                "latest_played": latest_song.played_at.isoformat() if latest_song else None,
+            })
+        except Exception as e:
+            logger.error(f"Error fetching album detail: {e}", exc_info=True)
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @action(detail=False, methods=["get"], url_path="track-detail")
+    def trackDetail(self, request: Request) -> Response:
+        """Return track detail for the authenticated user.
+
+        Identity is resolved by ``recording_id`` (artist + exact title) when
+        provided; the fallback requires ``artist`` so different recordings
+        that share a title can never be merged.
+        """
+        name = request.query_params.get("name", "").strip()
+        artist = request.query_params.get("artist", "").strip()
+        recording_id = request.query_params.get("recording_id", "").strip()
+        if not name:
+            return Response({"error": "name is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            songs = self._resolve_track_songs(request, name, artist, recording_id)
+
+            if not songs.exists():
+                return Response({"error": "Track not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            total_plays = songs.count()
+            latest_song = songs.order_by("-played_at").first()
+            earliest_song = songs.order_by("played_at").first()
+            actual_artist = latest_song.artist if latest_song else artist
+            actual_album = latest_song.album if latest_song else None
+            recording_id = recording_identity_key(actual_artist, latest_song.title if latest_song else name)
+
+            return Response({
+                "title": latest_song.title if latest_song else name,
+                "artist": actual_artist,
+                "album": actual_album,
+                "recording_id": recording_id,
+                "count": total_plays,
+                "scope": self._scope_payload(request),
+                "first_played": earliest_song.played_at.isoformat() if earliest_song else None,
+                "last_played": latest_song.played_at.isoformat() if latest_song else None,
+                "thumbnail": latest_song.album_thumbnail if latest_song else None,
+                "track_url": latest_song.track_url if latest_song else None,
+                "artist_lastfm_url": latest_song.artist_lastfm_url if latest_song else None,
+                "loved": latest_song.loved if latest_song else False,
+                "streamable": latest_song.streamable if latest_song else False,
+                "played_at": latest_song.played_at.isoformat() if latest_song else None,
+                "source": latest_song.source if latest_song else None,
+            })
+        except ValidationError:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching track detail: {e}", exc_info=True)
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @action(detail=False, methods=["get"], url_path="artist-plays")
+    def artistPlays(self, request: Request) -> Response:
+        """Return paginated play history for an artist."""
+        name = request.query_params.get("name", "").strip()
+        if not name:
+            return Response({"error": "name is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            page = bounded_int(request.query_params, "page", default=1, minimum=1, maximum=1000)
+            page_size = bounded_int(request.query_params, "page_size", default=50, minimum=1, maximum=100)
+
+            songs = self._entity_songs(request, 'artist', name).order_by("-played_at")
+            total_items = songs.count()
+            start = (page - 1) * page_size
+            end = start + page_size
+            page_songs = songs[start:end]
+
+            results = []
+            for song in page_songs:
+                results.append({
+                    "id": song.id,
+                    "title": song.title,
+                    "artist": song.artist,
+                    "album": song.album,
+                    "played_at": song.played_at.isoformat(),
+                    "source": song.source,
+                    "thumbnail": song.album_thumbnail,
+                    "track_url": song.track_url,
+                    "artist_lastfm_url": song.artist_lastfm_url,
+                })
+
+            return Response({
+                "results": results,
+                "has_next": end < total_items,
+                "total_items": total_items,
+                "page": page,
+                "page_size": page_size,
+            })
+        except ValidationError:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching artist plays: {e}", exc_info=True)
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @action(detail=False, methods=["get"], url_path="album-plays")
+    def albumPlays(self, request: Request) -> Response:
+        """Return paginated play history for an album."""
+        name = request.query_params.get("name", "").strip()
+        artist = request.query_params.get("artist", "").strip()
+        if not name:
+            return Response({"error": "name is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            page = bounded_int(request.query_params, "page", default=1, minimum=1, maximum=1000)
+            page_size = bounded_int(request.query_params, "page_size", default=50, minimum=1, maximum=100)
+
+            songs = self._entity_songs(request, 'album', name, artist).order_by("-played_at")
+
+            total_items = songs.count()
+            start = (page - 1) * page_size
+            end = start + page_size
+            page_songs = songs[start:end]
+
+            results = []
+            for song in page_songs:
+                results.append({
+                    "id": song.id,
+                    "title": song.title,
+                    "artist": song.artist,
+                    "album": song.album,
+                    "played_at": song.played_at.isoformat(),
+                    "source": song.source,
+                    "thumbnail": song.album_thumbnail,
+                    "track_url": song.track_url,
+                    "artist_lastfm_url": song.artist_lastfm_url,
+                })
+
+            return Response({
+                "results": results,
+                "has_next": end < total_items,
+                "total_items": total_items,
+                "page": page,
+                "page_size": page_size,
+            })
+        except ValidationError:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching album plays: {e}", exc_info=True)
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @action(detail=False, methods=["get"], url_path="track-plays")
+    def trackPlays(self, request: Request) -> Response:
+        """Return paginated play history for a track."""
+        name = request.query_params.get("name", "").strip()
+        artist = request.query_params.get("artist", "").strip()
+        recording_id = request.query_params.get("recording_id", "").strip()
+        if not name:
+            return Response({"error": "name is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            page = bounded_int(request.query_params, "page", default=1, minimum=1, maximum=1000)
+            page_size = bounded_int(request.query_params, "page_size", default=50, minimum=1, maximum=100)
+
+            songs = self._resolve_track_songs(request, name, artist, recording_id).order_by("-played_at")
+
+            total_items = songs.count()
+            start = (page - 1) * page_size
+            end = start + page_size
+            page_songs = songs[start:end]
+
+            results = []
+            for song in page_songs:
+                results.append({
+                    "id": song.id,
+                    "title": song.title,
+                    "artist": song.artist,
+                    "album": song.album,
+                    "played_at": song.played_at.isoformat(),
+                    "source": song.source,
+                    "thumbnail": song.album_thumbnail,
+                    "track_url": song.track_url,
+                    "artist_lastfm_url": song.artist_lastfm_url,
+                })
+
+            return Response({
+                "results": results,
+                "has_next": end < total_items,
+                "total_items": total_items,
+                "page": page,
+                "page_size": page_size,
+            })
+        except ValidationError:
+            raise
+        except ValidationError:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching track plays: {e}", exc_info=True)
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

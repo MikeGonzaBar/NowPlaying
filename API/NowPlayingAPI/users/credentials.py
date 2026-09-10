@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from rest_framework import status
 from rest_framework.exceptions import APIException, NotAuthenticated
 
+from django.contrib.auth.models import AbstractBaseUser, AnonymousUser
+
 from .models import UserApiKey
 
 
@@ -18,23 +20,35 @@ SERVICE_LABELS = {
 
 
 class MissingServiceCredentials(APIException):
+    """Raised when a user has not stored credentials for a service."""
+
     status_code = status.HTTP_400_BAD_REQUEST
     default_code = "missing_service_credentials"
 
 
 class InvalidServiceCredentials(APIException):
+    """Raised when stored credentials cannot be decrypted or used."""
+
     status_code = status.HTTP_400_BAD_REQUEST
     default_code = "invalid_service_credentials"
 
 
 @dataclass(frozen=True)
 class ServiceCredentials:
+    """Decrypted service credentials scoped to the current user."""
+
     service_name: str
     api_key: str
     service_user_id: str | None = None
 
 
-def get_service_credentials(user, service_name, *, require_user_id=False) -> ServiceCredentials:
+def get_service_credentials(
+    user: AbstractBaseUser | AnonymousUser,
+    service_name: str,
+    *,
+    require_user_id: bool = False,
+) -> ServiceCredentials:
+    """Return decrypted service credentials for an authenticated user."""
     if not user or not user.is_authenticated:
         raise NotAuthenticated("Authentication required to access service credentials.")
 
@@ -64,4 +78,3 @@ def get_service_credentials(user, service_name, *, require_user_id=False) -> Ser
         api_key=api_key,
         service_user_id=api_key_obj.service_user_id,
     )
-

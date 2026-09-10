@@ -1,8 +1,11 @@
-from django.shortcuts import render
 from rest_framework import generics, status, permissions, viewsets
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
+from django.db.models import QuerySet
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from .serializers import (
     UserRegistrationSerializer, 
     UserLoginSerializer, 
@@ -14,14 +17,17 @@ from .models import UserApiKey
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
-# Create your views here.
 
 class UserRegistrationView(generics.CreateAPIView):
+    """Create a new user and return JWT tokens."""
+
     queryset = User.objects.all()
     serializer_class = UserRegistrationSerializer
     permission_classes = [permissions.AllowAny]
     
-    def post(self, request, *args, **kwargs):
+    @extend_schema(summary="Register a new user", responses={201: OpenApiTypes.OBJECT})
+    def post(self, request: Request, *args: object, **kwargs: object) -> Response:
+        """Validate registration data and return a token pair for the new user."""
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
@@ -35,10 +41,14 @@ class UserRegistrationView(generics.CreateAPIView):
         }, status=status.HTTP_201_CREATED)
 
 class UserLoginView(generics.GenericAPIView):
+    """Authenticate a user and return JWT tokens."""
+
     serializer_class = UserLoginSerializer
     permission_classes = [permissions.AllowAny]
     
-    def post(self, request, *args, **kwargs):
+    @extend_schema(summary="Log in a user", responses={200: OpenApiTypes.OBJECT})
+    def post(self, request: Request, *args: object, **kwargs: object) -> Response:
+        """Validate credentials and return a token pair."""
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
@@ -52,34 +62,48 @@ class UserLoginView(generics.GenericAPIView):
         })
 
 class UserProfileView(generics.RetrieveAPIView):
+    """Return the authenticated user's profile."""
+
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
     
-    def get_object(self):
+    def get_object(self) -> User:
+        """Return the user attached to the current request."""
         return self.request.user
 
+
+@extend_schema_view(
+    verify=extend_schema(summary="Verify a stored API key value", responses={200: OpenApiTypes.OBJECT}),
+    services=extend_schema(summary="List services with stored API keys", responses={200: OpenApiTypes.OBJECT}),
+)
 class ApiKeyViewSet(viewsets.ModelViewSet):
+    """Manage encrypted external-service API keys for the current user."""
+
+    queryset = UserApiKey.objects.none()
     serializer_class = ApiKeySerializer
     permission_classes = [permissions.IsAuthenticated]
     
-    def get_queryset(self):
+    def get_queryset(self) -> QuerySet[UserApiKey]:
+        """Return only API keys owned by the authenticated user."""
         return UserApiKey.objects.filter(user=self.request.user).order_by('-updated_at')
     
     @action(detail=False, methods=['post'])
-    def verify(self, request):
+    def verify(self, request: Request) -> Response:
+        """Verify a submitted key against the current user's stored key."""
         serializer = ApiKeyCheckSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         return Response({'status': 'valid'}, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['get'])
-    def services(self, request):
+    def services(self, request: Request) -> Response:
         """Return a list of services for which the user has stored API keys"""
         services = UserApiKey.objects.filter(user=request.user).values_list('service_name', flat=True)
         return Response(services)
 
+@extend_schema(summary="Return the current JWT-authenticated user", responses={200: OpenApiTypes.OBJECT})
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_current_user(request):
+def get_current_user(request: Request) -> Response:
     """
     Endpoint to demonstrate getting the user from a JWT token.
     This endpoint will return the user ID and username of the authenticated user.

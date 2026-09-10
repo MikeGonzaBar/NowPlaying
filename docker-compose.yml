@@ -7,11 +7,39 @@ services:
       - "${API_PORT:-8001}:8080"
     volumes:
       - ./API:/app
-      - ./API/static:/app/static
+      - api_static:/app/NowPlayingAPI/staticfiles
     env_file:
       - ./API/.env
     environment:
       - PORT=8080
+      - RUN_MIGRATIONS=true
+      - ENABLE_ADMIN_SITE=false
+      - ENABLE_API_DOCS=false
+      - POSTGRES_HOST=db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  api-admin:
+    build:
+      context: ./API
+      dockerfile: ./Dockerfile
+    ports:
+      - "127.0.0.1:${ADMIN_API_PORT:-8011}:8080"
+    volumes:
+      - ./API:/app
+      - api_static:/app/NowPlayingAPI/staticfiles
+    env_file:
+      - ./API/.env
+    environment:
+      - PORT=8080
+      - RUN_MIGRATIONS=false
+      - ENABLE_ADMIN_SITE=true
+      - ENABLE_API_DOCS=true
       - POSTGRES_HOST=db
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -66,5 +94,6 @@ services:
       retries: 12
 
 volumes:
+  api_static:
   postgres_data:
   redis_data:

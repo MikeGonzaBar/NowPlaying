@@ -5,6 +5,8 @@ from django.contrib.auth.password_validation import validate_password
 from .models import UserApiKey
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
+    """Validate and create local application users."""
+
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
     
@@ -12,12 +14,14 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         model = User
         fields = ('username', 'email', 'password', 'password2')
         
-    def validate(self, attrs):
+    def validate(self, attrs: dict[str, object]) -> dict[str, object]:
+        """Ensure both submitted passwords match."""
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError({"password": "Password fields didn't match."})
         return attrs
     
-    def create(self, validated_data):
+    def create(self, validated_data: dict[str, object]) -> User:
+        """Create a Django auth user from validated registration data."""
         validated_data.pop('password2')
         user = User.objects.create_user(
             username=validated_data['username'],
@@ -27,10 +31,13 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return user
 
 class UserLoginSerializer(serializers.Serializer):
+    """Validate username/password credentials for JWT login."""
+
     username = serializers.CharField(required=True)
     password = serializers.CharField(required=True, write_only=True)
     
-    def validate(self, attrs):
+    def validate(self, attrs: dict[str, str]) -> dict[str, User]:
+        """Authenticate credentials and return the matching active user."""
         user = authenticate(username=attrs['username'], password=attrs['password'])
         
         if not user:
@@ -42,12 +49,16 @@ class UserLoginSerializer(serializers.Serializer):
         return {'user': user}
 
 class UserSerializer(serializers.ModelSerializer):
+    """Serialize public profile fields for a local user."""
+
     class Meta:
         model = User
         fields = ('id', 'username', 'email')
         read_only_fields = ('id',)
 
 class ApiKeySerializer(serializers.ModelSerializer):
+    """Store external service credentials in encrypted form."""
+
     api_key = serializers.CharField(write_only=True, required=True)
     service_user_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     
@@ -55,8 +66,19 @@ class ApiKeySerializer(serializers.ModelSerializer):
         model = UserApiKey
         fields = ('id', 'service_name', 'service_user_id', 'created_at', 'updated_at', 'last_used', 'api_key')
         read_only_fields = ('id', 'created_at', 'updated_at', 'last_used')
+
+    def validate(self, attrs: dict[str, object]) -> dict[str, object]:
+        """Prevent raw PlayStation NPSSO storage through the generic key API."""
+        is_existing_psn = self.instance is not None and self.instance.service_name == 'psn'
+        is_new_psn = attrs.get('service_name') == 'psn'
+        if is_new_psn or is_existing_psn:
+            raise serializers.ValidationError({
+                'service_name': 'Use /psn/exchange-npsso/ to connect PlayStation.'
+            })
+        return attrs
     
-    def create(self, validated_data):
+    def create(self, validated_data: dict[str, object]) -> UserApiKey:
+        """Create or replace the current user's encrypted key for a service."""
         raw_key = validated_data.pop('api_key')
         service_user_id = validated_data.pop('service_user_id', None)
         user = self.context['request'].user
@@ -74,7 +96,8 @@ class ApiKeySerializer(serializers.ModelSerializer):
         api_key.save()
         return api_key
     
-    def update(self, instance, validated_data):
+    def update(self, instance: UserApiKey, validated_data: dict[str, object]) -> UserApiKey:
+        """Update the encrypted key and optional service user id."""
         service_user_id = validated_data.pop('service_user_id', None)
         if 'api_key' in validated_data:
             instance.set_key(validated_data.pop('api_key'), service_user_id=service_user_id)
@@ -84,10 +107,13 @@ class ApiKeySerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 class ApiKeyCheckSerializer(serializers.Serializer):
+    """Validate a submitted API key against the stored encrypted value."""
+
     service_name = serializers.CharField(required=True)
     api_key = serializers.CharField(required=True, write_only=True)
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict[str, str]) -> dict[str, object]:
+        """Return a success payload when the submitted key matches storage."""
         user = self.context['request'].user
         service_name = attrs['service_name']
         

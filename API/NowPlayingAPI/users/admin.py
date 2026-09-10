@@ -9,12 +9,16 @@ admin.site.unregister(User)
 # Register your own with another Admin
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
+    """Admin view for Django auth users."""
+
     # Add any customizations here
     list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff')
     search_fields = ('username', 'email')
 
 @admin.register(UserApiKey)
 class UserApiKeyAdmin(admin.ModelAdmin):
+    """Admin view for encrypted external-service API keys."""
+
     list_display = ('user', 'service_name', 'service_user_id', 'last_used', 'created_at', 'updated_at')
     list_filter = ('service_name', 'created_at', 'last_used')
     search_fields = ('user__username', 'service_name', 'service_user_id')

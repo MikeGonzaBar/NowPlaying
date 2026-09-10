@@ -8,6 +8,8 @@ logger = logging.getLogger("steam")
 
 
 class Game(models.Model):
+    """Stored Steam game owned by a local user."""
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='steam_games')  # Allow null initially for migration
     appid = models.PositiveIntegerField()
     name = models.CharField(max_length=255)
@@ -28,10 +30,12 @@ class Game(models.Model):
             models.Index(fields=['playtime_forever']),  # For playtime sorting
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the Steam game name."""
         return self.name
 
-    def convert_playtime(self):
+    def convert_playtime(self) -> str:
+        """Return total Steam playtime formatted as hours and minutes."""
         # Convert minutes into a formatted time string: "Xh Ym Zs"
         playtime_minutes = self.playtime_forever
         hours, minutes = divmod(playtime_minutes, 60)
@@ -39,12 +43,15 @@ class Game(models.Model):
         # here we keep the minutes part intact.
         return f"{hours}h {minutes}m"
     
-    def save(self, *args, **kwargs):
+    def save(self, *args: object, **kwargs: object) -> None:
+        """Update formatted playtime before saving."""
         # Automatically update the formatted playtime
         self.playtime_formatted = self.convert_playtime()
         super().save(*args, **kwargs)
 
 class Achievement(models.Model):
+    """Stored Steam achievement for a game."""
+
     game = models.ForeignKey(Game, related_name="achievements", on_delete=models.CASCADE)
     name = models.CharField(max_length=255)  # The display name from Steam
     description = models.TextField(blank=True)
@@ -52,13 +59,16 @@ class Achievement(models.Model):
     unlocked = models.BooleanField(default=False)
     unlock_time = models.DateTimeField(null=True, blank=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the achievement name and lock state."""
         return f"{self.name} ({'Unlocked' if self.unlocked else 'Locked'})"
     
 class SteamAPI:
+    """Steam Web API adapter that syncs games and achievements."""
 
     @staticmethod
-    def fetch_global_achievements(appid, steam_api_key):
+    def fetch_global_achievements(appid: int, steam_api_key: str) -> tuple[list[dict[str, object]] | None, str | None]:
+        """Fetch the global achievement schema for a Steam app."""
         url = "http://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/"
         try:
             response = http_client.get(
@@ -79,7 +89,8 @@ class SteamAPI:
         return data["game"]["availableGameStats"]["achievements"], None
 
     @staticmethod
-    def fetch_player_achievements(appid, steam_id, steam_api_key):
+    def fetch_player_achievements(appid: int, steam_id: str, steam_api_key: str) -> tuple[dict[str, dict[str, object]] | None, str | None]:
+        """Fetch a player's achievement state for a Steam app."""
         url = "http://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/"
         try:
             response = http_client.get(
@@ -102,7 +113,14 @@ class SteamAPI:
         return {ach["apiname"]: ach for ach in data["playerstats"]["achievements"]}, None
 
     @classmethod
-    def update_game_and_achievements(cls, game_data, steam_id, steam_api_key, user=None):
+    def update_game_and_achievements(
+        cls,
+        game_data: dict[str, object],
+        steam_id: str,
+        steam_api_key: str,
+        user: User | None = None,
+    ) -> dict[str, object]:
+        """Update one stored Steam game and its achievements."""
         if user is None:
             raise ValueError("User must be provided to associate games.")
         """
@@ -185,7 +203,8 @@ class SteamAPI:
         }
 
     @classmethod
-    def get_games(cls, steam_id, steam_api_key, user=None):
+    def get_games(cls, steam_id: str, steam_api_key: str, user: User | None = None) -> dict[str, object]:
+        """Fetch Steam owned games and sync them into local storage."""
         if user is None:
             raise ValueError("User must be provided to associate games.")
         """

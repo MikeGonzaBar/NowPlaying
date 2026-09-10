@@ -10,13 +10,17 @@ from trakt.models import (
 
 
 class Command(BaseCommand):
+    """Backfill TMDB metadata for stored movies and shows."""
+
     help = "Backfill movie/show metadata used by analytics from TMDB."
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: object) -> None:
+        """Register command-line arguments."""
         parser.add_argument("--user-id", type=int, default=None)
         parser.add_argument("--limit", type=int, default=200)
 
-    def handle(self, *args, **options):
+    def handle(self, *args: object, **options: object) -> None:
+        """Fetch TMDB metadata and update stored media rows."""
         user_id = options["user_id"]
         limit = options["limit"]
 

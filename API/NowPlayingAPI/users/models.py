@@ -5,7 +5,10 @@ from django.utils import timezone
 from .crypto import encrypt_api_key, decrypt_api_key
 
 class UserManager(BaseUserManager):
-    def create_user(self, username, email, password=None, **extra_fields):
+    """Create local Django users with email validation."""
+
+    def create_user(self, username: str, email: str, password: str | None = None, **extra_fields: object) -> User:
+        """Create a regular user with a normalized email address."""
         if not email:
             raise ValueError('The Email field must be set')
         email = self.normalize_email(email)
@@ -14,7 +17,8 @@ class UserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, username, email, password=None, **extra_fields):
+    def create_superuser(self, username: str, email: str, password: str | None = None, **extra_fields: object) -> User:
+        """Create a staff superuser for Django admin access."""
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         
@@ -48,21 +52,22 @@ class UserApiKey(models.Model):
         verbose_name = 'User API Key'
         verbose_name_plural = 'User API Keys'
     
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a concise ownership label for the stored service key."""
         return f"{self.user.username}'s {self.service_name} API key"
     
-    def set_key(self, raw_key, service_user_id=None):
+    def set_key(self, raw_key: str, service_user_id: str | None = None) -> None:
         """Encrypt and save the API key and optional service user ID"""
         self.key_hash = encrypt_api_key(raw_key)
         if service_user_id is not None:
             self.service_user_id = service_user_id
         
-    def get_key(self):
+    def get_key(self) -> str | None:
         """Decrypt and return the API key"""
         decrypted_key = decrypt_api_key(self.key_hash)
         return decrypted_key
     
-    def update_last_used(self):
+    def update_last_used(self) -> None:
         """Update the last used timestamp"""
         self.last_used = timezone.now()
         self.save(update_fields=['last_used'])

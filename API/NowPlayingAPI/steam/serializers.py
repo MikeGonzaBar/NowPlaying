@@ -3,11 +3,15 @@ from rest_framework import serializers
 from .models import Achievement, Game
 
 class AchievementSerializer(serializers.ModelSerializer):
+    """Serialize stored Steam achievements."""
+
     class Meta:
         model = Achievement
         fields = ['name', 'description', 'image', 'unlocked', 'unlock_time']
 
 class SteamSerializer(serializers.ModelSerializer):
+    """Serialize stored Steam games with achievement summary counts."""
+
     total_achievements = serializers.SerializerMethodField()
     unlocked_achievements_count = serializers.SerializerMethodField()
     locked_achievements_count = serializers.SerializerMethodField()
@@ -24,13 +28,16 @@ class SteamSerializer(serializers.ModelSerializer):
             "achievements"
         ]
 
-    def get_total_achievements(self, obj):
+    def get_total_achievements(self, obj: Game) -> int:
+        """Return total related achievements."""
         return obj.achievements.count()
 
-    def get_unlocked_achievements_count(self, obj):
+    def get_unlocked_achievements_count(self, obj: Game) -> int:
+        """Return unlocked related achievements."""
         return obj.achievements.filter(unlocked=True).count()
 
-    def get_locked_achievements_count(self, obj):
+    def get_locked_achievements_count(self, obj: Game) -> int:
+        """Return locked related achievements."""
         total = self.get_total_achievements(obj)
         unlocked = self.get_unlocked_achievements_count(obj)
         return total - unlocked

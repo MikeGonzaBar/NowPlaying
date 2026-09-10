@@ -3,6 +3,8 @@ from django.utils.safestring import mark_safe
 from .models import PSNGame, PSNAchievement
 
 class PSNAchievementInline(admin.TabularInline):
+    """Inline read-only PlayStation trophies for a game."""
+
     model = PSNAchievement
     extra = 0
     readonly_fields = ['name', 'description', 'trophy_type', 'unlocked', 'unlock_time', 'image']
@@ -10,11 +12,14 @@ class PSNAchievementInline(admin.TabularInline):
     can_delete = False
     max_num = 0
     
-    def has_add_permission(self, request, obj=None):
+    def has_add_permission(self, request: object, obj: object | None = None) -> bool:
+        """Prevent manual trophy creation in admin."""
         return False
 
 @admin.register(PSNGame)
 class PSNGameAdmin(admin.ModelAdmin):
+    """Admin view for stored PlayStation games."""
+
     list_display = ['name', 'user_username', 'platform', 'total_playtime', 'last_played', 'achievement_progress']
     list_filter = ['user', 'platform', 'last_played']
     search_fields = ['name', 'appid', 'user__username']
@@ -22,12 +27,14 @@ class PSNGameAdmin(admin.ModelAdmin):
     fields = ['user', 'appid', 'name', 'platform', 'total_playtime', 'first_played', 'last_played', 'image_display']
     inlines = [PSNAchievementInline]
 
-    def user_username(self, obj):
+    def user_username(self, obj: PSNGame) -> str:
+        """Return the owning username for list display."""
         return obj.user.username if obj.user else "No User"
     user_username.short_description = "User"
     user_username.admin_order_field = 'user__username'
 
-    def achievement_progress(self, obj):
+    def achievement_progress(self, obj: PSNGame) -> str:
+        """Return unlocked and total trophy progress."""
         total = obj.achievements.count()
         unlocked = obj.achievements.filter(unlocked=True).count()
         if total:
@@ -36,7 +43,8 @@ class PSNGameAdmin(admin.ModelAdmin):
         return "0/0 (0%)"
     achievement_progress.short_description = "Achievement Progress"
 
-    def image_display(self, obj):
+    def image_display(self, obj: PSNGame) -> object:
+        """Render the game image in admin."""
         if obj.img_icon_url:
             return mark_safe(f'<img src="{obj.img_icon_url}" width="100" />')
         return ""
@@ -44,18 +52,22 @@ class PSNGameAdmin(admin.ModelAdmin):
 
 @admin.register(PSNAchievement)
 class PSNAchievementAdmin(admin.ModelAdmin):
+    """Admin view for stored PlayStation trophies."""
+
     list_display = ['name', 'game', 'game_user', 'trophy_type', 'unlocked', 'unlock_time']
     list_filter = ['unlocked', 'trophy_type', 'game', 'game__user']
     search_fields = ['name', 'description', 'game__name', 'game__user__username']
     readonly_fields = ['game', 'game_user', 'name', 'description', 'trophy_type', 'unlocked', 'unlock_time', 'image_display']
     fields = ['game', 'game_user', 'name', 'description', 'trophy_type', 'unlocked', 'unlock_time', 'image_display']
 
-    def game_user(self, obj):
+    def game_user(self, obj: PSNAchievement) -> str:
+        """Return the parent game owner."""
         return obj.game.user.username if obj.game and obj.game.user else "No User"
     game_user.short_description = "User"
     game_user.admin_order_field = 'game__user__username'
 
-    def image_display(self, obj):
+    def image_display(self, obj: PSNAchievement) -> object:
+        """Render the trophy image in admin."""
         if obj.image:
             return mark_safe(f'<img src="{obj.image}" width="100" />')
         return ""

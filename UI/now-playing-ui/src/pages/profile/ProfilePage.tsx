@@ -1,245 +1,245 @@
-import {
-    Box,
-    Typography,
-    Paper,
-    CircularProgress,
-    Alert
-} from '@mui/material';
+import { Box, Typography, Paper, CircularProgress, Alert } from "@mui/material";
 
-import AppShell from '../../components/AppShell';
-import { useProfile, useApiKeys, useTraktAuth, usePSNEdit } from './hooks';
-import { authenticatedFetch } from '../../utils/auth';
-import { getApiUrl, API_CONFIG } from '../../config/api';
-import { ServiceSection, TraktOAuthDialog } from './components';
+import AppShell from "../../components/AppShell";
+import { useProfile, useApiKeys, useTraktAuth, usePSNEdit } from "./hooks";
+import { authenticatedFetch } from "../../utils/auth";
+import { getApiUrl, API_CONFIG } from "../../config/api";
+import { ServiceSection, TraktOAuthDialog } from "./components";
 
 function ProfilePage() {
-    const { userProfile, loading: profileLoading, error } = useProfile();
-    const {
-        apiKeys,
-        loading: apiKeysLoading,
-        newApiKeys,
-        handleNewApiKeyChange,
-        saveApiKey,
-        deleteApiKey
-    } = useApiKeys();
+  const { userProfile, loading: profileLoading, error } = useProfile();
+  const {
+    apiKeys,
+    loading: apiKeysLoading,
+    newApiKeys,
+    handleNewApiKeyChange,
+    saveApiKey,
+    deleteApiKey,
+    refetchApiKeys,
+  } = useApiKeys();
 
-    const {
-        traktAuthStatus,
-        loading: traktLoading,
-        oauthDialogOpen,
-        authCode,
-        setOauthDialogOpen,
-        setAuthCode,
-        startOAuth,
-        completeOAuth,
-        refetchAuthStatus
-    } = useTraktAuth(userProfile);
+  const {
+    traktAuthStatus,
+    loading: traktLoading,
+    oauthDialogOpen,
+    authCode,
+    setOauthDialogOpen,
+    setAuthCode,
+    startOAuth,
+    completeOAuth,
+    refetchAuthStatus,
+  } = useTraktAuth(userProfile);
 
-    const {
-        isEditingPSN,
-        editingNPSSO,
-        updatingPSN,
-        setUpdatingPSN,
-        startEditing: startPSNEditing,
-        cancelEditing: cancelPSNEditing,
-        setNPSSO
-    } = usePSNEdit();
+  const {
+    isEditingPSN,
+    editingNPSSO,
+    updatingPSN,
+    setUpdatingPSN,
+    startEditing: startPSNEditing,
+    cancelEditing: cancelPSNEditing,
+    setNPSSO,
+  } = usePSNEdit();
 
-    // Handler functions
-    const handleSaveApiKey = async (serviceName: string, keyData?: { userId: string; apiKey: string }) => {
-        try {
-            await saveApiKey(serviceName, keyData);
+  // Handler functions
+  const handleSaveApiKey = async (
+    serviceName: string,
+    keyData?: { userId: string; apiKey: string },
+  ) => {
+    try {
+      await saveApiKey(serviceName, keyData);
 
-            // If this was Trakt, refresh auth status
-            if (serviceName === 'trakt') {
-                setTimeout(() => refetchAuthStatus(), 1000);
-            }
-        } catch (error) {
-            alert(error instanceof Error ? error.message : 'Failed to save API key');
-        }
-    };
+      // If this was Trakt, refresh auth status
+      if (serviceName === "trakt") {
+        setTimeout(() => refetchAuthStatus(), 1000);
+      }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to save API key");
+    }
+  };
 
-    const handleDeleteApiKey = async (apiKeyId: number, serviceName: string) => {
-        try {
-            await deleteApiKey(apiKeyId);
+  const handleDeleteApiKey = async (apiKeyId: number, serviceName: string) => {
+    try {
+      await deleteApiKey(apiKeyId);
 
-            // If this was Trakt, refresh auth status
-            if (serviceName.toLowerCase() === 'trakt') {
-                setTimeout(() => refetchAuthStatus(), 1000);
-            }
-        } catch (error) {
-            alert(error instanceof Error ? error.message : 'Failed to delete API key');
-        }
-    };
+      // If this was Trakt, refresh auth status
+      if (serviceName.toLowerCase() === "trakt") {
+        setTimeout(() => refetchAuthStatus(), 1000);
+      }
+    } catch (error) {
+      alert(
+        error instanceof Error ? error.message : "Failed to delete API key",
+      );
+    }
+  };
 
-    const handlePSNSave = async (_apiKeyId: number) => {
-        try {
-            setUpdatingPSN(true);
-            const body = { npsso: editingNPSSO.trim() };
-            const response = await authenticatedFetch(
-                getApiUrl(`${API_CONFIG.PSN_ENDPOINT}/exchange-npsso/`),
-                {
-                    method: 'POST',
-                    body: JSON.stringify(body)
-                }
-            );
+  const handlePSNSave = async (_apiKeyId: number) => {
+    try {
+      setUpdatingPSN(true);
+      const body = { npsso: editingNPSSO.trim() };
+      const response = await authenticatedFetch(
+        getApiUrl(`${API_CONFIG.PSN_ENDPOINT}/exchange-npsso/`),
+        {
+          method: "POST",
+          body: JSON.stringify(body),
+        },
+      );
 
-            if (!response.ok) {
-                const err = await response.json().catch(() => ({}));
-                throw new Error(err.error || 'Failed to store NPSSO');
-            }
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to store NPSSO");
+      }
 
-            cancelPSNEditing();
-            alert('PlayStation NPSSO stored successfully!');
-        } catch (error) {
-            alert(error instanceof Error ? error.message : 'Failed to update NPSSO');
-        } finally {
-            setUpdatingPSN(false);
-        }
-    };
+      cancelPSNEditing();
+      await refetchApiKeys();
+      alert("PlayStation connected successfully!");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to update NPSSO");
+    } finally {
+      setUpdatingPSN(false);
+    }
+  };
 
-    const handleTraktOAuth = async () => {
-        try {
-            await startOAuth();
-        } catch (error) {
-            alert(error instanceof Error ? error.message : 'Failed to start OAuth');
-        }
-    };
+  const handleTraktOAuth = async () => {
+    try {
+      await startOAuth();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to start OAuth");
+    }
+  };
 
-    const handleCompleteOAuth = async () => {
-        try {
-            const message = await completeOAuth();
-            alert(message);
-        } catch (error) {
-            alert(error instanceof Error ? error.message : 'Failed to complete OAuth');
-        }
-    };
+  const handleCompleteOAuth = async () => {
+    try {
+      const message = await completeOAuth();
+      alert(message);
+    } catch (error) {
+      alert(
+        error instanceof Error ? error.message : "Failed to complete OAuth",
+      );
+    }
+  };
 
-    return (
-        <>
-            <AppShell activeItem="Profile" mainSx={{ p: { xs: 2, md: 3 } }}>
-                    <Typography
-                        variant="h4"
-                        sx={{
-                            mb: 2.5,
-                            fontFamily: 'Montserrat, sans-serif',
-                            fontWeight: 'bold'
-                        }}
-                    >
-                        Profile
-                    </Typography>
+  return (
+    <>
+      <AppShell activeItem="Profile" mainSx={{ p: { xs: 2, md: 3 } }}>
+        <Typography
+          variant="h4"
+          sx={{
+            mb: 2.5,
+            fontFamily: "Montserrat, sans-serif",
+            fontWeight: "bold",
+          }}
+        >
+          Connections & account
+        </Typography>
 
-                    {profileLoading && (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-                            <CircularProgress sx={{ color: '#00a8cc' }} />
-                        </Box>
-                    )}
+        {profileLoading && (
+          <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
+            <CircularProgress sx={{ color: "#00a8cc" }} />
+          </Box>
+        )}
 
-                    {error && (
-                        <Alert severity="error" sx={{ mb: 2 }}>
-                            {error}
-                        </Alert>
-                    )}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
-                    {userProfile && !profileLoading && (
-                        <>
-                            {/* User Profile Section */}
-                            <Typography
-                                variant="h5"
-                                sx={{
-                                    mb: 2,
-                                    fontFamily: 'Montserrat, sans-serif',
-                                    fontWeight: 'bold'
-                                }}
-                            >
-                                Welcome, {userProfile.username}!
-                            </Typography>
+        {userProfile && !profileLoading && (
+          <>
+            {/* User Profile Section */}
+            <Typography
+              variant="h5"
+              sx={{
+                mb: 2,
+                fontFamily: "Montserrat, sans-serif",
+                fontWeight: "bold",
+              }}
+            >
+              Welcome, {userProfile.username}!
+            </Typography>
 
-                            {/* Services Section */}
-                            <Paper
-                                sx={{
-                                    p: { xs: 2, md: 3 },
-                                    backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                                    backdropFilter: 'blur(10px)',
-                                    borderRadius: 2,
-                                    border: '1px solid rgba(255, 255, 255, 0.14)',
-                                }}
-                            >
-                                <Typography
-                                    variant="h5"
-                                    sx={{
-                                        mb: 2,
-                                        fontFamily: 'Montserrat, sans-serif',
-                                        fontWeight: 'bold'
-                                    }}
-                                >
-                                    Services
-                                </Typography>
+            {/* Services Section */}
+            <Paper
+              sx={{
+                p: { xs: 2, md: 3 },
+                backgroundColor: "rgba(255, 255, 255, 0.07)",
+                backdropFilter: "blur(10px)",
+                borderRadius: 2,
+                border: "1px solid rgba(255, 255, 255, 0.14)",
+              }}
+            >
+              <Typography
+                variant="h5"
+                sx={{
+                  mb: 2,
+                  fontFamily: "Montserrat, sans-serif",
+                  fontWeight: "bold",
+                }}
+              >
+                Services
+              </Typography>
 
-                                {/* Gaming Section */}
-                                <ServiceSection
-                                    category="Gaming"
-                                    title="Gaming"
-                                    emoji="🎮"
-                                    loading={apiKeysLoading}
-                                    apiKeys={apiKeys}
-                                    newApiKeys={newApiKeys}
-                                    isPSNEditing={isEditingPSN}
-                                    psnNPSSO={editingNPSSO}
-                                    psnUpdating={updatingPSN}
-                                    onNewKeyChange={handleNewApiKeyChange}
-                                    onSaveApiKey={handleSaveApiKey}
-                                    onDeleteApiKey={handleDeleteApiKey}
-                                    onPSNEdit={startPSNEditing}
-                                    onPSNCancel={cancelPSNEditing}
-                                    onPSNSave={handlePSNSave}
-                                    onPSNChange={setNPSSO}
-                                />
+              {/* Gaming Section */}
+              <ServiceSection
+                category="Gaming"
+                title="Gaming"
+                loading={apiKeysLoading}
+                apiKeys={apiKeys}
+                newApiKeys={newApiKeys}
+                isPSNEditing={isEditingPSN}
+                psnNPSSO={editingNPSSO}
+                psnUpdating={updatingPSN}
+                onNewKeyChange={handleNewApiKeyChange}
+                onSaveApiKey={handleSaveApiKey}
+                onDeleteApiKey={handleDeleteApiKey}
+                onPSNEdit={startPSNEditing}
+                onPSNCancel={cancelPSNEditing}
+                onPSNSave={handlePSNSave}
+                onPSNChange={setNPSSO}
+              />
 
-                                {/* Movies Section */}
-                                <ServiceSection
-                                    category="Movies"
-                                    title="Movies"
-                                    emoji="📺"
-                                    loading={apiKeysLoading}
-                                    apiKeys={apiKeys}
-                                    newApiKeys={newApiKeys}
-                                    traktAuthStatus={traktAuthStatus}
-                                    traktLoading={traktLoading}
-                                    onNewKeyChange={handleNewApiKeyChange}
-                                    onSaveApiKey={handleSaveApiKey}
-                                    onDeleteApiKey={handleDeleteApiKey}
-                                    onTraktOAuth={handleTraktOAuth}
-                                />
+              {/* Movies Section */}
+              <ServiceSection
+                category="Movies"
+                title="Movies"
+                loading={apiKeysLoading}
+                apiKeys={apiKeys}
+                newApiKeys={newApiKeys}
+                traktAuthStatus={traktAuthStatus}
+                traktLoading={traktLoading}
+                onNewKeyChange={handleNewApiKeyChange}
+                onSaveApiKey={handleSaveApiKey}
+                onDeleteApiKey={handleDeleteApiKey}
+                onTraktOAuth={handleTraktOAuth}
+              />
 
-                                {/* Music Section */}
-                                <ServiceSection
-                                    category="Music"
-                                    title="Music"
-                                    emoji="🎧"
-                                    loading={apiKeysLoading}
-                                    apiKeys={apiKeys}
-                                    newApiKeys={newApiKeys}
-                                    onNewKeyChange={handleNewApiKeyChange}
-                                    onSaveApiKey={handleSaveApiKey}
-                                    onDeleteApiKey={handleDeleteApiKey}
-                                />
-                            </Paper>
-                        </>
-                    )}
-            </AppShell>
+              {/* Music Section */}
+              <ServiceSection
+                category="Music"
+                title="Music"
+                loading={apiKeysLoading}
+                apiKeys={apiKeys}
+                newApiKeys={newApiKeys}
+                onNewKeyChange={handleNewApiKeyChange}
+                onSaveApiKey={handleSaveApiKey}
+                onDeleteApiKey={handleDeleteApiKey}
+              />
+            </Paper>
+          </>
+        )}
+      </AppShell>
 
-            {/* Trakt OAuth Dialog */}
-            <TraktOAuthDialog
-                open={oauthDialogOpen}
-                onClose={() => setOauthDialogOpen(false)}
-                authCode={authCode}
-                onAuthCodeChange={setAuthCode}
-                onComplete={handleCompleteOAuth}
-                loading={traktLoading}
-            />
-        </>
-    );
+      {/* Trakt OAuth Dialog */}
+      <TraktOAuthDialog
+        open={oauthDialogOpen}
+        onClose={() => setOauthDialogOpen(false)}
+        authCode={authCode}
+        onAuthCodeChange={setAuthCode}
+        onComplete={handleCompleteOAuth}
+        loading={traktLoading}
+      />
+    </>
+  );
 }
 
-export default ProfilePage; 
+export default ProfilePage;

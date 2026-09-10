@@ -1,3 +1,6 @@
+from typing import Any
+
+from django.contrib.auth.models import User
 from django.db.models import Sum, Count, Avg, F, Q, Max, Min
 from django.utils import timezone
 from django.core.cache import cache
@@ -9,17 +12,22 @@ from playstation.models import PSNGame, PSNAchievement
 from xbox.models import XboxGame, XboxAchievement
 from retroachievements.models import RetroAchievementsGame, GameAchievement
 from music.models import Song
+from users.models import UserApiKey
 from trakt.models import Movie, Show, Episode, MovieWatch, EpisodeWatch
 import logging
+import re
 
 logger = logging.getLogger(__name__)
+
+StatsPayload = dict[str, Any]
+StatsList = list[StatsPayload]
 
 
 class AnalyticsService:
     """Optimized service class for calculating and managing user statistics"""
 
     @staticmethod
-    def invalidate_user_cache(user_id):
+    def invalidate_user_cache(user_id: int) -> int:
         """Clear analytics cache entries that depend on user activity data."""
         today = timezone.now().date()
         keys = []
@@ -33,7 +41,7 @@ class AnalyticsService:
         return len(keys)
     
     @staticmethod
-    def _format_duration(duration):
+    def _format_duration(duration: timedelta | None) -> str:
         """Convert timedelta to human-readable string"""
         if not duration or duration.total_seconds() == 0:
             return "0 minutes"
@@ -60,9 +68,41 @@ class AnalyticsService:
             return f"{parts[0]} and {parts[1]}"
         else:
             return f"{parts[0]}, {parts[1]} and {parts[2]}"
+
+    @staticmethod
+    def _game_identity(value: object) -> str:
+        """Normalize common edition and punctuation differences for unique game totals."""
+        text = str(value or "").strip().lower()
+        text = re.sub(r"\s*\([^)]*\)", "", text)
+        text = re.sub(r"\s*\[[^]]*\]", "", text)
+        text = re.sub(
+            r"\b(?:goty|game of the year|definitive|remastered|remake|edition|deluxe|special|international|complete|ultimate)\b",
+            "",
+            text,
+        )
+        return re.sub(r"[^a-z0-9]+", " ", text).strip()
+
+    @staticmethod
+    def _unique_game_count(user: User, start_datetime: datetime, end_datetime: datetime) -> int:
+        titles = set()
+        for model, title_field in (
+            (SteamGame, "name"),
+            (PSNGame, "name"),
+            (XboxGame, "name"),
+            (RetroAchievementsGame, "title"),
+        ):
+            titles.update(
+                AnalyticsService._game_identity(title)
+                for title in model.objects.filter(
+                    user=user,
+                    last_played__gte=start_datetime,
+                    last_played__lte=end_datetime,
+                ).values_list(title_field, flat=True)
+            )
+        return len({title for title in titles if title})
     
     @staticmethod
-    def get_comprehensive_statistics(user, days=30):
+    def get_comprehensive_statistics(user: User, days: int = 30) -> StatsPayload:
         """Get comprehensive statistics calculated live from source models with caching"""
         cache_key = f"analytics_{user.id}_{days}_{timezone.now().date()}"
         cached_result = cache.get(cache_key)
@@ -133,10 +173,7 @@ class AnalyticsService:
         ).count()
         
         # Calculate totals
-        total_games_played = (
-            steam_games['count'] + psn_games_count + 
-            xbox_games_count + retro_games_count
-        )
+        total_games_played = AnalyticsService._unique_game_count(user, start_datetime, end_datetime)
         total_achievements_earned = (
             steam_achievements + psn_achievements + 
             xbox_achievements + retro_achievements
@@ -220,7 +257,7 @@ class AnalyticsService:
         return result
     
     @staticmethod
-    def _get_daily_breakdown(user, start_date, end_date):
+    def _get_daily_breakdown(user: User, start_date: date, end_date: date) -> StatsList:
         """Get optimized daily breakdown of activity"""
         daily_stats = []
         current_date = start_date
@@ -237,12 +274,9 @@ class AnalyticsService:
                 watched_at__date=current_date
             ).count()
             
-            daily_games = (
-                SteamGame.objects.filter(user=user, last_played__date=current_date).count() +
-                PSNGame.objects.filter(user=user, last_played__date=current_date).count() +
-                XboxGame.objects.filter(user=user, last_played__date=current_date).count() +
-                RetroAchievementsGame.objects.filter(user=user, last_played__date=current_date).count()
-            )
+            day_start = timezone.make_aware(datetime.combine(current_date, datetime.min.time()))
+            day_end = timezone.make_aware(datetime.combine(current_date, datetime.max.time()))
+            daily_games = AnalyticsService._unique_game_count(user, day_start, day_end)
             
             daily_achievements = (
                 SteamAchievement.objects.filter(game__user=user, unlock_time__date=current_date, unlocked=True).count() +
@@ -276,7 +310,7 @@ class AnalyticsService:
         return daily_stats
     
     @staticmethod
-    def get_platform_distribution(user, days=30):
+    def get_platform_distribution(user: User, days: int = 30) -> StatsPayload:
         """Get optimized platform usage distribution"""
         cache_key = f"platform_dist_{user.id}_{days}_{timezone.now().date()}"
         cached_result = cache.get(cache_key)
@@ -298,6 +332,11 @@ class AnalyticsService:
             'lastfm': {'songs': 0, 'listening_time': timedelta()},
             'trakt': {'movies': 0, 'episodes': 0, 'watch_time': timedelta()},
         }
+        connected_services = set(
+            UserApiKey.objects.filter(user=user).values_list('service_name', flat=True)
+        )
+        platforms['spotify']['connected'] = 'spotify' in connected_services
+        platforms['lastfm']['connected'] = 'lastfm' in connected_services
         
         # Steam data
         steam_data = SteamGame.objects.filter(
@@ -379,7 +418,7 @@ class AnalyticsService:
         return formatted_platforms
     
     @staticmethod
-    def get_achievement_efficiency(user, days=30):
+    def get_achievement_efficiency(user: User, days: int = 30) -> StatsPayload:
         """Calculate optimized achievement efficiency (achievements per hour)"""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
@@ -419,7 +458,7 @@ class AnalyticsService:
         }
     
     @staticmethod
-    def get_gaming_streaks(user):
+    def get_gaming_streaks(user: User) -> StatsList:
         """Get user's gaming streaks"""
         streaks = GamingStreak.objects.filter(user=user).order_by('-streak_length')[:10]
         
@@ -436,7 +475,7 @@ class AnalyticsService:
         ]
     
     @staticmethod
-    def _format_time_ago(minutes):
+    def _format_time_ago(minutes: int | None) -> str:
         """Format minutes into human-readable time ago string"""
         if minutes < 1:
             return "0 minutes ago"
@@ -450,7 +489,7 @@ class AnalyticsService:
             return f"{days} day{'s' if days != 1 else ''} ago"
     
     @staticmethod
-    def get_last_played_time(user):
+    def get_last_played_time(user: User) -> str | None:
         """Get time since last song was played"""
         last_song = Song.objects.filter(user=user).order_by('-played_at').first()
         if not last_song:
@@ -461,7 +500,7 @@ class AnalyticsService:
         return AnalyticsService._format_time_ago(minutes_ago)
     
     @staticmethod
-    def get_weekly_trend(user, days=30):
+    def get_weekly_trend(user: User, days: int = 30) -> StatsPayload:
         """Get weekly trend data for Time Dedicated Trend chart - returns last 7 days (rolling)"""
         end_date = timezone.now().date()
         # Get last 7 days for the chart (rolling, not week-based)
@@ -634,7 +673,7 @@ class AnalyticsService:
         return daily_stats
     
     @staticmethod
-    def get_monthly_comparison(user, days=30):
+    def get_monthly_comparison(user: User, days: int = 30) -> StatsPayload:
         """Calculate engagement time comparison with previous month"""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
@@ -697,7 +736,7 @@ class AnalyticsService:
         }
     
     @staticmethod
-    def get_platform_count(user, days=30):
+    def get_platform_count(user: User, days: int = 30) -> int:
         """Get count of active platforms"""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
@@ -728,7 +767,7 @@ class AnalyticsService:
         return active_platforms
     
     @staticmethod
-    def get_genre_distribution(user, days=30):
+    def get_genre_distribution(user: User, days: int = 30) -> StatsList:
         """Get genre distribution across gaming, music, and movies/TV"""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
@@ -790,7 +829,7 @@ class AnalyticsService:
     # ---------- Music analytics (Gaming Tab style) ----------
     
     @staticmethod
-    def get_top_artist(user, days=30):
+    def get_top_artist(user: User, days: int = 30) -> StatsPayload | None:
         """Get top artist by scrobble count in period"""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
@@ -817,7 +856,7 @@ class AnalyticsService:
         }
     
     @staticmethod
-    def get_top_track(user, days=30):
+    def get_top_track(user: User, days: int = 30) -> StatsPayload | None:
         """Get top track by play count in period"""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
@@ -850,7 +889,7 @@ class AnalyticsService:
         }
     
     @staticmethod
-    def get_new_discoveries(user, days=30):
+    def get_new_discoveries(user: User, days: int = 30) -> StatsPayload:
         """Count of artists first seen in this period (not in previous period). Optional: change vs last period."""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
@@ -887,7 +926,7 @@ class AnalyticsService:
         }
     
     @staticmethod
-    def get_music_listening_insights(user, days=30):
+    def get_music_listening_insights(user: User, days: int = 30) -> StatsPayload:
         """Morning vs evening listening, scrobble milestone."""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
@@ -923,7 +962,7 @@ class AnalyticsService:
         }
     
     @staticmethod
-    def get_music_genre_distribution(user, days=30):
+    def get_music_genre_distribution(user: User, days: int = 30) -> StatsPayload:
         """Get music genre distribution from stored Last.fm/Spotify tags."""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
@@ -963,7 +1002,7 @@ class AnalyticsService:
         }
     
     @staticmethod
-    def get_music_weekly_scrobbles(user, days=30):
+    def get_music_weekly_scrobbles(user: User, days: int = 30) -> StatsList:
         """Scrobbles per day for last 7 days (for chart). Uses same rolling 7 days as weekly_trend."""
         end_date = timezone.now().date()
         chart_start = end_date - timedelta(days=6)
@@ -982,14 +1021,14 @@ class AnalyticsService:
         return result
     
     @staticmethod
-    def get_genre_of_the_week(user, days=7):
+    def get_genre_of_the_week(user: User, days: int = 7) -> str | None:
         """Return the most common music genre in the recent period."""
         distribution = AnalyticsService.get_music_genre_distribution(user, days=days)
         genres = distribution.get('genres', [])
         return genres[0]['name'] if genres else None
     
     @staticmethod
-    def get_most_played_game(user, days=30):
+    def get_most_played_game(user: User, days: int = 30) -> StatsPayload | None:
         """Get the most played game across all platforms"""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
@@ -1043,7 +1082,7 @@ class AnalyticsService:
         return None
     
     @staticmethod
-    def get_hardest_achievement(user, days=30):
+    def get_hardest_achievement(user: User, days: int = 30) -> StatsPayload | None:
         """Get the hardest/rarest achievement the user has unlocked"""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
@@ -1094,13 +1133,13 @@ class AnalyticsService:
         return hardest
     
     @staticmethod
-    def _calculate_games_completed(user, days=30):
+    def _calculate_games_completed(user: User, days: int = 30) -> int:
         """Calculate total number of completed games across all platforms"""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
         start_datetime = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
         
-        completed_count = 0
+        completed_titles = set()
         
         # Steam: Game is completed if 100% achievements unlocked
         steam_games = SteamGame.objects.filter(user=user, last_played__gte=start_datetime)
@@ -1109,7 +1148,7 @@ class AnalyticsService:
             if total_achievements > 0:
                 unlocked_count = game.achievements.filter(unlocked=True).count()
                 if unlocked_count == total_achievements:
-                    completed_count += 1
+                    completed_titles.add(AnalyticsService._game_identity(game.name))
         
         # PSN: Game is completed if platinum trophy earned
         psn_games = PSNGame.objects.filter(user=user, last_played__gte=start_datetime)
@@ -1122,7 +1161,7 @@ class AnalyticsService:
                 Q(trophy_type__icontains='platinum') | Q(name__icontains='platinum')
             ).first()
             if platinum_trophy:
-                completed_count += 1
+                completed_titles.add(AnalyticsService._game_identity(game.name))
         
         # Xbox: Game is completed if all achievements unlocked
         xbox_games = XboxGame.objects.filter(user=user, last_played__gte=start_datetime)
@@ -1131,21 +1170,21 @@ class AnalyticsService:
             if total_achievements > 0:
                 unlocked_count = game.achievements.filter(unlocked=True).count()
                 if unlocked_count == total_achievements:
-                    completed_count += 1
+                    completed_titles.add(AnalyticsService._game_identity(game.name))
         
         # RetroAchievements: Game is completed if all achievements unlocked
         retro_games = RetroAchievementsGame.objects.filter(user=user, last_played__gte=start_datetime)
         for game in retro_games:
             if game.num_possible_achievements > 0:
                 if game.num_achieved == game.num_possible_achievements:
-                    completed_count += 1
+                    completed_titles.add(AnalyticsService._game_identity(game.title))
         
-        return completed_count
+        return len({title for title in completed_titles if title})
 
     # ---------- Movies & TV (Trakt) analytics ----------
 
     @staticmethod
-    def get_media_movies_change(user, days=30):
+    def get_media_movies_change(user: User, days: int = 30) -> StatsPayload:
         """Movies watched this period vs previous period (for '+X from last month')."""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
@@ -1166,7 +1205,7 @@ class AnalyticsService:
         return {'change': current - previous, 'current': current, 'previous': previous}
 
     @staticmethod
-    def get_media_weekly_watch(user, days=30):
+    def get_media_weekly_watch(user: User, days: int = 30) -> StatsList:
         """Daily watch stats for last 7 days (movies, episodes, watch_time_hours)."""
         end_date = timezone.now().date()
         chart_start = end_date - timedelta(days=6)
@@ -1190,7 +1229,7 @@ class AnalyticsService:
         return result
 
     @staticmethod
-    def get_media_watch_breakdown(user, days=30):
+    def get_media_watch_breakdown(user: User, days: int = 30) -> StatsPayload:
         """Percentage of watch time: movies vs TV (from 2h/movie, 45m/episode)."""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
@@ -1217,7 +1256,7 @@ class AnalyticsService:
         }
 
     @staticmethod
-    def get_media_series_count(user, days=30):
+    def get_media_series_count(user: User, days: int = 30) -> int:
         """Count of distinct shows with at least one episode watch in period."""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
@@ -1228,7 +1267,7 @@ class AnalyticsService:
         ).values_list('episode__show', flat=True).distinct().count()
 
     @staticmethod
-    def get_media_genre_distribution(user, days=30):
+    def get_media_genre_distribution(user: User, days: int = 30) -> StatsPayload:
         """Get movie/show genre distribution from stored Trakt/TMDB metadata."""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
@@ -1274,12 +1313,12 @@ class AnalyticsService:
         }
 
     @staticmethod
-    def get_media_completion_rate(user, days=30):
+    def get_media_completion_rate(user: User, days: int = 30) -> None:
         """Completion rate requires a complete episode catalog; return unknown when unavailable."""
         return None
 
     @staticmethod
-    def get_media_insights(user, days=30):
+    def get_media_insights(user: User, days: int = 30) -> StatsPayload:
         """Get media quick insights from stored metadata."""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)

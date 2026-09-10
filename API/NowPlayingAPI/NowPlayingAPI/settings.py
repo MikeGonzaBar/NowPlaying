@@ -14,27 +14,31 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv, find_dotenv
 from datetime import timedelta
+from typing import Any
 from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(find_dotenv())
 
-def env_bool(name, default=False):
+def env_bool(name: str, default: bool = False) -> bool:
+    """Return an environment variable parsed as a boolean flag."""
     value = os.environ.get(name)
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def env_list(name, default=None):
+def env_list(name: str, default: list[str] | None = None) -> list[str]:
+    """Return a comma-separated environment variable as a clean list."""
     value = os.environ.get(name)
     if value is None:
         return default or []
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-def require_env(name):
+def require_env(name: str) -> str:
+    """Return a required environment variable or fail during startup."""
     value = os.environ.get(name)
     if not value:
         raise ImproperlyConfigured(f"{name} must be set in production.")
@@ -45,6 +49,8 @@ ENVIRONMENT = os.environ.get("DJANGO_ENV", "development").strip().lower()
 IS_PRODUCTION = ENVIRONMENT in {"prod", "production"}
 
 DEBUG = env_bool("DEBUG", default=not IS_PRODUCTION)
+ENABLE_ADMIN_SITE = env_bool("ENABLE_ADMIN_SITE", default=DEBUG)
+ENABLE_API_DOCS = env_bool("ENABLE_API_DOCS", default=DEBUG)
 
 SECRET_KEY = (
     require_env("SECRET_KEY")
@@ -82,6 +88,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "corsheaders",
     "rest_framework",
+    "drf_spectacular",
+    "drf_spectacular_sidecar",
     "steam",
     "playstation",
     "trakt",
@@ -96,6 +104,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.middleware.gzip.GZipMiddleware",  # SAFE: Compress responses
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -195,12 +204,23 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 25,  # SAFE: Increased from 20 for better performance
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
     ],
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
     ],
+}
+
+SPECTACULAR_SETTINGS: dict[str, Any] = {
+    'TITLE': 'NowPlaying API',
+    'DESCRIPTION': 'Entertainment activity API for games, music, movies, shows, and analytics.',
+    'VERSION': os.environ.get('API_VERSION', '1.4.0'),
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SWAGGER_UI_DIST': 'SIDECAR',
+    'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
+    'REDOC_DIST': 'SIDECAR',
 }
 
 # JWT settings
@@ -248,11 +268,12 @@ CACHE_TIMEOUTS = {
 # SAFE: Static files optimization
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATIC_ROOT = os.environ.get('STATIC_ROOT', os.path.join(BASE_DIR, 'staticfiles'))
+FILE_UPLOAD_PERMISSIONS = None
 
 # SAFE: Browser caching for static files
 if not DEBUG:
-    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # SAFE: Response headers for optimization
 SECURE_BROWSER_XSS_FILTER = True
