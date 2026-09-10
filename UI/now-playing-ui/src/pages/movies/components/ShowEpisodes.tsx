@@ -11,6 +11,7 @@ import {
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import GradeIcon from "@mui/icons-material/Grade";
 import EventIcon from "@mui/icons-material/Event";
+import { formatLongDate } from "../../../utils/dates";
 
 interface Episode {
   id: number;
@@ -103,14 +104,7 @@ export const ShowEpisodes = ({ seasons, episodes, selectedSeason = null, selecte
                     </Typography>
                     <Typography variant="body2" sx={{ fontWeight: 500 }}>
                       <EventIcon sx={{ mb: -1 }} />
-                      {new Date(episode.last_watched_at).toLocaleDateString(
-                        "en-US",
-                        {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        },
-                      )}
+                      {formatLongDate(episode.last_watched_at)}
                     </Typography>
                   </Box>
                 </CardContent>

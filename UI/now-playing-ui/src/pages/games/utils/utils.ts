@@ -5,6 +5,7 @@ import {
   isRetroAchievementsGame,
   isSteamGame,
 } from "./typeGuards";
+import { formatLongDate } from "../../../utils/dates";
 
 export const parseDate = (dateString: string): Date => {
   if (!dateString) {
@@ -125,11 +126,7 @@ export const formatLastPlayedDate = (dateString: string): string => {
     return "Never played";
   }
 
-  return date.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatLongDate(date);
 };
 
 /**

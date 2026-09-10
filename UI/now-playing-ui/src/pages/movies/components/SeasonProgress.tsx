@@ -10,6 +10,7 @@ import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import LockIcon from "@mui/icons-material/Lock";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
+import { Link as RouterLink } from "react-router-dom";
 
 interface Season {
   id: number;
@@ -275,21 +276,23 @@ function SeasonProgress({
                 >
                   {sortedEpisodes.map((episode) => {
                     const isWatched = !!episode.last_watched_at;
+                    const isCurrent =
+                      selectedSeason === season.season_number &&
+                      selectedEpisode === episode.episode_number;
                     return (
+                      // Audit #7: every episode row is a real anchor so
+                      // keyboard and assistive-technology users get a
+                      // dependable deep link to the exact episode.
                       <Box
+                        component={RouterLink}
+                        to={`/shows/${episode.show__trakt_id}/seasons/${season.season_number}/episodes/${episode.episode_number}`}
                         key={
                           episode.id ||
                           `s${season.season_number}e${episode.episode_number}`
                         }
-                        role="listitem"
                         id={`episode-${season.season_number}-${episode.episode_number}`}
-                        aria-current={
-                          selectedSeason === season.season_number &&
-                            selectedEpisode === episode.episode_number
-                            ? "true"
-                            : undefined
-                        }
-                        aria-label={`Episode ${episode.episode_number} ${episode.title || ""}`}
+                        aria-current={isCurrent ? "true" : undefined}
+                        aria-label={`View Episode ${episode.episode_number} ${episode.title || ""}`}
                         sx={{
                           display: "flex",
                           gap: 1.5,
@@ -297,8 +300,9 @@ function SeasonProgress({
                           borderRadius: 2,
                           backgroundColor: "rgba(255, 255, 255, 0.02)",
                           border: "1px solid rgba(255, 255, 255, 0.05)",
-                          ...(selectedSeason === season.season_number &&
-                            selectedEpisode === episode.episode_number
+                          textDecoration: "none",
+                          color: "inherit",
+                          ...(isCurrent
                             ? {
                               backgroundColor: "rgba(237, 28, 36, 0.16)",
                               borderColor: "rgba(237, 28, 36, 0.8)",
@@ -308,6 +312,10 @@ function SeasonProgress({
                           "&:hover": {
                             backgroundColor: "rgba(255, 255, 255, 0.05)",
                             borderColor: "rgba(237, 28, 36, 0.3)",
+                          },
+                          "&:focus-visible": {
+                            outline: "2px solid #facc15",
+                            outlineOffset: 2,
                           },
                         }}
                       >

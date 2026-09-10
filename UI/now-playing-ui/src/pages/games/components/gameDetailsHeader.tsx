@@ -10,6 +10,7 @@ import {
 } from "../utils/types";
 import GameImage from "./GameImage";
 import GameInfo from "./GameInfo";
+import { formatShortDate } from "../../../utils/dates";
 
 interface GameHeaderProps {
   game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
@@ -108,12 +109,7 @@ const isPsnGame = (
 const formatDate = (
   game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame,
 ): string => {
-  const date = new Date(game.last_played);
-  return date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  return formatShortDate(game.last_played);
 };
 
 const GameHeader: React.FC<GameHeaderProps> = ({ game }) => {

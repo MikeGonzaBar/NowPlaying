@@ -5,6 +5,7 @@ import FavoriteIcon from "@mui/icons-material/Favorite";
 import SideBar from "../../../components/sideBar";
 import { useMusicDetail } from "../hooks/useMusicDetail";
 import PlayHistorySection from "../components/PlayHistorySection";
+import { formatShortDate } from "../../../utils/dates";
 import { zincColors } from "../../../theme";
 
 interface TrackDetailData {
@@ -179,13 +180,7 @@ function TrackDetail() {
                 First Played
               </Typography>
               <Typography sx={{ fontSize: "16px", fontWeight: 600 }}>
-                {track.first_played
-                  ? new Date(track.first_played).toLocaleDateString("en-US", {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })
-                  : "Unknown"}
+                {track.first_played ? formatShortDate(track.first_played) : "Unknown"}
               </Typography>
             </Box>
             <Box
@@ -208,13 +203,7 @@ function TrackDetail() {
                 Last Played
               </Typography>
               <Typography sx={{ fontSize: "16px", fontWeight: 600 }}>
-                {track.last_played
-                  ? new Date(track.last_played).toLocaleDateString("en-US", {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })
-                  : "Unknown"}
+                {track.last_played ? formatShortDate(track.last_played) : "Unknown"}
               </Typography>
             </Box>
             <Box

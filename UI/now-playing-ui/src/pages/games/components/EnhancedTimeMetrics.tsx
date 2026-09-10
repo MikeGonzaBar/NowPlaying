@@ -22,6 +22,11 @@ import {
 } from "../utils/utils";
 import { getPlatformMatch } from "../utils/platformHelper";
 import { zincColors } from "../../../theme";
+import {
+  formatShortNoYear,
+  formatLongDate,
+  formatWeekdayShort,
+} from "../../../utils/dates";
 
 interface EnhancedTimeMetricsProps {
   game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
@@ -59,10 +64,7 @@ const EnhancedTimeMetrics: React.FC<EnhancedTimeMetricsProps> = ({ game }) => {
 
     return grouped.map((item) => ({
       date: item.date,
-      dateLabel: item.date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      }),
+      dateLabel: formatShortNoYear(item.date),
       unlocked: item.count,
     }));
   }, [game]);
@@ -73,11 +75,7 @@ const EnhancedTimeMetrics: React.FC<EnhancedTimeMetricsProps> = ({ game }) => {
   }, [chartData]);
 
   const formatTooltipDate = (date: Date): string => {
-    return date.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
+    return formatWeekdayShort(date);
   };
 
   const CustomTooltip = ({ active, payload }: any) => {
@@ -220,11 +218,7 @@ const EnhancedTimeMetrics: React.FC<EnhancedTimeMetricsProps> = ({ game }) => {
                   fontSize: "0.875rem",
                 }}
               >
-                {firstPlayed.toLocaleDateString("en-US", {
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+                {formatLongDate(firstPlayed)}
               </Typography>
             </Box>
           )}
@@ -255,11 +249,7 @@ const EnhancedTimeMetrics: React.FC<EnhancedTimeMetricsProps> = ({ game }) => {
                   fontSize: "0.875rem",
                 }}
               >
-                {lastPlayed.toLocaleDateString("en-US", {
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+                {formatLongDate(lastPlayed)}
               </Typography>
             </Box>
           )}

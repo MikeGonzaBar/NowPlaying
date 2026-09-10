@@ -23,6 +23,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { ServiceConfig, ApiKey, NewApiKey, TraktAuthStatus } from "../types";
 import { getServiceTooltipContent } from "../utils/serviceConfig";
 import { zincColors } from "../../../theme";
+import { formatShortDate } from "../../../utils/dates";
 
 interface ServiceCardProps {
   service: ServiceConfig;
@@ -698,12 +699,12 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
           >
             Added:{" "}
             {existingApiKey &&
-              new Date(existingApiKey.created_at).toLocaleDateString()}
+              formatShortDate(existingApiKey.created_at)}
             {existingApiKey?.last_used && (
               <>
                 {" "}
                 • Last used:{" "}
-                {new Date(existingApiKey.last_used).toLocaleDateString()}
+                {formatShortDate(existingApiKey.last_used)}
               </>
             )}
           </Typography>

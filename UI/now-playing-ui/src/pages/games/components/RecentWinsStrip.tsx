@@ -7,6 +7,7 @@ import {
   XboxGame,
 } from "../utils/types";
 import { parseDate, cleanAchievementDescription } from "../utils/utils";
+import { formatShortDate } from "../../../utils/dates";
 import { zincColors } from "../../../theme";
 
 interface RecentWinsStripProps {
@@ -39,11 +40,7 @@ const RecentWinsStrip: React.FC<RecentWinsStripProps> = ({ game }) => {
   };
 
   const formatDate = (date: Date): string => {
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    return formatShortDate(date);
   };
 
   if (recentAchievements.length === 0) {

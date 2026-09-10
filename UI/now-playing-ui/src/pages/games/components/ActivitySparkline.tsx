@@ -28,6 +28,11 @@ import {
   parseDate,
 } from "../utils/utils";
 import { zincColors } from "../../../theme";
+import {
+  formatShortNoYear,
+  formatLongDate,
+  formatWeekdayShort,
+} from "../../../utils/dates";
 
 interface ActivitySparklineProps {
   game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
@@ -51,10 +56,7 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
     const grouped = groupAchievementsByDate(unlockDates, days);
     return grouped.map((item) => ({
       date: item.date,
-      dateLabel: item.date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      }),
+      dateLabel: formatShortNoYear(item.date),
       count: item.count,
     }));
   }, [game, days]);
@@ -130,23 +132,13 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
     const startDate = chartData[0].date;
     const endDate = chartData[chartData.length - 1].date;
     return {
-      start: startDate.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      }),
-      end: endDate.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      }),
+      start: formatShortNoYear(startDate),
+      end: formatShortNoYear(endDate),
     };
   }, [chartData]);
 
   const formatTooltipDate = (date: Date): string => {
-    return date.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
+    return formatWeekdayShort(date);
   };
 
   const CustomTooltip = ({ active, payload }: any) => {
@@ -435,12 +427,7 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
                   fontSize: "0.875rem",
                 }}
               >
-                {selectedDate.toLocaleDateString("en-US", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
+                {formatLongDate(selectedDate)}
               </Typography>
             )}
           </Box>

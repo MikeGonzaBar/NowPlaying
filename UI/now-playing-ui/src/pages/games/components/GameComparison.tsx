@@ -4,6 +4,7 @@ import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import EventIcon from "@mui/icons-material/Event";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import { formatMinutesCompact, parsePlaytimeMinutes } from "../utils/utils";
+import { formatShortDate } from "../../../utils/dates";
 import { zincColors } from "../../../theme";
 
 export interface PlatformData {
@@ -141,7 +142,7 @@ const SourceCard: React.FC<SourceCardProps> = ({ platform }) => {
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                     <EventIcon sx={{ fontSize: 14, color: zincColors.muted }} />
                     <Typography sx={{ fontFamily: "Inter, sans-serif", fontSize: "12px", color: zincColors.muted }}>
-                        {lastPlayed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        {formatShortDate(lastPlayed)}
                     </Typography>
                 </Box>
             )}

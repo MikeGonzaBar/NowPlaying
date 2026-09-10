@@ -9,15 +9,19 @@ import {
   Card,
   IconButton,
   CircularProgress,
+  Button,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ScheduleIcon from "@mui/icons-material/Schedule";
 import MovieFilterIcon from "@mui/icons-material/MovieFilter";
 import StarIcon from "@mui/icons-material/Star";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { useEffect, useState } from "react";
 import SideBar from "../../../components/sideBar";
 import { authenticatedFetch } from "../../../utils/auth";
 import { getApiUrl, API_CONFIG } from "../../../config/api";
+import { formatLongDate } from "../../../utils/dates";
 import SeasonProgress from "../components/SeasonProgress";
 import MilestonesSidebar from "../components/MilestonesSidebar";
 
@@ -332,6 +336,34 @@ function ShowDetails() {
   const sortedSeasons = [...seasons].sort(
     (a, b) => a.season_number - b.season_number,
   );
+
+  // Audit #7: a deep link that names a specific episode must resolve to an
+  // episode state — a detail panel with focused metadata and prev/next
+  // navigation into adjacent episodes.
+  const selectedSeasonEpisodes =
+    selectedSeason !== null ? episodesBySeason[selectedSeason] || [] : [];
+  const sortedSeasonEpisodes = [...selectedSeasonEpisodes].sort(
+    (a, b) => a.episode_number - b.episode_number,
+  );
+  const selectedEpisodeData =
+    selectedEpisode !== null
+      ? sortedSeasonEpisodes.find((ep) => ep.episode_number === selectedEpisode)
+      : undefined;
+  const selectedEpisodeIndex = selectedEpisodeData
+    ? sortedSeasonEpisodes.findIndex((ep) => ep.episode_number === selectedEpisode)
+    : -1;
+  const prevEpisode =
+    selectedEpisodeIndex > 0 ? sortedSeasonEpisodes[selectedEpisodeIndex - 1] : null;
+  const nextEpisode =
+    selectedEpisodeData && selectedEpisodeIndex < sortedSeasonEpisodes.length - 1
+      ? sortedSeasonEpisodes[selectedEpisodeIndex + 1]
+      : null;
+  const navigateToEpisode = (ep: Episode) => {
+    navigate(
+      `/shows/${ep.show__trakt_id || id}/seasons/${selectedSeason}/episodes/${ep.episode_number}`,
+      { replace: true },
+    );
+  };
 
   return (
     <Box
@@ -729,6 +761,79 @@ function ShowDetails() {
                     </Card>
                   </Grid>
                 </Grid>
+
+                {/* Episode detail panel (audit #7): deep links open the exact
+                    episode with breadcrumb, metadata, watched date and
+                    previous/next navigation. */}
+                {selectedEpisodeData && (
+                  <Card
+                    sx={{
+                      mb: 3,
+                      borderRadius: 2,
+                      backgroundColor: "rgba(237, 28, 36, 0.06)",
+                      border: "1px solid rgba(237, 28, 36, 0.25)",
+                      p: 2.5,
+                    }}
+                  >
+                    <Typography sx={{ color: "#b99d9d", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                      {showData?.title || "Show"} › Season {selectedSeason} › Episode {selectedEpisodeData.episode_number}
+                    </Typography>
+                    <Typography variant="h2" sx={{ fontSize: "22px", fontWeight: 700, color: "#fff", mt: 0.5 }}>
+                      {selectedEpisodeData.title || `Episode ${selectedEpisodeData.episode_number}`}
+                    </Typography>
+                    {selectedEpisodeData.overview && (
+                      <Typography variant="body2" sx={{ color: "#9ca3af", mt: 1 }}>
+                        {selectedEpisodeData.overview}
+                      </Typography>
+                    )}
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, mt: 1.5 }}>
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={`Rating ${selectedEpisodeData.rating?.toFixed(1) ?? "N/A"}`}
+                        icon={<StarIcon sx={{ fontSize: 14, color: "#9ca3af" }} />}
+                        sx={{ color: "#fff", borderColor: "rgba(255,255,255,0.2)" }}
+                      />
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={`Progress ${selectedEpisodeData.progress?.toFixed(0) ?? 0}%`}
+                        sx={{ color: "#fff", borderColor: "rgba(255,255,255,0.2)" }}
+                      />
+                      {selectedEpisodeData.last_watched_at && (
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={`Watched ${formatLongDate(selectedEpisodeData.last_watched_at)}`}
+                          icon={<ScheduleIcon sx={{ fontSize: 14, color: "#9ca3af" }} />}
+                          sx={{ color: "#fff", borderColor: "rgba(255,255,255,0.2)" }}
+                        />
+                      )}
+                    </Box>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 2 }}>
+                      <Button
+                        size="small"
+                        startIcon={<ChevronLeftIcon />}
+                        disabled={!prevEpisode}
+                        onClick={() => prevEpisode && navigateToEpisode(prevEpisode)}
+                        sx={{ color: "#ed1c24", borderColor: "rgba(237, 28, 36, 0.4)", textTransform: "none" }}
+                        variant="outlined"
+                      >
+                        Previous episode
+                      </Button>
+                      <Button
+                        size="small"
+                        endIcon={<ChevronRightIcon />}
+                        disabled={!nextEpisode}
+                        onClick={() => nextEpisode && navigateToEpisode(nextEpisode)}
+                        sx={{ color: "#ed1c24", borderColor: "rgba(237, 28, 36, 0.4)", textTransform: "none" }}
+                        variant="outlined"
+                      >
+                        Next episode
+                      </Button>
+                    </Box>
+                  </Card>
+                )}
 
                 {/* Seasons List */}
                 <SeasonProgress

@@ -1,6 +1,7 @@
 import { Box, Chip, Tooltip, Typography } from "@mui/material";
 import EventIcon from "@mui/icons-material/Event";
 import GradeIcon from "@mui/icons-material/Grade";
+import { formatShortDate } from "../../../utils/dates";
 
 interface MediaImageProps {
   imageUrl: string;
@@ -89,7 +90,7 @@ export const MediaInfo = ({
           marginBottom: 0,
         }}
       >
-        {new Date(lastWatched).toLocaleDateString() || "N/A"}
+        {formatShortDate(lastWatched) || "N/A"}
       </Typography>
       <GradeIcon
         sx={{ ml: 11, fontSize: 16, color: "gray", marginRight: 0.5 }}

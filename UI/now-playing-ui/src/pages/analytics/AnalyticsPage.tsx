@@ -35,6 +35,7 @@ import MuiTooltip from '@mui/material/Tooltip';
 import { useApi } from '../../hooks/useApi';
 import { getApiUrl } from '../../config/api';
 import SideBar from '../../components/sideBar';
+import { formatDateRange } from '../../utils/dates';
 import GamingStats from './components/GamingStats';
 import MusicStats from './components/MusicStats';
 import MediaStats from './components/MediaStats';
@@ -297,17 +298,9 @@ const AnalyticsPage: React.FC = () => {
         );
     }
 
-    const formatDateRange = () => {
+    const renderPeriodLabel = () => {
         const { start_date, end_date } = analyticsData.comprehensive_stats.period;
-        const start = new Date(start_date);
-        const end = new Date(end_date);
-        const isValid = (value: Date) => !isNaN(value.getTime());
-        // Audit #2: "Invalid Date - Invalid Date" leaked whenever
-        // comprehensive_stats failed. Show a deliberate fallback instead.
-        if (!isValid(start) || !isValid(end)) {
-            return "Date unavailable";
-        }
-        return `${start.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}`;
+        return formatDateRange(start_date, end_date);
     };
 
     // Render unavailable sentinel as em-dash (audit: never show false zero)
@@ -399,7 +392,7 @@ const AnalyticsPage: React.FC = () => {
                             }}>
                                 <CalendarTodayIcon sx={{ fontSize: 18, color: '#94a3b8' }} />
                                 <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: '#fff' }}>
-                                    {formatDateRange()}
+                                    {renderPeriodLabel()}
                                 </Typography>
                             </Card>
                             <MuiTooltip

@@ -2,6 +2,7 @@ import { Box, Typography, Chip } from "@mui/material";
 import GradeIcon from "@mui/icons-material/Grade";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import ReplayIcon from "@mui/icons-material/Replay";
+import { formatLongDate } from "../../../utils/dates";
 
 interface InfoChipProps {
   items: { id: number; name: string }[];
@@ -86,11 +87,7 @@ export const MediaStats = ({
         variant="body2"
         sx={{ fontSize: "20px", fontFamily: "Inter, sans-serif" }}
       >
-        {new Date(lastWatchedAt).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })}
+        {formatLongDate(lastWatchedAt)}
       </Typography>
     </Box>
     {plays !== undefined && (
