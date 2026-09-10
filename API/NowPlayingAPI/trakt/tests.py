@@ -3,7 +3,9 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import http_client
 
 from .models import Movie, Show, _process_single_movie, _process_single_show
 
@@ -143,3 +145,79 @@ class TraktOAuthCallbackTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class MovieStatsTests(APITestCase):
+    """Audit #6: movie stats must distinguish permanent absence (404 → N/A in
+    the UI) from temporary upstream outages (503 → retry), and never turn a
+    missing Trakt token or upstream outage into a 500."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="stats-user", password="testpass123"
+        )
+        self.client.force_authenticate(user=self.user)
+        self.url = "/trakt/movie-stats/?trakt_id=268642"
+
+    @patch("trakt.views.get_trakt_headers", return_value={"trakt-api-key": "k"})
+    @patch("http_client.get")
+    def test_success_returns_formatted_stats(self, mock_get, _mock_headers):
+        response_mock = MagicMock(status_code=200)
+        response_mock.json.return_value = {
+            "watchers": 1200,
+            "plays": 3400,
+            "collectors": 800,
+        }
+        mock_get.return_value = response_mock
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["watchers"], 1200)
+        self.assertEqual(response.data["plays"], 3400)
+        self.assertEqual(response.data["collectors"], 800)
+
+    @patch("trakt.views.get_trakt_headers", return_value={"trakt-api-key": "k"})
+    @patch("http_client.get")
+    def test_upstream_404_maps_to_404_not_500(self, mock_get, _mock_headers):
+        mock_get.return_value = MagicMock(status_code=404)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    @patch("trakt.views.get_trakt_headers", return_value={"trakt-api-key": "k"})
+    @patch("http_client.get")
+    def test_upstream_500_maps_to_503_temporarily_unavailable(
+        self, mock_get, _mock_headers
+    ):
+        mock_get.return_value = MagicMock(status_code=500)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertIn("temporarily unavailable", response.data["error"])
+
+    @patch("trakt.views.get_trakt_headers", return_value={"trakt-api-key": "k"})
+    @patch("http_client.get")
+    def test_network_failure_maps_to_503(self, mock_get, _mock_headers):
+        mock_get.side_effect = http_client.ExternalRequestError()
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    @patch("trakt.views.get_trakt_headers")
+    def test_missing_trakt_token_maps_to_404(self, mock_headers):
+        mock_headers.side_effect = Exception(
+            "Trakt token not found for user stats-user. Please authenticate first."
+        )
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_missing_trakt_id_returns_400(self):
+        response = self.client.get("/trakt/movie-stats/")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

@@ -10,6 +10,8 @@
 		"lint": "eslint .",
 		"format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,scss,md}\"",
 		"format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,scss,md}\"",
+		"test": "vitest run",
+		"test:watch": "vitest",
 		"preview": "vite preview",
 		"optimize-images": "node optimize-images.js",
 		"replace-optimized": "node replace-optimized.js"
@@ -30,19 +32,25 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.21.0",
+		"@testing-library/jest-dom": "^7.0.1",
+		"@testing-library/react": "^16.3.3",
+		"@testing-library/user-event": "^14.6.7",
 		"@types/node": "^22.13.14",
 		"@types/react": "^19.0.10",
 		"@types/react-dom": "^19.0.4",
 		"@vitejs/plugin-react": "^4.3.4",
+		"axe-core": "^4.13.0",
 		"eslint": "^9.21.0",
 		"eslint-plugin-react-hooks": "^5.1.0",
 		"eslint-plugin-react-refresh": "^0.4.19",
 		"globals": "^15.15.0",
+		"jsdom": "^30.0.1",
 		"prettier": "^3.9.6",
 		"rollup-plugin-visualizer": "^6.0.3",
 		"sharp": "^0.34.5",
 		"typescript": "~5.7.2",
 		"typescript-eslint": "^8.24.1",
-		"vite": "^6.3.5"
+		"vite": "^6.3.5",
+		"vitest": "^5.0.0"
 	}
 }

@@ -50,6 +50,12 @@ const GameDetails: React.FC = () => {
   // Route params are canonical. Location state is only an optimization and must
   // never override a direct URL load or stale browser history state.
   const directRouteId = id ? String(id) : undefined;
+  // Typed provider enum (audit #4): reject any route/platform fragment that is
+  // not one of the four known providers before it can reach a request. A
+  // serialized `[object Object]` (or any other string) must never be forwarded
+  // to detail-by-id as a platform query parameter.
+  const VALID_PROVIDERS = ["steam", "psn", "xbox", "retroachievements"] as const;
+  const typedPlatform = VALID_PROVIDERS.find((p) => p === routePlatform);
   const routeGame = location.state?.game as
     | SteamGame
     | PsnGame
@@ -80,7 +86,7 @@ const GameDetails: React.FC = () => {
   const { game: idGame, loading: idLoading, error: idError } = useGameDetailById(
     beBaseUrl,
     directRouteId,
-    routePlatform,
+    typedPlatform,
   );
   const resolvedCrossPlatformGame = idGame || crossPlatformGame;
 

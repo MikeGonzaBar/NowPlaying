@@ -15,6 +15,9 @@ const LandingPage = React.lazy(() => import("./pages/LandingPage"));
 const AuthPage = React.lazy(() => import("./pages/auth/AuthPage"));
 const GamesPage = React.lazy(() => import("./pages/games/pages/games"));
 const GameDetails = React.lazy(() => import("./pages/games/pages/gameDetails"));
+const LegacyGameIdRedirect = React.lazy(
+  () => import("./pages/games/pages/LegacyGameIdRedirect"),
+);
 const AllGames = React.lazy(() => import("./pages/games/pages/allGames"));
 const MoviesPage = React.lazy(
   () => import("./pages/movies/pages/moviesDashboard"),
@@ -140,7 +143,7 @@ const AppRoutes = () => {
         <Route
           path="/game/:id"
           element={
-            authenticated ? <GameDetails /> : <Navigate to="/auth" replace />
+            authenticated ? <LegacyGameIdRedirect /> : <Navigate to="/auth" replace />
           }
         />
         <Route

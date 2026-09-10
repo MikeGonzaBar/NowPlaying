@@ -1,11 +1,10 @@
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Box, Typography, Button, Skeleton } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import ScheduleIcon from "@mui/icons-material/Schedule";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import SideBar from "../../../components/sideBar";
-import { useMusicDetail, useMusicPlayHistory } from "../hooks/useMusicDetail";
-import { formatLastPlayed } from "../utils/dateUtils";
+import { useMusicDetail } from "../hooks/useMusicDetail";
+import PlayHistorySection from "../components/PlayHistorySection";
 import { zincColors } from "../../../theme";
 
 interface TrackDetailData {
@@ -36,12 +35,6 @@ function TrackDetail() {
   const recordingId = searchParams.get("recording_id") || undefined;
 
   const { data: track, loading } = useMusicDetail<TrackDetailData>({
-    type: "track",
-    name: decodedName,
-    recordingId,
-  });
-
-  const { plays } = useMusicPlayHistory({
     type: "track",
     name: decodedName,
     recordingId,
@@ -250,85 +243,13 @@ function TrackDetail() {
           </Box>
         )}
 
-        {/* Play history */}
-        <Box>
-          <Typography
-            variant="h5"
-            sx={{
-              fontSize: "18px",
-              fontWeight: 700,
-              mb: 3,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            Recent Plays
-          </Typography>
-          {plays.length === 0 ? (
-            <Typography sx={{ color: zincColors.muted }}>
-              {track && track.count > 0 ? "Detailed play history is not available from this source" : "No play history available"}
-            </Typography>
-          ) : (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              {plays.map((play) => (
-                <Box
-                  key={play.id}
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 2,
-                    p: 2,
-                    bgcolor: "rgba(24, 24, 27, 0.3)",
-                    borderRadius: 1,
-                    "&:hover": { bgcolor: "rgba(24, 24, 27, 0.6)" },
-                  }}
-                >
-                  {play.thumbnail && (
-                    <Box
-                      component="img"
-                      src={play.thumbnail}
-                      alt=""
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 1,
-                        objectFit: "cover",
-                      }}
-                    />
-                  )}
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography
-                      sx={{
-                        fontSize: "14px",
-                        fontWeight: 600,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {play.title}
-                    </Typography>
-                    <Typography
-                      sx={{ fontSize: "12px", color: zincColors.muted }}
-                    >
-                      {play.album}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                    <ScheduleIcon
-                      sx={{ fontSize: 12, color: zincColors.muted }}
-                    />
-                    <Typography
-                      sx={{ fontSize: "12px", color: zincColors.muted }}
-                    >
-                      {formatLastPlayed(play.played_at)}
-                    </Typography>
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-          )}
-        </Box>
+        {/* Play history (audit #5: sampled-vs-complete disclosure + load more) */}
+        <PlayHistorySection
+          type="track"
+          name={decodedName}
+          recordingId={recordingId}
+          detailCount={track?.count ?? 0}
+        />
       </Box>
     </Box>
   );

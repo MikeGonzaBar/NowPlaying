@@ -31,6 +31,7 @@ import {
     Pie,
     Cell
 } from 'recharts';
+import MuiTooltip from '@mui/material/Tooltip';
 import { useApi } from '../../hooks/useApi';
 import { getApiUrl } from '../../config/api';
 import SideBar from '../../components/sideBar';
@@ -106,6 +107,7 @@ interface AnalyticsData {
         change_percentage: number;
     };
     platform_count?: number;
+    has_partial_failures?: boolean;
     genre_distribution?: {
         genres: Array<{
             name: string;
@@ -163,6 +165,12 @@ const normalizeAnalyticsData = (raw: AnalyticsData | null): AnalyticsData => {
         ...(hasRealStats && rawStats.period),
     };
     const unavailable = 'unavailable' as const;
+    // Audit #2: when any backend section failed (partial_failures present), the
+    // Export must be disabled/annotated instead of producing an ambiguous file.
+    const hasPartialFailures =
+        !!src.partial_failures &&
+        typeof src.partial_failures === 'object' &&
+        Object.keys(src.partial_failures).length > 0;
     const totals: AnalyticsTotals = {
         total_games_played: hasRealStats && rawStats.totals?.total_games_played != null ? rawStats.totals.total_games_played : unavailable,
         total_achievements_earned: hasRealStats && rawStats.totals?.total_achievements_earned != null ? rawStats.totals.total_achievements_earned : unavailable,
@@ -176,6 +184,7 @@ const normalizeAnalyticsData = (raw: AnalyticsData | null): AnalyticsData => {
     };
     return {
         ...src,
+        has_partial_failures: hasPartialFailures,
         comprehensive_stats: { ...rawStats, period, totals },
         platform_distribution: rawStats?.platform_distribution || {},
         achievement_efficiency: { efficiency_per_hour: 0, ...rawStats?.achievement_efficiency },
@@ -289,8 +298,15 @@ const AnalyticsPage: React.FC = () => {
     }
 
     const formatDateRange = () => {
-        const start = new Date(analyticsData.comprehensive_stats.period.start_date);
-        const end = new Date(analyticsData.comprehensive_stats.period.end_date);
+        const { start_date, end_date } = analyticsData.comprehensive_stats.period;
+        const start = new Date(start_date);
+        const end = new Date(end_date);
+        const isValid = (value: Date) => !isNaN(value.getTime());
+        // Audit #2: "Invalid Date - Invalid Date" leaked whenever
+        // comprehensive_stats failed. Show a deliberate fallback instead.
+        if (!isValid(start) || !isValid(end)) {
+            return "Date unavailable";
+        }
         return `${start.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}`;
     };
 
@@ -386,22 +402,34 @@ const AnalyticsPage: React.FC = () => {
                                     {formatDateRange()}
                                 </Typography>
                             </Card>
-                            <Button
-                                startIcon={<DownloadIcon />}
-                                sx={{
-                                    bgcolor: '#6366f1',
-                                    color: '#fff',
-                                    px: 4,
-                                    py: 2,
-                                    fontSize: '0.875rem',
-                                    fontWeight: 500,
-                                    borderRadius: '0.5rem',
-                                    textTransform: 'none',
-                                    '&:hover': { bgcolor: '#5855eb', opacity: 0.9 }
-                                }}
+                            <MuiTooltip
+                                title={
+                                    analyticsData.has_partial_failures
+                                        ? "Export is unavailable while some sections failed to load"
+                                        : "Download your analytics data"
+                                }
                             >
-                                Export
-                            </Button>
+                                <span>
+                                    <Button
+                                        startIcon={<DownloadIcon />}
+                                        disabled={Boolean(analyticsData.has_partial_failures)}
+                                        sx={{
+                                            bgcolor: '#6366f1',
+                                            color: '#fff',
+                                            px: 4,
+                                            py: 2,
+                                            fontSize: '0.875rem',
+                                            fontWeight: 500,
+                                            borderRadius: '0.5rem',
+                                            textTransform: 'none',
+                                            '&:hover': { bgcolor: '#5855eb', opacity: 0.9 },
+                                            '&.Mui-disabled': { bgcolor: '#312e81', color: '#a5b4fc' },
+                                        }}
+                                    >
+                                        Export
+                                    </Button>
+                                </span>
+                            </MuiTooltip>
                         </Box>
                     </Box>
                 </Box>

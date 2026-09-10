@@ -992,6 +992,11 @@ class TraktViewSet(viewsets.ViewSet):
         """
         Fetches Trakt statistics for a specific movie.
         Returns: watchers, plays, collectors, comments, lists, votes
+
+        Status contract (audit #6): the frontend must distinguish a permanent
+        absence (404 → render N/A) from a temporary outage (503 → render
+        "temporarily unavailable" + retry). 500 is reserved for unexpected
+        server failures.
         """
         trakt_id = request.query_params.get("trakt_id")
         
@@ -1008,11 +1013,27 @@ class TraktViewSet(viewsets.ViewSet):
             stats_url = f"https://api.trakt.tv/movies/{trakt_id}/stats"
             stats_response = http_client.get(stats_url, headers=headers, logger_name="trakt")
             
-            if stats_response.status_code != 200:
-                logger.warning(f"Failed to fetch movie stats from Trakt: {stats_response.status_code}")
+            if stats_response.status_code == 404:
+                # Confirmed absence: the movie genuinely has no Trakt stats.
                 return Response(
-                    {"error": f"Failed to fetch movie stats: {stats_response.status_code}"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    {"error": "Movie not found on Trakt."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            
+            if stats_response.status_code != 200:
+                # Upstream outage or rate limit — temporary by definition.
+                logger.warning(
+                    "Failed to fetch movie stats from Trakt: %s",
+                    stats_response.status_code,
+                )
+                return Response(
+                    {
+                        "error": (
+                            f"Trakt stats temporarily unavailable "
+                            f"({stats_response.status_code})"
+                        )
+                    },
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
                 )
             
             stats_data = stats_response.json()
@@ -1028,6 +1049,20 @@ class TraktViewSet(viewsets.ViewSet):
             })
             
         except Exception as e:
+            # Missing Trakt token is a stable, per-user condition — the stats
+            # are genuinely inaccessible, not temporarily broken.
+            if "Trakt token not found" in str(e):
+                return Response(
+                    {"error": "Trakt account not connected."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            # Network-level failures raised by http_client are transient.
+            if isinstance(e, http_client.ExternalRequestError):
+                logger.warning("Movie stats request failed upstream: %s", e)
+                return Response(
+                    {"error": "Trakt stats temporarily unavailable."},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
             logger.error(f"Error fetching movie stats: {str(e)}", exc_info=True)
             return Response(
                 {"error": str(e)},

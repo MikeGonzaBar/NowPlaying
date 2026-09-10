@@ -127,6 +127,11 @@ function MovieDetails() {
     null,
   );
   const [traktStats, setTraktStats] = useState<TraktStats | null>(null);
+  // Audit #6: stats are their own async section. 'unavailable' (404) renders
+  // N/A; 'error' (503/500/network) renders a retryable message. One failed
+  // section never blanks dependent content.
+  type StatsState = "idle" | "loading" | "success" | "unavailable" | "error";
+  const [statsState, setStatsState] = useState<StatsState>("idle");
   const [watchProviders, setWatchProviders] = useState<WatchProviders | null>(
     null,
   );
@@ -150,6 +155,7 @@ function MovieDetails() {
       setTmdbDetails(null);
       setMovieDetails(null);
       setTraktStats(null);
+      setStatsState("idle");
       setWatchProviders(null);
       setLoading(true);
     }
@@ -185,6 +191,10 @@ function MovieDetails() {
                 : null;
         const traktId = currentMovie?.ids?.trakt;
         const tmdbId = routeTmdbId || currentMovie?.ids?.tmdb || id;
+        // Resolved before the detail fetch. On a cold load (no navigation
+        // state) the detail response below may upgrade this with the trakt id
+        // it returns — audit #6.
+        let resolvedTraktId = currentMovie?.ids?.trakt || traktId;
 
         // The effect below only depends on the canonical route id. It used to
         // list every piece of state it writes (movieData, tmdbDetails,
@@ -206,6 +216,13 @@ function MovieDetails() {
               last_watched_at: result?.last_watched_at || null,
               last_updated_at: result?.last_updated_at || null,
             });
+            // Audit #6: on a cold load (no navigation state) the trakt id is
+            // only knowable from this response — capture it so the stats
+            // section can still run instead of silently showing N/A.
+            const detailTraktId = result?.movie?.ids?.trakt;
+            if (detailTraktId) {
+              resolvedTraktId = String(detailTraktId);
+            }
             if (!currentMovie && result?.movie) {
               setMovieData({
                 ...result.movie,
@@ -232,6 +249,9 @@ function MovieDetails() {
             if (cancelled) return;
             setTmdbDetails(tmdbData);
             if (!currentMovie && tmdbData?.title) {
+              // Audit #6: preserve the trakt id resolved from the detail
+              // response — overwriting it with undefined here would make the
+              // stats Retry path early-return forever on cold loads.
               setMovieData({
                 title: tmdbData.title,
                 year: Number(tmdbData.release_date?.slice(0, 4) || 0),
@@ -239,7 +259,7 @@ function MovieDetails() {
                   ? `https://image.tmdb.org/t/p/w500${tmdbData.poster_path}`
                   : null,
                 ids: {
-                  trakt: currentMovie?.ids?.trakt ?? undefined,
+                  trakt: resolvedTraktId,
                   tmdb: String(targetTmdbId),
                   slug: tmdbData?.imdb_id ? undefined : undefined,
                 },
@@ -269,18 +289,31 @@ function MovieDetails() {
           }
         }
 
-        const resolvedTraktId = currentMovie?.ids?.trakt || traktId;
+        // resolvedTraktId was initialized before the detail fetch and may have
+        // been upgraded from its response on cold navigation (audit #6).
         if (resolvedTraktId) {
+          // Audit #6: separately modeled async section with its own states.
+          setStatsState("loading");
           const statsRes = await authenticatedFetch(
             getApiUrl(
               `${API_CONFIG.TRAKT_ENDPOINT}/movie-stats/?trakt_id=${encodeURIComponent(resolvedTraktId)}`,
             ),
           );
+          if (cancelled) return;
           if (statsRes.ok) {
-            const statsData = await statsRes.json();
-            if (cancelled) return;
-            setTraktStats(statsData);
+            setTraktStats(await statsRes.json());
+            setStatsState("success");
+          } else if (statsRes.status === 404) {
+            // Confirmed absence → N/A rendering, not an error.
+            setTraktStats(null);
+            setStatsState("unavailable");
+          } else {
+            // 503/500 → temporary failure with retry.
+            setTraktStats(null);
+            setStatsState("error");
           }
+        } else {
+          setStatsState("unavailable");
         }
       } catch (error) {
         console.error("Error fetching movie details:", error);
@@ -297,6 +330,34 @@ function MovieDetails() {
       cancelled = true;
     };
   }, [id, navigate]);
+
+  // Audit #6: retry re-runs only the stats request, not the whole page load.
+  const fetchStats = async () => {
+    const resolvedTraktId =
+      movieData?.ids?.trakt || media?.movie?.ids?.trakt || media?.ids?.trakt;
+    if (!resolvedTraktId) return;
+    setStatsState("loading");
+    try {
+      const statsRes = await authenticatedFetch(
+        getApiUrl(
+          `${API_CONFIG.TRAKT_ENDPOINT}/movie-stats/?trakt_id=${encodeURIComponent(String(resolvedTraktId))}`,
+        ),
+      );
+      if (statsRes.ok) {
+        setTraktStats(await statsRes.json());
+        setStatsState("success");
+      } else if (statsRes.status === 404) {
+        setTraktStats(null);
+        setStatsState("unavailable");
+      } else {
+        setTraktStats(null);
+        setStatsState("error");
+      }
+    } catch {
+      setTraktStats(null);
+      setStatsState("error");
+    }
+  };
 
   const handleSync = async () => {
     try {
@@ -1652,6 +1713,36 @@ function MovieDetails() {
                   Trakt Stats
                 </Typography>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {statsState === "loading" && (
+                    <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+                      <CircularProgress size={24} sx={{ color: "#ed1c24" }} />
+                    </Box>
+                  )}
+                  {statsState === "error" && (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 1.5,
+                        py: 2,
+                      }}
+                    >
+                      <Typography sx={{ fontSize: "12px", color: "#d1d5db" }}>
+                        Stats temporarily unavailable
+                      </Typography>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={fetchStats}
+                        sx={{ color: "#ed1c24", borderColor: "rgba(237, 28, 36, 0.4)", textTransform: "none" }}
+                      >
+                        Retry
+                      </Button>
+                    </Box>
+                  )}
+                  {statsState !== "loading" && statsState !== "error" && (
+                    <>
                   <Box
                     sx={{
                       display: "flex",
@@ -1762,6 +1853,8 @@ function MovieDetails() {
                         : "N/A"}
                     </Typography>
                   </Box>
+                    </>
+                  )}
                 </Box>
               </Card>
 
