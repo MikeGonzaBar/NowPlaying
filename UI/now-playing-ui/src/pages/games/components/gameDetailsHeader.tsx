@@ -133,6 +133,7 @@ const GameHeader: React.FC<GameHeaderProps> = ({ game }) => {
     <Box>
       <Box sx={{ display: "flex", alignItems: "center", mb: 2, ml: -1 }}>
         <IconButton
+          aria-label="Back to all games"
           component={Link}
           to="/games"
           color="primary"

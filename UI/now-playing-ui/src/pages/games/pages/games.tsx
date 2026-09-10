@@ -748,6 +748,7 @@ function Games() {
                 <Box sx={{ position: "relative", width: "100%" }}>
                   {canScrollLeftRecentlyPlayed && (
                     <IconButton
+                      aria-label="Scroll recently played left"
                       onClick={() => scrollRecentlyPlayed("left")}
                       sx={{
                         position: "absolute",
@@ -953,6 +954,7 @@ function Games() {
                   </Box>
                   {canScrollRightRecentlyPlayed && (
                     <IconButton
+                      aria-label="Scroll recently played right"
                       onClick={() => scrollRecentlyPlayed("right")}
                       sx={{
                         position: "absolute",

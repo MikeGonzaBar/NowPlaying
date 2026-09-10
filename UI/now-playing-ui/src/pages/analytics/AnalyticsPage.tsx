@@ -356,7 +356,8 @@ const AnalyticsPage: React.FC = () => {
                     <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { md: 'flex-end' }, gap: 4, mb: 8 }}>
                         <Box>
                             <Typography
-                                variant="h4"
+                                variant="h1"
+                                component="h1"
                                 sx={{
                                     fontSize: '1.875rem',
                                     fontWeight: 700,

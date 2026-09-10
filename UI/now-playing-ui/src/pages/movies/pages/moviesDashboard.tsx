@@ -179,6 +179,13 @@ function MoviesDashboard() {
                   minWidth: 0,
                 }}
               >
+                <Typography
+                  variant="h1"
+                  component="h1"
+                  sx={{ fontSize: "1.75rem", fontWeight: 700, color: "#fff", mb: 1 }}
+                >
+                  Movies & TV
+                </Typography>
                 <MediaSearch />
                 <LastScrobbled
                   movies={data.recentMovies}

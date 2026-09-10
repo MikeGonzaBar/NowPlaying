@@ -246,7 +246,7 @@ function MusicDashboard() {
   };
 
   // Reliable per-day average: prefer the API value, fall back to daily_data
-  const dailyData = stats?.listening_trends.daily_data ?? [];
+  const dailyData = stats?.listening_trends?.daily_data ?? [];
   const avgPerDay =
     stats?.listening_trends.average_per_day &&
       stats.listening_trends.average_per_day > 0
@@ -257,13 +257,13 @@ function MusicDashboard() {
 
   // Generate trend line data
   const generateTrendPath = () => {
-    if (!stats?.listening_trends.daily_data.length) {
+    if (!stats?.listening_trends?.daily_data?.length) {
       return {
         path: "M0,150 Q50,140 100,160 T200,120 T300,140 T400,80 T500,110 T600,60 T700,90 T800,40 T900,70 T1000,50",
         area: "M0,150 Q50,140 100,160 T200,120 T300,140 T400,80 T500,110 T600,60 T700,90 T800,40 T900,70 T1000,50 L1000,200 L0,200 Z",
       };
     }
-    const data = stats.listening_trends.daily_data;
+    const data = stats?.listening_trends?.daily_data;
     const maxCount = Math.max(...data.map((d) => d.count), 1);
     const step = 1000 / (data.length - 1 || 1);
     const points: number[] = [];
@@ -415,7 +415,7 @@ function MusicDashboard() {
                     m: 0,
                   }}
                 >
-                  {stats.user_info.username}
+                  {stats?.user_info?.username}
                 </Box>
                 <Box
                   sx={{
@@ -792,6 +792,7 @@ function MusicDashboard() {
                     Top Artists
                   </Box>
                   <Button
+                    aria-label="See all artists"
                     onClick={() => navigate("/music/artists")}
                     sx={{
                       fontSize: "10px",
@@ -922,6 +923,7 @@ function MusicDashboard() {
                     Top Albums
                   </Box>
                   <Button
+                    aria-label="See all albums"
                     onClick={() => navigate("/music/albums")}
                     sx={{
                       fontSize: "10px",
@@ -1061,6 +1063,7 @@ function MusicDashboard() {
                     Top Tracks
                   </Box>
                   <Button
+                    aria-label="See all tracks"
                     onClick={() => navigate("/music/tracks")}
                     sx={{
                       fontSize: "10px",
