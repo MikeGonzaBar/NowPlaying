@@ -6,11 +6,7 @@ import {
   RetroAchievementsGame,
   XboxGame,
 } from "../utils/types";
-import {
-  parseDate,
-  getPlaytime,
-  calculateAchievementPercentage,
-} from "../utils/utils";
+import { parseDate } from "../utils/utils";
 import { consolidateRawGames, getCrossPlatformGames } from "../utils/grouping";
 
 type GameData = SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
@@ -40,8 +36,6 @@ const isFailedRequest = (
 
 export const useGameData = (beBaseUrl: string) => {
   const [latestPlayedGames, setLatestPlayedGames] = useState<GameData[]>([]);
-  const [mostPlayed, setMostPlayed] = useState<GameData[]>([]);
-  const [mostAchieved, setMostAchieved] = useState<GameData[]>([]);
   const [allGamesList, setAllGamesList] = useState<GameData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -135,26 +129,6 @@ export const useGameData = (beBaseUrl: string) => {
       setLatestPlayedGames(merged);
 
       setAllGamesList(allGames);
-
-      const mergedPlaytimeGames = allGames
-        .filter((game) => getPlaytime(game) > 0)
-        .sort((a, b) => getPlaytime(b) - getPlaytime(a));
-      setMostPlayed(mergedPlaytimeGames);
-
-      const mergedMostAchievedGames = allGames
-        .map((game) => {
-          const percentage = calculateAchievementPercentage(game);
-          return {
-            ...game,
-            achievementPercentage: percentage,
-          };
-        })
-        .filter((game) => {
-          const percentage = game.achievementPercentage;
-          return !isNaN(percentage) && percentage > 0;
-        })
-        .sort((a, b) => b.achievementPercentage - a.achievementPercentage);
-      setMostAchieved(mergedMostAchievedGames);
     } catch (err) {
       console.error(err);
       setError("Failed to load games data");
@@ -317,8 +291,6 @@ export const useGameData = (beBaseUrl: string) => {
 
   return {
     latestPlayedGames,
-    mostPlayed,
-    mostAchieved,
     loading,
     error,
     clearError: () => setError(null),

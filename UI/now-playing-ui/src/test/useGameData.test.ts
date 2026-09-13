@@ -32,7 +32,9 @@ describe("stored game library baseline", () => {
       "/users/api-keys/services/": services,
     });
 
-    const { result } = renderHook(() => useGameData("https://example.test"));
+    const { result, rerender } = renderHook(() =>
+      useGameData("https://example.test"),
+    );
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
@@ -44,6 +46,18 @@ describe("stored game library baseline", () => {
     expect(result.current.latestPlayedGames).toEqual([
       { ...played, lastPlayed: new Date(played.last_played) },
     ]);
+    expect(
+      result.current.completeConsolidatedGames.map((game) => ({
+        title: game.title,
+        minutes: game.totalPlaytimeMinutes,
+      })),
+    ).toEqual([
+      { title: "Hades", minutes: 300 },
+      { title: "Unplayed game", minutes: 0 },
+    ]);
+    const library = result.current.completeConsolidatedGames;
+    rerender();
+    expect(result.current.completeConsolidatedGames).toBe(library);
     expect(api.calls).toEqual([
       "/steam/get-game-list-stored/",
       "/psn/get-game-list-stored/",
