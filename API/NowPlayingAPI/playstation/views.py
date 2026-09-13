@@ -1,5 +1,6 @@
 from datetime import timedelta
 import re
+from typing import cast
 from django.db.models import QuerySet, Sum, Case, When, Value, F
 from rest_framework.decorators import action
 from rest_framework import viewsets, status
@@ -79,8 +80,9 @@ class PSNViewSet(viewsets.ModelViewSet):
         is not retained after this exchange.
         Body: { "npsso": "...", "psn_user_id": "optional" }
         """
-        npsso = request.data.get("npsso")
-        psn_user_id = request.data.get("psn_user_id")
+        data = cast(dict, request.data)
+        npsso = data.get("npsso")
+        psn_user_id = data.get("psn_user_id")
 
         if not npsso or not isinstance(npsso, str) or len(npsso.strip()) < 10:
             return Response({"error": "Invalid or missing NPSSO."}, status=status.HTTP_400_BAD_REQUEST)

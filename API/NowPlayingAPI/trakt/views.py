@@ -5,10 +5,12 @@ from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework import status
+from typing import cast
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from django.contrib.auth.models import User
 from django.db import models
+from django.db.models import Q
 from django.conf import settings
 from django.http import HttpResponse
 from django.urls import reverse
@@ -20,6 +22,10 @@ import threading
 import http_client
 from urllib.parse import urlencode
 from query_params import pagination_params
+
+# Django model attribute access (ForeignKey reverse relations, dynamic attributes)
+# is not fully modeled in typeshed stubs.
+# pyright: reportAttributeAccessIssue=false
 from .models import (
     Episode,
     Season,
@@ -393,6 +399,8 @@ class TraktViewSet(viewsets.ViewSet):
         if not trakt_id:
             raise ValidationError({"detail": "The 'trakt_id' parameter is required."})
 
+        trakt_id = cast(str, trakt_id)
+
         try:
             # Get the show from database to check if user has access
             show_obj = Show.objects.filter(trakt_id=trakt_id, user=request.user).first()
@@ -745,6 +753,8 @@ class TraktViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        trakt_id = cast(str, trakt_id)
+        
         try:
             # Check if user has a Trakt token
             if not TraktToken.objects.filter(user=request.user).exists():
@@ -809,7 +819,7 @@ class TraktViewSet(viewsets.ViewSet):
         since = None
         if days_param not in (None, "", "all"):
             try:
-                days = int(days_param)
+                days = int(cast(str, days_param))
             except (TypeError, ValueError):
                 raise ValidationError({"days": "Must be an integer from 1 to 365 or 'all'."})
             if days < 1 or days > 365:
@@ -1120,6 +1130,8 @@ class TraktViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        trakt_id = cast(str, trakt_id)
+        
         try:
             # Check if user has a Trakt token
             if not TraktToken.objects.filter(user=request.user).exists():
@@ -1292,7 +1304,7 @@ class TraktViewSet(viewsets.ViewSet):
             </body>
             </html>
             """
-            return HttpResponse(html_content, content_type='text/html')
+            return HttpResponse(html_content, content_type='text/html')  # pyright: ignore[reportArgumentType]
         
         if not code:
             html_content = """
@@ -1314,7 +1326,7 @@ class TraktViewSet(viewsets.ViewSet):
             </body>
             </html>
             """
-            return HttpResponse(html_content, content_type='text/html')
+            return HttpResponse(html_content, content_type='text/html')  # pyright: ignore[reportArgumentType]
         
         # Display success page with instructions
         html_content = f"""
@@ -1402,15 +1414,16 @@ curl -X POST \\<br>
         </html>
         """
         
-        return HttpResponse(html_content, content_type='text/html')
+        return HttpResponse(html_content, content_type='text/html')  # pyright: ignore[reportArgumentType]
 
     def _handle_oauth_token_exchange(self, request: Request) -> Response:
         """
         Handle the POST request to exchange authorization code for access token.
         Requires authentication.
         """
-        code = request.data.get('code')
-        state = request.data.get('state')
+        data = cast(dict, request.data)
+        code = data.get('code')
+        state = data.get('state')
         
         if not code:
             return Response(
@@ -1533,8 +1546,8 @@ curl -X POST \\<br>
         # Search in shows that the user has watched
         try:
             shows = Show.objects.filter(
-                Q(user=request.user) & 
-                (Q(title__icontains=query) | Q(title__istartswith=query))
+                Q(user=request.user) &  # pyright: ignore[reportPossiblyUnboundVariable]
+                (Q(title__icontains=query) | Q(title__istartswith=query))  # pyright: ignore[reportPossiblyUnboundVariable]
             )[:10]
             
             logger.info("Found %s shows matching '%s' for user %s", shows.count(), query, request.user.id)
@@ -1573,8 +1586,8 @@ curl -X POST \\<br>
         # Search in episodes that the user has watched
         try:
             episodes = Episode.objects.filter(
-                Q(show__user=request.user) & 
-                (Q(title__icontains=query) | Q(show__title__icontains=query))
+                Q(show__user=request.user) &  # pyright: ignore[reportPossiblyUnboundVariable]
+                (Q(title__icontains=query) | Q(show__title__icontains=query))  # pyright: ignore[reportPossiblyUnboundVariable]
             ).select_related('show', 'season')[:20]
             
             logger.info("Found %s episodes matching '%s' for user %s", episodes.count(), query, request.user.id)

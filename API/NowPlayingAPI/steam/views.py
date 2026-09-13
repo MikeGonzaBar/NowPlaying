@@ -1,16 +1,20 @@
 from django.conf import settings
 from django.core.cache import cache
 from django.db.models import Count, Q, QuerySet
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
+from typing import cast
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from .models import Game, SteamAPI  # Using the new Game model instead of a JSON-field-based model.
+from .models import Game, SteamAPI
 from .serializers import SteamSerializer
 from users.credentials import get_service_credentials
-# This is our helper that wraps fetching/updating logic.
+
+# Django model attribute access (ForeignKey reverse relations, dynamic attributes)
+# is not fully modeled in typeshed stubs.
+# pyright: reportAttributeAccessIssue=false
 
 
 @extend_schema_view(
@@ -36,6 +40,11 @@ class SteamViewSet(viewsets.ModelViewSet):
         steam_id = api_key.service_user_id
         steam_api_key = api_key.api_key
 
+        if not steam_id:
+            return Response({"error": "Steam ID not configured."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        steam_id = cast(str, steam_id)
+
         cache_key = f"steam_games_{request.user.id}_{steam_id}"
         cached_result = cache.get(cache_key)
 
@@ -43,11 +52,13 @@ class SteamViewSet(viewsets.ModelViewSet):
             return Response({"result": cached_result})
 
         result = SteamAPI.get_games(steam_id, steam_api_key, user=request.user)
+        
+        result = cast(dict, result)
 
         if isinstance(result, dict) and result.get("error"):
             return Response({"error": result["error"]}, status=502)
 
-        if "games" in result:
+        if isinstance(result, dict) and "games" in result:
             for game in result["games"]:
                 total = game.get("total_achievements", 0)
                 unlocked = game.get("unlocked_achievements", 0)
@@ -115,7 +126,7 @@ class SteamViewSet(viewsets.ModelViewSet):
                 unlocked=Count("achievements", filter=Q(achievements__unlocked=True)),
             )
         )
-        ordered = sorted(games, key=lambda g: (g.unlocked / g.total * 100) if g.total else 0, reverse=True)
+        ordered = sorted(games, key=lambda g: (g.unlocked / g.total * 100) if g.total else 0, reverse=True)  # pyright: ignore[reportAttributeAccessIssue]
         serializer = SteamSerializer(ordered, many=True)
 
         # Cache for 15 minutes - SAFE OPTIMIZATION

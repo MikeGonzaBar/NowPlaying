@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from django.db.models import QuerySet
+from typing import cast
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from .serializers import (
@@ -15,6 +16,10 @@ from .serializers import (
 )
 from .models import UserApiKey
 from rest_framework.decorators import action
+
+# Django model attribute access (ForeignKey reverse relations, dynamic attributes)
+# is not fully modeled in typeshed stubs.
+# pyright: reportAttributeAccessIssue=false
 
 
 class UserRegistrationView(generics.CreateAPIView):
@@ -29,7 +34,7 @@ class UserRegistrationView(generics.CreateAPIView):
         """Validate registration data and return a token pair for the new user."""
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
+        user = cast(User, serializer.save())
         
         refresh = RefreshToken.for_user(user)
         
@@ -50,7 +55,10 @@ class UserLoginView(generics.GenericAPIView):
         """Validate credentials and return a token pair."""
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']
+        validated_data = cast(dict, serializer.validated_data)
+        user = validated_data.get('user')
+        if not user:
+            return Response({"error": "Invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
         
         refresh = RefreshToken.for_user(user)
         
@@ -66,9 +74,9 @@ class UserProfileView(generics.RetrieveAPIView):
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
     
-    def get_object(self) -> User:
+    def get_object(self) -> User:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return the user attached to the current request."""
-        return self.request.user
+        return cast(User, self.request.user)
 
 
 @extend_schema_view(

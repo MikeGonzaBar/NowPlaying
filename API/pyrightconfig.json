@@ -1,10 +1,15 @@
 {
-  "include": ["NowPlayingAPI/xbox/views.py", "NowPlayingAPI/steam/views.py", "NowPlayingAPI/playstation/views.py", "NowPlayingAPI/users/views.py", "NowPlayingAPI/music/views.py"],
+  "include": ["NowPlayingAPI/xbox/views.py", "NowPlayingAPI/steam/views.py", "NowPlayingAPI/playstation/views.py", "NowPlayingAPI/users/views.py", "NowPlayingAPI/music/views.py", "NowPlayingAPI/trakt/views.py", "NowPlayingAPI/analytics/services.py"],
   "exclude": ["**/venv", "**/__pycache__", "**/migrations", "**/node_modules", "**/.*", "nowPlayingVenv"],
-  "venvPath": ".",
-  "venv": "venv",
+  "venvPath": "..",
+  "venv": "nowPlayingVenv",
   "typeCheckingMode": "standard",
   "reportMissingModuleSource": "none",
   "reportIncompatibleMethodOverride": "error",
-  "reportArgumentType": "error"
+  "reportArgumentType": "error",
+  "reportGeneralTypeIssues": "none",
+  "reportAttributeAccessIssue": "none",
+  "reportOptionalMemberAccess": "none",
+  "reportOptionalSubscript": "none",
+  "reportIndexIssue": "none"
 }

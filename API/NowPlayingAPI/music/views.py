@@ -19,6 +19,11 @@ import logging
 import threading
 
 
+# Django model attribute access (ForeignKey reverse relations, dynamic attributes)
+# is not fully modeled in typeshed stubs.
+# pyright: reportAttributeAccessIssue=false
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -89,7 +94,7 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
 
         all_songs = self._filtered_top_songs(request)
         matching_ids = [
-            song.id
+            song.id  # pyright: ignore[reportAttributeAccessIssue]
             for song in all_songs.only("id", "title", "artist")
             if Song.normalize_match_key(song.title) == title_key
             and Song.normalize_match_key(song.artist) == artist_key
@@ -447,7 +452,7 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
             for song in recent_songs:
                 played_at = song.played_at
                 if isinstance(played_at, str):
-                    played_at = datetime.fromisoformat(played_at.replace('Z', '+00:00'))
+                    played_at = datetime.fromisoformat(str(played_at).replace('Z', '+00:00'))
                 elif played_at.tzinfo is None:
                     played_at = timezone.make_aware(played_at)
                 time_diff = timezone.now() - played_at
@@ -498,11 +503,12 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
             loved_highlight = None
             if loved_tracks.exists():
                 track = loved_tracks.first()
-                loved_highlight = {
-                    'title': track.title,
-                    'artist': track.artist,
-                    'thumbnail': track.album_thumbnail
-                }
+                if track is not None:
+                    loved_highlight = {
+                        'title': track.title,
+                        'artist': track.artist,
+                        'thumbnail': track.album_thumbnail
+                    }
             
             # User info (from Last.fm if available)
             user_info = {

@@ -1,12 +1,17 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from typing import cast
 import time
 import logging
 import re
 import unicodedata
 from utils import parse_datetime_aware
 import http_client
+
+# Django model attribute access (ForeignKey reverse relations, dynamic attributes)
+# is not fully modeled in typeshed stubs.
+# pyright: reportAttributeAccessIssue=false
 
 logger = logging.getLogger(__name__)
 
@@ -191,7 +196,7 @@ class Song(models.Model):
         if isinstance(tags, dict):
             tags = [tags]
 
-        for tag in tags or []:
+        for tag in cast(list, tags or []):
             if isinstance(tag, dict):
                 raw_name = tag.get("name")
                 raw_count = tag.get("count", 0)
@@ -329,7 +334,7 @@ class Song(models.Model):
                     "track_url": track_url,
                     "artists_url": artists_url,
                     "duration_ms": duration_ms,
-                    "played_at": played_at.isoformat(),
+                    "played_at": played_at.isoformat() if played_at else None,
                     "source": "spotify",
                 }
             )

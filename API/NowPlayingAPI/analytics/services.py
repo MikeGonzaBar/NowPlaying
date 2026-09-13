@@ -18,6 +18,10 @@ from utils import versioned_cache_key, versioned_cache_invalidate
 import logging
 import re
 
+# Django model attribute access (ForeignKey reverse relations, dynamic attributes)
+# is not fully modeled in typeshed stubs.
+# pyright: reportAttributeAccessIssue=false
+
 logger = logging.getLogger(__name__)
 
 StatsPayload = dict[str, Any]
