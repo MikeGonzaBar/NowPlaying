@@ -14,8 +14,7 @@ from .serializers import (
     ApiKeyCheckSerializer
 )
 from .models import UserApiKey
-from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
 
 
 class UserRegistrationView(generics.CreateAPIView):
@@ -99,18 +98,3 @@ class ApiKeyViewSet(viewsets.ModelViewSet):
         """Return a list of services for which the user has stored API keys"""
         services = UserApiKey.objects.filter(user=request.user).values_list('service_name', flat=True)
         return Response(services)
-
-@extend_schema(summary="Return the current JWT-authenticated user", responses={200: OpenApiTypes.OBJECT})
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_current_user(request: Request) -> Response:
-    """
-    Endpoint to demonstrate getting the user from a JWT token.
-    This endpoint will return the user ID and username of the authenticated user.
-    """
-    user = request.user
-    return Response({
-        'user_id': user.id,
-        'username': user.username,
-        'email': user.email
-    })

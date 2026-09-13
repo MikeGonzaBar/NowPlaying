@@ -1,4 +1,4 @@
-from django.db.models import IntegerField
+from django.db.models import IntegerField, Sum, Q, F
 from django.db.models import QuerySet
 from django.db.models.functions import Cast
 from .serializers import XboxGameSerializer
@@ -83,25 +83,19 @@ class XBOXViewSet(viewsets.ModelViewSet):
     def getGameListMostAchieved(self, request: Request) -> Response:
         """Return stored Xbox games ordered by unlocked gamerscore."""
         try:
-            # Retrieve stored games filtered by the current user
-            games = list(self.get_queryset().prefetch_related("achievements"))
-
-            # Helper function to calculate the weighted score for unlocked achievements
-            def calculate_weighted_score(game: XboxGame) -> int:
-                """Return unlocked gamerscore for sorting."""
-                unlocked = game.achievements.filter(unlocked=True)
-                score = 0
-                for ach in unlocked:
-                    # turn the stored string into an int (default to 0 on bad data)
-                    try:
-                        val = int(ach.achievement_value)
-                    except (TypeError, ValueError):
-                        val = 0
-                    score += val
-                return score
-
-            sorted_games = sorted(games, key=calculate_weighted_score, reverse=True)
-            serializer = self.serializer_class(sorted_games, many=True)
+            # Sum unlocked achievement values in a single grouped query instead of
+            # per-game Python iteration (N+1). achievement_value is a VARCHAR.
+            games = (
+                self.get_queryset()
+                .annotate(
+                    unlocked_score=Sum(
+                        Cast("achievements__achievement_value", output_field=IntegerField()),
+                        filter=Q(achievements__unlocked=True),
+                    )
+                )
+                .order_by(F("unlocked_score").desc(nulls_last=True))
+            )
+            serializer = self.serializer_class(games, many=True)
             return Response({"result": serializer.data})
         except Exception as e:
             return Response(

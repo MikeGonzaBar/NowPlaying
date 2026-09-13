@@ -1,19 +1,20 @@
 from typing import Any
 
 from django.contrib.auth.models import User
-from django.db.models import Sum, Count, Avg, F, Q, Max, Min
+from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from django.core.cache import cache
 from datetime import datetime, timedelta, date
 from collections import Counter
-from .models import UserStatistics, GamingStreak
+from .models import GamingStreak
 from steam.models import Game as SteamGame, Achievement as SteamAchievement
 from playstation.models import PSNGame, PSNAchievement
 from xbox.models import XboxGame, XboxAchievement
 from retroachievements.models import RetroAchievementsGame, GameAchievement
 from music.models import Song
 from users.models import UserApiKey
-from trakt.models import Movie, Show, Episode, MovieWatch, EpisodeWatch
+from trakt.models import MovieWatch, EpisodeWatch
+from utils import versioned_cache_key, versioned_cache_invalidate
 import logging
 import re
 
@@ -22,23 +23,21 @@ logger = logging.getLogger(__name__)
 StatsPayload = dict[str, Any]
 StatsList = list[StatsPayload]
 
+ANALYTICS_CACHE_NS = "analytics"
+
 
 class AnalyticsService:
     """Optimized service class for calculating and managing user statistics"""
 
     @staticmethod
     def invalidate_user_cache(user_id: int) -> int:
-        """Clear analytics cache entries that depend on user activity data."""
-        today = timezone.now().date()
-        keys = []
-        for days in range(1, 366):
-            keys.extend([
-                f"analytics_{user_id}_{days}",
-                f"analytics_{user_id}_{days}_{today}",
-                f"platform_dist_{user_id}_{days}_{today}",
-            ])
-        cache.delete_many(keys)
-        return len(keys)
+        """Invalidate all cached analytics for a user in O(1).
+
+        Bumping the generation retires every day-bucketed analytics key at once;
+        old keys expire via their natural TTL. The new generation is returned
+        for callers to include in logs.
+        """
+        return versioned_cache_invalidate(ANALYTICS_CACHE_NS, user_id)
     
     @staticmethod
     def _format_duration(duration: timedelta | None) -> str:
@@ -104,7 +103,7 @@ class AnalyticsService:
     @staticmethod
     def get_comprehensive_statistics(user: User, days: int = 30) -> StatsPayload:
         """Get comprehensive statistics calculated live from source models with caching"""
-        cache_key = f"analytics_{user.id}_{days}_{timezone.now().date()}"
+        cache_key = versioned_cache_key(ANALYTICS_CACHE_NS, user.id, f"{days}_{timezone.now().date()}")
         cached_result = cache.get(cache_key)
         if cached_result:
             return cached_result
@@ -312,7 +311,7 @@ class AnalyticsService:
     @staticmethod
     def get_platform_distribution(user: User, days: int = 30) -> StatsPayload:
         """Get optimized platform usage distribution"""
-        cache_key = f"platform_dist_{user.id}_{days}_{timezone.now().date()}"
+        cache_key = versioned_cache_key(ANALYTICS_CACHE_NS, user.id, f"pd_{days}_{timezone.now().date()}")
         cached_result = cache.get(cache_key)
         if cached_result:
             return cached_result
@@ -1061,7 +1060,9 @@ class AnalyticsService:
         if most_played:
             if platform == 'steam':
                 # Steam game
-                image_url = most_played.img_icon_url or f"https://steamcdn-a.akamaihd.net/steam/apps/{most_played.appid}/library_600x900_2x.jpg"
+                # header.jpg over library_600x900_2x.jpg: the 600x900 heroes are
+                # missing from the Steam CDN for many older apps (404s).
+                image_url = most_played.img_icon_url or f"https://cdn.akamai.steamstatic.com/steam/apps/{most_played.appid}/header.jpg"
                 return {
                     'name': most_played.name,
                     'image_url': image_url,

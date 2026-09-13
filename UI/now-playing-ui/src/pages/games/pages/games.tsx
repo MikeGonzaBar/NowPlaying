@@ -61,7 +61,9 @@ import {
   isSteamGame,
 } from "../utils/typeGuards";
 import { consolidateRawGames } from "../utils/grouping";
-import { normalizeTitle } from "../utils/normalize";
+
+import { SERVICE_PLATFORM_CONFIG } from "../utils/platformHelper";
+import { GameImage } from "../components/GameImage";
 
 function Games() {
   const beBaseUrl = API_CONFIG.BASE_URL;
@@ -355,13 +357,8 @@ function Games() {
     [consolidatedGames],
   );
 
-  // Platform configuration
-  const platformConfig = {
-    steam: { name: "Steam", color: "#1b2838" },
-    psn: { name: "PlayStation", color: "#003791" },
-    xbox: { name: "Xbox", color: "#107c10" },
-    retroachievements: { name: "RetroAchievements", color: "#ff6b35" },
-  };
+  // Platform configuration (shared with platformHelper)
+  const platformConfig = SERVICE_PLATFORM_CONFIG;
 
   const getGameImageUrl = (
     game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame,
@@ -811,7 +808,7 @@ function Games() {
                           <Card
                             key={`${game.appid}-${index}`}
                             component={RouterLink}
-                            to={`/games/title/${encodeURIComponent(normalizeTitle(game.name))}`}
+                            to={`/games/title/${encodeURIComponent(game.name)}`}
                             onClick={(e) => {
                               // Capture card position for shared element transition.
                               // Navigation is handled by the anchor itself.
@@ -850,8 +847,7 @@ function Games() {
                               },
                             }}
                           >
-                            <Box
-                              component="img"
+                            <GameImage
                               src={getGameImageUrl(game)}
                               alt={game.name}
                               sx={{
@@ -860,10 +856,6 @@ function Games() {
                                 objectFit: "cover",
                                 borderTopLeftRadius: 12,
                                 borderTopRightRadius: 12,
-                              }}
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src =
-                                  "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDE4MCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxODAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMTgxODFiIi8+Cjwvc3ZnPg==";
                               }}
                             />
                             <CardContent
@@ -1018,7 +1010,7 @@ function Games() {
                       <Card
                         key={index}
                         component={RouterLink}
-                        to={`/games/title/${encodeURIComponent(normalizeTitle(achievement.game))}`}
+                        to={`/games/title/${encodeURIComponent(achievement.game)}`}
                         aria-label={`${achievement.name} - ${achievement.game}`}
                         sx={{
                           backgroundColor: "#252529", // Lighter gray for better icon visibility
@@ -1234,7 +1226,7 @@ function Games() {
                           <Card
                             key={`${game.appid}-${index}`}
                             component={RouterLink}
-                            to={`/games/title/${encodeURIComponent(normalizeTitle(game.name))}`}
+                            to={`/games/title/${encodeURIComponent(game.name)}`}
                             onClick={(e) => {
                               // Capture card position for shared element transition.
                               // Navigation is handled by the anchor itself.
@@ -1272,8 +1264,7 @@ function Games() {
                               },
                             }}
                           >
-                            <Box
-                              component="img"
+                            <GameImage
                               src={getGameImageUrl(game)}
                               alt={game.name}
                               sx={{
@@ -1282,10 +1273,6 @@ function Games() {
                                 objectFit: "cover",
                                 borderTopLeftRadius: 12,
                                 borderTopRightRadius: 12,
-                              }}
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src =
-                                  "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDE4MCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxODAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMTgxODFiIi8+Cjwvc3ZnPg==";
                               }}
                             />
                             <CardContent
@@ -1690,7 +1677,7 @@ function Games() {
                                   "gameCardPosition",
                                   JSON.stringify(cardPosition),
                                 );
-                                navigate(`/game/title/${encodeURIComponent(normalizeTitle(game.name))}`, {
+                                navigate(`/game/title/${encodeURIComponent(game.name)}`, {
                                   state: { game },
                                 });
                               }}
@@ -1715,8 +1702,7 @@ function Games() {
                                 {index + 1}
                               </TableCell>
                               <TableCell sx={{ py: 1.5, width: 50, px: 1 }}>
-                                <Box
-                                  component="img"
+                                <GameImage
                                   src={getGameImageUrl(game)}
                                   alt={game.name}
                                   sx={{
@@ -1724,10 +1710,6 @@ function Games() {
                                     height: 40,
                                     borderRadius: 1,
                                     objectFit: "cover",
-                                  }}
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).src =
-                                      "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjMTgxODFiIi8+Cjwvc3ZnPg==";
                                   }}
                                 />
                               </TableCell>

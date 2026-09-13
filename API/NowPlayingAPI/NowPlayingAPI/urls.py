@@ -31,8 +31,10 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 from django.db.models import Q
 from django.core.cache import cache
 from django.conf import settings
+import difflib
 import logging
 import re
+import unicodedata
 
 from retroachievements import views as retroachievements_views
 from steam import views as steam_views
@@ -45,11 +47,38 @@ from analytics import views as analytics_views
 logger = logging.getLogger(__name__)
 
 
+def _strip_accents(value: str) -> str:
+    """Transliterate accented characters ("Versión" -> "version").
+
+    Without this, accents fall through to the [^a-z0-9] punctuation filter
+    below and split words ("versión" -> "versi n"), so the same game stored
+    with an accent on one platform can never match its unaccented variant.
+    """
+    decomposed = unicodedata.normalize("NFKD", value)
+    return "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+
+
 def _normalize_game_title(value: object) -> str:
     """Normalize common edition and punctuation differences for cross-platform matching."""
-    text = str(value or "").strip().lower()
+    text = _strip_accents(str(value or "")).strip().lower()
     text = re.sub(r"\s*\([^)]*\)", "", text)
     text = re.sub(r"\s*\[[^]]*\]", "", text)
+    text = re.sub(
+        r"\b(?:goty|game of the year|definitive|remastered|remake|edition|deluxe|special|international|complete|ultimate)\b",
+        "",
+        text,
+    )
+    return re.sub(r"[^a-z0-9]+", " ", text).strip()
+
+
+def _normalize_game_title_loose(value: object) -> str:
+    """Like _normalize_game_title but keeps parenthesised/bracketed content.
+
+    Used only by the fuzzy fallback in games_detail_by_title, where the
+    incoming title may carry the parenthetical as plain words (legacy UI
+    deep links stripped the parentheses and accents instead).
+    """
+    text = _strip_accents(str(value or "")).strip().lower()
     text = re.sub(
         r"\b(?:goty|game of the year|definitive|remastered|remake|edition|deluxe|special|international|complete|ultimate)\b",
         "",
@@ -139,10 +168,12 @@ def games_search(request: Request) -> Response:
         )[:10]
         
         for game in steam_games:
-            # Ensure we have a full URL for Steam images
+            # Ensure we have a full URL for Steam images. header.jpg is used as
+            # the fallback because the library_600x900 heroes are missing from
+            # the Steam CDN for many older/obscure apps (404s).
             cover_image = game.img_icon_url or ''
             if cover_image and not cover_image.startswith('http'):
-                cover_image = f"https://steamcdn-a.akamaihd.net/steam/apps/{game.appid}/library_600x900_2x.jpg"
+                cover_image = f"https://cdn.akamai.steamstatic.com/steam/apps/{game.appid}/header.jpg"
             
             results.append({
                 'id': game.id,
@@ -247,7 +278,7 @@ def games_search(request: Request) -> Response:
 @permission_classes([IsAuthenticated])
 def games_detail_by_title(request: Request) -> Response:
     """Return game data across all platforms for a given title.
-    
+
     This endpoint searches for a game by title across all connected platforms
     and returns data for each platform where the game is found. This enables
     cross-platform comparison and direct URL navigation.
@@ -258,85 +289,125 @@ def games_detail_by_title(request: Request) -> Response:
 
     normalized_title = _normalize_game_title(title)
     platforms_data = []
-    
+    fuzzy_producers = []
+
+    def _collect_matches(queryset, title_attr):
+        """Exact normalized matches first; near matches (>= 0.9 similarity) are
+        kept aside as a fallback for damaged titles — e.g. legacy UI deep links
+        that stripped accented characters ("Versión" -> "versin")."""
+        exact, near = [], []
+        for obj in queryset:
+            raw = getattr(obj, title_attr) or ""
+            if _normalize_game_title(raw) == normalized_title:
+                exact.append(obj)
+                continue
+            candidate = _normalize_game_title_loose(raw)
+            if difflib.SequenceMatcher(None, candidate, normalized_title).ratio() >= 0.9:
+                near.append(obj)
+        return exact, near
+
     # Search in Steam games
     try:
         from steam.models import Game as SteamGame
         from steam.serializers import SteamSerializer
-        
-        steam_games = [
-            game for game in SteamGame.objects.filter(user=request.user).prefetch_related('achievements')
-            if _normalize_game_title(game.name) == normalized_title
-        ]
-        
-        for game in steam_games:
-            platforms_data.append({
+
+        def _steam_entry(game):
+            return {
                 'platform': 'steam',
                 'data': _with_recency_rank(SteamSerializer(game).data, SteamGame, game, request.user)
-            })
+            }
+
+        exact, near = _collect_matches(
+            SteamGame.objects.filter(user=request.user).prefetch_related('achievements'), 'name'
+        )
+        platforms_data.extend(_steam_entry(game) for game in exact)
+        if near:
+            fuzzy_producers.append(lambda near=near: [_steam_entry(game) for game in near])
     except Exception as e:
         logger.warning("Steam detail by title error: %s", e)
-    
+
     # Search in PSN games
     try:
         from playstation.models import PSNGame
         from playstation.serializers import PSNGameSerializer
-        
-        psn_games = [
-            game for game in PSNGame.objects.filter(user=request.user).prefetch_related('achievements')
-            if _normalize_game_title(game.name) == normalized_title
-        ]
-        
-        for game in psn_games:
-            platforms_data.append({
+
+        def _psn_entry(game):
+            return {
                 'platform': 'psn',
                 'data': _with_recency_rank(PSNGameSerializer(game).data, PSNGame, game, request.user)
-            })
+            }
+
+        exact, near = _collect_matches(
+            PSNGame.objects.filter(user=request.user).prefetch_related('achievements'), 'name'
+        )
+        platforms_data.extend(_psn_entry(game) for game in exact)
+        if near:
+            fuzzy_producers.append(lambda near=near: [_psn_entry(game) for game in near])
     except Exception as e:
         logger.warning("PSN detail by title error: %s", e)
-    
+
     # Search in Xbox games
     try:
         from xbox.models import XboxGame
         from xbox.serializers import XboxGameSerializer
-        
-        xbox_games = [
-            game for game in XboxGame.objects.filter(user=request.user).prefetch_related('achievements')
-            if _normalize_game_title(game.name) == normalized_title
-        ]
-        
-        for game in xbox_games:
-            platforms_data.append({
+
+        def _xbox_entry(game):
+            return {
                 'platform': 'xbox',
                 'data': _with_recency_rank(XboxGameSerializer(game).data, XboxGame, game, request.user)
-            })
+            }
+
+        exact, near = _collect_matches(
+            XboxGame.objects.filter(user=request.user).prefetch_related('achievements'), 'name'
+        )
+        platforms_data.extend(_xbox_entry(game) for game in exact)
+        if near:
+            fuzzy_producers.append(lambda near=near: [_xbox_entry(game) for game in near])
     except Exception as e:
         logger.warning("Xbox detail by title error: %s", e)
-    
+
     # Search in RetroAchievements games
     try:
-        from retroachievements.models import RetroAchievementsGame
-        
-        retro_games = [
-            game for game in RetroAchievementsGame.objects.filter(user=request.user)
-            if _normalize_game_title(game.title) == normalized_title
-        ]
-        
-        for game in retro_games:
+        from retroachievements.models import RetroAchievementsAPI, RetroAchievementsGame
+
+        def _retro_entry(game):
             # Fetch full game details for each RetroAchievements game
-            from retroachievements.models import RetroAchievementsAPI
             detail = RetroAchievementsAPI.fetch_game_details(user=request.user, game_id=game.game_id)
             if detail:
-                platforms_data.append({
+                return {
                     'platform': 'retroachievements',
                     'data': _with_recency_rank(detail, RetroAchievementsGame, game, request.user)
-                })
+                }
+            return None
+
+        exact, near = _collect_matches(
+            RetroAchievementsGame.objects.filter(user=request.user), 'title'
+        )
+        for game in exact:
+            entry = _retro_entry(game)
+            if entry:
+                platforms_data.append(entry)
+        if near:
+            def _retro_fuzzy(near=near):
+                produced = []
+                for game in near:
+                    entry = _retro_entry(game)
+                    if entry:
+                        produced.append(entry)
+                return produced
+            fuzzy_producers.append(_retro_fuzzy)
     except Exception as e:
         logger.warning("RetroAchievements detail by title error: %s", e)
-    
+
+    if not platforms_data and fuzzy_producers:
+        # Nothing matched exactly: fall back to the near matches gathered
+        # during the exact pass.
+        for producer in fuzzy_producers:
+            platforms_data.extend(entry for entry in producer() if entry)
+
     if not platforms_data:
         return Response({'error': 'Game not found.'}, status=status.HTTP_404_NOT_FOUND)
-    
+
     return Response({
         'title': title,
         'platforms': platforms_data,

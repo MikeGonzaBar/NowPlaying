@@ -1,5 +1,6 @@
 import { Box, Tooltip, Typography } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
+import { avatarUrl } from "../../../utils/avatars";
 import { RankingBadge } from "./RankingBadge";
 import { TopTracksList } from "./TopTracksList";
 import { TopTrack } from "../types";
@@ -115,8 +116,7 @@ export function MusicItemCard({
           <Box
             component="img"
             src={
-              thumbnail ||
-              `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&size=128&background=262626&color=fff`
+              thumbnail || avatarUrl(name)
             }
             alt={name}
             sx={{

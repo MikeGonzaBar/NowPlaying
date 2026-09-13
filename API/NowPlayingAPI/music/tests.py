@@ -7,6 +7,7 @@ from datetime import timedelta
 from unittest.mock import patch, MagicMock
 from users.models import UserApiKey
 from .models import Song
+from utils import versioned_cache_key
 
 class LastFmIntegrationTestCase(APITestCase):
     def setUp(self):
@@ -93,21 +94,25 @@ class LastFmIntegrationTestCase(APITestCase):
         }
         mock_get.side_effect = [recent_response, tags_response]
         today = timezone.now().date()
-        stale_keys = [
-            f"analytics_{self.user.id}_30",
-            f"analytics_{self.user.id}_30_{today}",
-            f"platform_dist_{self.user.id}_30_{today}",
-            f"music_dashboard_stats_{self.user.id}_30",
+        # Seed the current cache generation with stale payloads for every
+        # versioned family the refresh invalidates.
+        stale = [
+            ("analytics", "30"),
+            ("analytics", f"30_{today}"),
+            ("analytics", f"pd_30_{today}"),
+            ("music", "30"),
         ]
-        for key in stale_keys:
-            cache.set(key, "stale")
-        
+        for namespace, suffix in stale:
+            cache.set(versioned_cache_key(namespace, self.user.id, suffix), "stale")
+
         response = self.client.get('/music/fetch-lastfm-recent/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('Last.fm ALL recent tracks fetched and stored successfully', response.data['message'])
         self.assertEqual(len(response.data['data']), 1)
-        for key in stale_keys:
-            self.assertIsNone(cache.get(key))
+        # The refresh bumps each cache generation, orphaning the seeded one; a
+        # fresh lookup at the new generation must miss so data is recomputed.
+        for namespace, suffix in stale:
+            self.assertIsNone(cache.get(versioned_cache_key(namespace, self.user.id, suffix)))
         
         # Check that the song was saved to the database with enhanced data
         song = Song.objects.filter(user=self.user, source='lastfm').first()

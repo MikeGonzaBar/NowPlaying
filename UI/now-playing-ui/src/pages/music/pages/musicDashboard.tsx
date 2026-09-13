@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import SideBar from "../../../components/sideBar";
 import { authenticatedFetch } from "../../../utils/auth";
 import { getApiUrl, API_CONFIG } from "../../../config/api";
+import { avatarUrl } from "../../../utils/avatars";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import VerifiedIcon from "@mui/icons-material/Verified";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
@@ -375,8 +376,7 @@ function MusicDashboard() {
                   component="img"
                   alt="User Avatar"
                   src={
-                    stats.user_info.avatar ||
-                    `https://ui-avatars.com/api/?name=${encodeURIComponent(stats.user_info.username)}&size=96&background=e11d48&color=fff`
+                    stats.user_info.avatar || avatarUrl(stats.user_info.username, 96, "e11d48")
                   }
                   sx={{
                     width: 96,
@@ -837,8 +837,7 @@ function MusicDashboard() {
                           component="img"
                           alt="Artist"
                           src={
-                            artist.thumbnail ||
-                            `https://ui-avatars.com/api/?name=${encodeURIComponent(artist.name)}&size=40&background=27272a&color=fff`
+                            artist.thumbnail || avatarUrl(artist.name, 40, "27272a")
                           }
                           sx={{
                             width: 40,
@@ -984,8 +983,7 @@ function MusicDashboard() {
                           component="img"
                           alt="Album"
                           src={
-                            album.thumbnail ||
-                            `https://ui-avatars.com/api/?name=${encodeURIComponent(album.name)}&size=150&background=27272a&color=fff`
+                            album.thumbnail || avatarUrl(album.name, 150, "27272a")
                           }
                           sx={{
                             width: "100%",
@@ -1112,8 +1110,7 @@ function MusicDashboard() {
                           component="img"
                           alt="Track"
                           src={
-                            track.thumbnail ||
-                            `https://ui-avatars.com/api/?name=${encodeURIComponent(track.title)}&size=40&background=27272a&color=fff`
+                            track.thumbnail || avatarUrl(track.title, 40, "27272a")
                           }
                           sx={{
                             width: 40,
@@ -1408,8 +1405,7 @@ function MusicDashboard() {
                     component="img"
                     alt="Loved Track"
                     src={
-                      stats.loved_highlight.thumbnail ||
-                      `https://ui-avatars.com/api/?name=${encodeURIComponent(stats.loved_highlight.title)}&size=300&background=27272a&color=fff`
+                      stats.loved_highlight.thumbnail || avatarUrl(stats.loved_highlight.title, 300, "27272a")
                     }
                     sx={{
                       width: "100%",

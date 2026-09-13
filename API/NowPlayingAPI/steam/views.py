@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.core.cache import cache
-from django.db.models import QuerySet
+from django.db.models import Count, Q, QuerySet
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.request import Request
@@ -105,23 +105,20 @@ class SteamViewSet(viewsets.ModelViewSet):
         if cached_result:
             return Response({"result": cached_result})
         
-        # Retrieve all games with their related achievements for processing.
-        games = list(self.get_queryset().prefetch_related("achievements").select_related('user'))
+        # Compute the completion percentage per game in a single grouped query
+        # instead of issuing per-game achievement counts (N+1).
+        games = (
+            self.get_queryset()
+            .select_related("user")
+            .annotate(
+                total=Count("achievements"),
+                unlocked=Count("achievements", filter=Q(achievements__unlocked=True)),
+            )
+        )
+        ordered = sorted(games, key=lambda g: (g.unlocked / g.total * 100) if g.total else 0, reverse=True)
+        serializer = SteamSerializer(ordered, many=True)
 
-        # Helper function: Calculate unlocked achievement percentage.
-        def achievement_percentage(game: Game) -> float:
-            """Return the unlocked-achievement percentage for sorting."""
-            total = game.achievements.count()
-            if total == 0:
-                return 0
-            unlocked = game.achievements.filter(unlocked=True).count()
-            return (unlocked / total) * 100
-
-        # Sort games by the percentage of unlocked achievements (highest first).
-        sorted_games = sorted(games, key=achievement_percentage, reverse=True)
-        serializer = SteamSerializer(sorted_games, many=True)
-        
         # Cache for 15 minutes - SAFE OPTIMIZATION
         cache.set(cache_key, serializer.data, 900)
-        
+
         return Response({"result": serializer.data})

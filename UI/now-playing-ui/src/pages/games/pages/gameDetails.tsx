@@ -25,6 +25,7 @@ import {
   isRetroAchievementsGame,
 } from "../utils/typeGuards";
 import GameComparison from "../components/GameComparison";
+import { GameImage } from "../components/GameImage";
 import CircularProgress from "../components/CircularProgress";
 import ActivitySparkline from "../components/ActivitySparkline";
 import PlatformPills from "../components/PlatformPills";
@@ -74,8 +75,10 @@ const GameDetails: React.FC = () => {
 
   // Prefer the canonical route ID, then fall back to a title lookup only when
   // the route does not carry a valid app identifier.
+  // React Router already percent-decodes route params; re-decoding would
+  // throw on titles containing a literal "%" (e.g. "100% Orange Juice").
   const gameTitle = routeTitle
-    ? decodeURIComponent(routeTitle)
+    ? routeTitle
     : !directRouteId
       ? matchingRouteGame?.name
       : undefined;
@@ -387,8 +390,7 @@ const GameDetails: React.FC = () => {
       }}
     >
       {/* Background Image with Shared Element Transition */}
-      <Box
-        component="img"
+      <GameImage
         src={
           typeof displayGame.img_icon_url === "string"
             ? displayGame.img_icon_url

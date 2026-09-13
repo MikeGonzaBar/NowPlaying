@@ -13,6 +13,15 @@ const short = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   year: "numeric",
 });
+const shortNoYear = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+});
+const weekday = new Intl.DateTimeFormat("en-US", {
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+});
 const long = new Intl.DateTimeFormat("en-US", {
   month: "long",
   day: "numeric",
@@ -35,21 +44,12 @@ export function formatShortDate(value: Date | string | number | null | undefined
 /** `Oct 28` — chart axis labels (no year needed in a 30-day window). */
 export function formatShortNoYear(value: Date | string | number | null | undefined): string {
   const date = new Date(value ?? NaN);
-  const noYear = new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-  return valid(date) ? noYear.format(date) : "Date unavailable";
+  return valid(date) ? shortNoYear.format(date) : "Date unavailable";
 }
 
 /** `Tuesday, Oct 28` — rich tooltips. */
 export function formatWeekdayShort(value: Date | string | number | null | undefined): string {
   const date = new Date(value ?? NaN);
-  const weekday = new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
   return valid(date) ? weekday.format(date) : "Date unavailable";
 }
 

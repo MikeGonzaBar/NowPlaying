@@ -201,7 +201,7 @@ export const PLATFORM_METADATA: Record<string, GamePlatform> = {
   retroachievements: {
     key: "retroachievements",
     displayName: "RetroAchievements",
-    icon: "/Platforms/retroachievements.webp",
+    icon: "/Platforms/retroachievements.png",
     color: "#cc9900",
   },
 };

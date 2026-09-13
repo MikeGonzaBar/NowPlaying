@@ -66,6 +66,20 @@ const platformConfig = [
   },
 ];
 
+/**
+ * Service-level platform config (single source for display names/colors).
+ * Distinct from the logo-matching `platformConfig` above, which maps a game's
+ * platform/console fields to a logo asset.
+ */
+export const SERVICE_PLATFORM_CONFIG = {
+  steam: { name: "Steam", color: "#1b2838" },
+  psn: { name: "PlayStation", color: "#003791" },
+  xbox: { name: "Xbox", color: "#107c10" },
+  retroachievements: { name: "RetroAchievements", color: "#ff6b35" },
+} as const;
+
+export type ServicePlatformKey = keyof typeof SERVICE_PLATFORM_CONFIG;
+
 export const getPlatformMatch = (
   game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame,
 ) => {

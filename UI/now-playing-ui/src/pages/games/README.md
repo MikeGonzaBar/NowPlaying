@@ -1,6 +1,6 @@
 # Games Feature Documentation
 
-This folder contains the comprehensive gaming dashboard for the NowPlaying application, supporting multiple gaming platforms with platform-specific features, unified data display, and **advanced search functionality**.
+This folder contains the comprehensive gaming dashboard for the NowPlaying application, supporting multiple gaming platforms with platform-specific features and unified data display.
 
 ## Supported Platforms
 
@@ -14,7 +14,6 @@ This folder contains the comprehensive gaming dashboard for the NowPlaying appli
 ### PlayStation Network (PSN)
 
 - **Trophy System**: Complete trophy tracking with Bronze, Silver, Gold, and Platinum trophies
-- **Visual Trophy Display**: Platform-specific trophy icons with grayscale for unearned trophies
 - **Multi-Platform Support**: PS4 and PS5 game tracking
 - **Weighted Scoring**: Trophy-based achievement scoring system
 
@@ -22,245 +21,53 @@ This folder contains the comprehensive gaming dashboard for the NowPlaying appli
 
 - **Achievement System**: Gamerscore and achievement tracking across all Xbox platforms
 - **Multi-Platform Coverage**: Xbox One, Series X/S, Xbox 360, and PC gaming
-- **Comprehensive Data**: Achievement values, unlock times, and progress tracking
-- **Cross-Platform Games**: Support for games spanning multiple Xbox ecosystems
 
 ### RetroAchievements
 
 - **Classic Gaming**: Achievement tracking for retro and classic consoles
-- **Multi-Console Support**: PS1, PS2, Nintendo DS, Game Boy Color/Advance, and more
 - **Community Features**: Points-based achievement system with TrueRatio scoring
-- **Detailed Metadata**: Console-specific information and achievement categorization
 
-## Advanced Search Functionality
+## Architecture
 
-### Cross-Platform Game Search
+### Pages
 
-The games dashboard now features **real-time search functionality** that searches across all gaming platforms simultaneously:
+#### `pages/games.tsx`
 
-#### Features
+Main gaming dashboard: consolidated game sources, latest/top-played rails, platform update controls, and service configuration alerts (including PSN NPSSO reconnect).
 
-- **Autocomplete Interface**: Shows game title, platform, and cover image in search suggestions
-- **Debounced Search**: Optimized API calls with intelligent input handling to reduce server load
-- **Seamless Navigation**: Direct navigation to game details page with full game data context
-- **Platform Recognition**: Visual platform indicators in search results for easy identification
-- **Loading States**: Visual feedback during search operations with skeleton loading
-- **Keyboard Navigation**: Full accessibility support (arrow keys, enter, escape)
+#### `pages/allGames.tsx`
 
-#### Search Behavior
+Full library table view with sorting and playtime columns.
 
-- **Real-time Suggestions**: Search results update as you type with debounced API calls
-- **Cross-Platform Results**: Searches Steam, PlayStation, Xbox, and RetroAchievements simultaneously
-- **Rich Metadata**: Each search result displays game title, platform icon, and cover image
-- **Smart Filtering**: Results are filtered by game title with case-insensitive matching
-- **Error Handling**: Graceful handling of API failures and network issues
+#### `pages/gameDetails.tsx`
 
-#### Technical Implementation
+Individual game detail page: playtime metrics, achievements, and cross-platform comparison.
 
-- **Backend Integration**: New `/games/search/` endpoint that queries all gaming platforms
-- **Frontend Component**: `GameSearch` component with Material-UI Autocomplete
-- **Data Handling**: Proper data structure management for cross-platform compatibility
-- **Performance Optimization**: Debounced input with configurable delay (300ms default)
+#### `pages/LegacyGameIdRedirect.tsx`
 
-## Components
+Redirects legacy game-id routes to the canonical detail pages.
 
-### Core Components
+### Utilities (`utils/`)
 
-#### `GameCard.tsx`
+- `types.ts` — shared game type definitions
+- `typeGuards.ts` — `isPsnGame` / `isXboxGame` / `isRetroAchievementsGame` / `isSteamGame` type guards (single source)
+- `platformHelper.ts` — logo matching (`getPlatformMatch`) and the service display config (`SERVICE_PLATFORM_CONFIG`, single source of platform names/colors)
+- `normalize.ts` — title normalization and platform resolution
+- `grouping.ts` — consolidates the same game from multiple platform sources
+- `utils.ts` — playtime parsing/formatting and achievement percentage calculation
 
-Primary component for displaying individual games with platform-specific styling:
+### Components (`components/`)
 
-**Features:**
-
-- **Responsive Design**: Fixed dimensions with hover effects
-- **Platform Detection**: Automatic platform recognition and icon display
-- **Achievement Display**: Platform-specific trophy/achievement visualization
-- **Playtime Formatting**: Human-readable playtime display
-- **Last Played**: Formatted date display with consistent formatting
-
-**Platform-Specific Elements:**
-
-- Steam: Steam logo and achievement count
-- PlayStation: Platform-specific logos (PS4/PS5) with trophy breakdown
-- Xbox: Xbox logo with achievement progress
-- RetroAchievements: Console-specific logos with points display
-
-#### `GameSection.tsx`
-
-Container component for organizing games into categorized sections:
-
-**Features:**
-
-- **Horizontal Scrolling**: Responsive carousel layout
-- **Loading States**: Skeleton loading with consistent card dimensions
-- **Section Titles**: Clear categorization with emoji indicators
-- **Responsive Grid**: Adapts to various screen sizes
-
-#### `TrophyStats.tsx`
-
-Specialized component for PlayStation trophy display:
-
-**Features:**
-
-- **Trophy Icons**: Bronze, Silver, Gold, and Platinum trophy visualization
-- **Conditional Display**: Shows only available trophy types
-- **Grayscale Effect**: Visual indication for unearned trophies
-- **Fallback Support**: Generic achievement display for non-PSN games
-
-#### `TrophyIcon.tsx`
-
-Reusable component for individual trophy/achievement icons:
-
-**Features:**
-
-- **Configurable Display**: Supports both trophy counts and achievement ratios
-- **Visual States**: Grayscale and color modes
-- **Flexible Sizing**: Consistent icon sizing across components
-
-### Search Components
-
-#### `GameSearch.tsx` (Global Component)
-
-Advanced search component with autocomplete functionality:
-
-**Features:**
-
-- **Material-UI Autocomplete**: Rich autocomplete interface with custom styling
-- **Debounced Input**: Optimized API calls with configurable delay
-- **Loading States**: Skeleton loading during search operations
-- **Error Handling**: Graceful error display and recovery
-- **Keyboard Navigation**: Full accessibility support
-- **Platform Icons**: Visual platform indicators in search results
-- **Cover Images**: Game cover art display in search suggestions
-
-**Props:**
-
-- `onGameSelect`: Callback function when a game is selected
-- `placeholder`: Customizable placeholder text
-- `debounceDelay`: Configurable debounce delay (default: 300ms)
-
-**API Integration:**
-
-- **Endpoint**: `GET /games/search/?query={searchTerm}`
-- **Response Format**: Array of game objects with platform-specific data
-- **Error Handling**: Network errors and API failures gracefully handled
-
-### Utility Components
-
-#### `types.ts`
-
-Comprehensive TypeScript interfaces for all gaming platforms:
-
-**Defined Types:**
-
-- `SteamGame`: Steam-specific game data with achievements array
-- `PsnGame`: PlayStation game data with trophy breakdown
-- `RetroAchievementsGame`: RetroAchievements data with points system
-- `XboxGame`: Xbox game data with platform information
-- Achievement interfaces for each platform with platform-specific fields
-
-#### `typeGuards.ts`
-
-Type guard functions for platform detection and type safety:
-
-**Functions:**
-
-- `isSteamGame()`: Identifies Steam games by checking for Steam-specific properties
-- `isPsnGame()`: Identifies PSN games by platform field presence
-- `isRetroAchievementsGame()`: Identifies RetroAchievements by console_name field
-- `isXboxGame()`: Identifies Xbox games by platform array matching
-- `calculateAchievementPercentage()`: Platform-aware achievement percentage calculation
-
-#### `utils.ts`
-
-Utility functions for data processing and formatting:
-
-**Functions:**
-
-- `formatPlaytime()`: Converts raw playtime data to human-readable format
-- `parseDate()`: Handles various date formats from different platforms
-- `getPlaytime()`: Extracts playtime data with platform-specific logic
-- `calculateAchievementPercentage()`: Cross-platform achievement calculation
+- `EnhancedTimeMetrics.tsx` — playtime breakdown display
+- `GameComparison.tsx` — cross-platform playtime comparison
+- `achievementCard.tsx` / `MasterAchievementList.tsx` — achievement browsing
+- `TrophyIcon.tsx`, `PlatformPills.tsx`, `GameContextMetadata.tsx` — presentation details
+- `RecentWinsStrip.tsx`, `ActivitySparkline.tsx`, `CircularProgress.tsx` — dashboard visuals
 
 ### Hooks
 
-#### `useGameData.ts`
-
-Central hook for managing all gaming platform data:
-
-**Features:**
-
-- **Multi-Platform Fetching**: Concurrent data fetching from all platforms
-- **Data Merging**: Intelligent merging and sorting of cross-platform data
-- **Error Handling**: Comprehensive error states and user feedback
-- **Missing Service Detection**: Identifies unconfigured platforms
-- **Refresh Functionality**: Manual data refresh with loading states
-
-**Data Categories:**
-
-- **Latest Played**: Recently played games sorted by last activity
-- **Most Played**: Games ranked by total playtime across platforms
-- **Most Achieved**: Games with highest achievement completion percentage
-
-## Platform Assets
-
-### Platform Icons (`/public/Platforms/`)
-
-High-quality platform icons for visual platform identification:
-
-- `steam.webp`: Steam platform icon
-- `playstation.webp`: General PlayStation icon
-- `playstation-4.png`: PS4-specific icon
-- `playstation-5.webp`: PS5-specific icon
-- `playstation-2.png`: PS2 retro console icon
-- `xbox.svg`: Xbox platform icon (scalable vector)
-- `nintendo-ds.png`: Nintendo DS handheld icon
-- `gameboy-color.png`: Game Boy Color icon
-- `gameboy-advance.png`: Game Boy Advance icon
-- `retroachievements.png`: RetroAchievements community icon
-
-### Trophy Assets (`/public/PSN_Trophies/`)
-
-PlayStation trophy icons for accurate trophy representation:
-
-- `PSN_bronze.png`: Bronze trophy icon
-- `PSN_silver.png`: Silver trophy icon
-- `PSN_gold.png`: Gold trophy icon
-- `PSN_platinum.png`: Platinum trophy icon
-
-## Game Organization
-
-### Data Categorization
-
-**Now Playing 🎮**
-
-- Games sorted by most recent activity across all platforms
-- Filters out games with invalid timestamps (Unix epoch)
-- Cross-platform unified view
-
-**Most Played ⌛**
-
-- Games ranked by total playtime
-- Platform-specific playtime calculation
-- Excludes games without playtime data
-
-**Most Achieved 🏆**
-
-- Games sorted by achievement completion percentage
-- Platform-aware percentage calculation:
-  - Steam: `unlocked_achievements_count / total_achievements`
-  - PlayStation: Weighted trophy system (Bronze: 15pts, Silver: 30pts, Gold: 90pts, Platinum: 300pts)
-  - Xbox: `unlocked_achievements / total_achievements`
-  - RetroAchievements: `unlocked_achievements / total_achievements`
-
-### Missing Service Handling
-
-The dashboard intelligently detects missing API key configurations and provides:
-
-- **Service Alerts**: Visual notifications for unconfigured platforms
-- **Configuration Links**: Direct links to profile page for API key setup
-- **Service Chips**: Clear indication of which services need configuration
-- **Graceful Degradation**: App functions with partial platform configuration
+- `hooks/useGameData.ts` — dashboard data fetching (parallel platform calls with error isolation)
+- `hooks/useGameDetail.ts` — detail page data loading
 
 ## API Integration
 
@@ -289,49 +96,18 @@ The dashboard intelligently detects missing API key configurations and provides:
 
 - `GET /users/api-keys/services/`: Check configured services
 
-## Responsive Design
+## Missing Service Handling
 
-### Mobile Optimization
+The dashboard intelligently detects missing API key configurations and provides:
 
-- **Horizontal Scrolling**: Touch-friendly game browsing
-- **Fixed Card Dimensions**: Consistent layout across devices
-- **Responsive Typography**: Scalable text and icons
-- **Touch Targets**: Appropriately sized interactive elements
-
-### Desktop Experience
-
-- **Hover Effects**: Subtle scale animations on game cards
-- **Efficient Layout**: Optimal use of screen real estate
-- **Fast Loading**: Optimized asset loading and caching
+- **Service Alerts**: Visual notifications for unconfigured platforms
+- **Configuration Links**: Direct links to profile page for API key setup
+- **Graceful Degradation**: App functions with partial platform configuration
 
 ## Performance Optimizations
 
-### Data Management
-
 - **Concurrent Fetching**: Parallel API calls for faster loading
 - **Error Isolation**: Platform failures don't affect other platforms
-- **Loading States**: Skeleton loading during data fetching
-- **Caching Strategy**: Efficient data caching and refresh logic
+- **Caching Strategy**: Server-side cache with versioned invalidation per user
+- **React.memo / useMemo**: Memoized components and derived data
 
-### Component Optimization
-
-- **React.memo**: Memoized components for performance
-- **Efficient Re-renders**: Minimized unnecessary component updates
-- **Optimized Images**: WebP and PNG optimization for platform icons
-
-## Future Enhancements
-
-### Planned Features
-
-- **Game Details Pages**: Individual game achievement browsing
-- **Achievement Comparison**: Cross-platform achievement analytics
-- **Gaming Statistics**: Personal gaming insights and trends
-- **Social Features**: Achievement sharing and comparison
-
-### Platform Expansions
-
-- **Nintendo Switch**: Potential integration via third-party services
-- **Epic Games Store**: PC gaming expansion
-- **GOG Galaxy**: DRM-free gaming platform integration
-
-This comprehensive gaming dashboard provides a unified view of your gaming achievements across multiple platforms while respecting each platform's unique characteristics and features.

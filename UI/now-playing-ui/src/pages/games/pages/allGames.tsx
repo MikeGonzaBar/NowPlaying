@@ -11,16 +11,20 @@ import {
     InputLabel,
     Stack,
     Chip,
+    Drawer,
+    useTheme,
+    useMediaQuery,
 }
     from '@mui/material';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUp } from 'lucide-react';
+import { ArrowLeft, ArrowUp, SlidersHorizontal, X } from 'lucide-react';
 import AppShell from '../../../components/AppShell';
 import { useGameData } from '../hooks/useGameData';
 import { Game } from '../utils/types';
 import { zincColors } from '../../../theme';
 import { API_CONFIG } from '../../../config/api';
 import { formatMinutesCompact } from '../utils/utils';
+import { GameImage } from '../components/GameImage';
 
 const PAGE_SIZE = 24;
 
@@ -89,6 +93,9 @@ const AllGames: React.FC = () => {
     const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
     const beBaseUrl = API_CONFIG.BASE_URL;
+    const theme = useTheme();
+    const isCompact = useMediaQuery(theme.breakpoints.down('sm'));
+    const [filterSheetOpen, setFilterSheetOpen] = useState(false);
     const [selectedPlatform, setSelectedPlatform] = useState<string | null>(searchParams.get('provider') || null);
     const [sortKey, setSortKey] = useState<SortKey>(searchParams.get('sort') as SortKey || 'recently_played');
     const [searchQuery, setSearchQuery] = useState<string>(searchParams.get('q') || '');
@@ -236,16 +243,6 @@ const getPlatformIcon = (platformKey: string): string => {
         navigate(`/games/title/${encodeURIComponent(game.title)}`);
     };
 
-    const [isCompact, setIsCompact] = useState(false);
-    useEffect(() => {
-        const update = () => {
-            setIsCompact(window.innerWidth > 0 && window.innerWidth <= 640);
-        };
-        update();
-        window.addEventListener('resize', update);
-        return () => window.removeEventListener('resize', update);
-    }, []);
-
     const gameLink = (game: Game) => `/games/title/${encodeURIComponent(game.title)}`;
 
     const renderProviderGroup = (game: Game) => (
@@ -282,19 +279,23 @@ return (
                     </Typography>
                 </Box>
 
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', justifyContent: { xs: 'flex-start', sm: 'flex-end' } }}>
-                    <Button size="small" onClick={() => { setSelectedPlatform(null); setPage(1); }} variant={selectedPlatform === null ? 'contained' : 'outlined'} aria-pressed={selectedPlatform === null} sx={{ fontSize: '12px', textTransform: 'none', fontFamily: 'Inter, sans-serif', py: 1.25, backgroundColor: selectedPlatform === null ? 'rgba(59, 130, 246, 0.2)' : 'transparent', border: '1px solid rgba(59, 130, 246, 0.5)', color: zincColors.white, '&:hover': { backgroundColor: 'rgba(59, 130, 246, 0.3)' } }}>
-                        All
-                    </Button>
-                    {availablePlatforms.map((platform) => (
-                        <Button key={platform} size="small" onClick={() => { setSelectedPlatform(platform); setPage(1); }} variant={selectedPlatform === platform ? 'contained' : 'outlined'} startIcon={<Box component="img" src={getPlatformIcon(platform)} alt={`${platform} icon`} sx={{ width: getPlatformIconSize(platform) * 0.5, height: 'auto' }} />} aria-pressed={selectedPlatform === platform} sx={{ fontSize: '12px', textTransform: 'none', fontFamily: 'Inter, sans-serif', py: 1.25, backgroundColor: selectedPlatform === platform ? 'rgba(59, 130, 246, 0.2)' : 'transparent', border: '1px solid rgba(59, 130, 246, 0.5)', color: zincColors.white, '&:hover': { backgroundColor: 'rgba(59, 130, 246, 0.3)' } }}>
-                            {platform === 'retroachievements' ? 'RetroAchievements' : platform.charAt(0).toUpperCase() + platform.slice(1)}
+                {/* Audit #10: the platform pills, search, and sort toolbar is shared
+                    across breakpoints (the search field and pills wrap on narrow
+                    profiles). Compact profiles get a single Filters trigger in place
+                    of the inline filter button stack; the sticky summary bar keeps
+                    active-filter count + result count visible while scrolling. */}
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', justifyContent: { xs: 'flex-start', sm: 'flex-end' } }}>
+                        <Button size="small" onClick={() => { setSelectedPlatform(null); setPage(1); }} variant={selectedPlatform === null ? 'contained' : 'outlined'} aria-pressed={selectedPlatform === null} sx={{ fontSize: '12px', textTransform: 'none', fontFamily: 'Inter, sans-serif', py: 1.25, backgroundColor: selectedPlatform === null ? 'rgba(59, 130, 246, 0.2)' : 'transparent', border: '1px solid rgba(59, 130, 246, 0.5)', color: zincColors.white, '&:hover': { backgroundColor: 'rgba(59, 130, 246, 0.3)' } }}>
+                            All
                         </Button>
-                    ))}
-                </Box>
-            </Box>
+                        {availablePlatforms.map((platform) => (
+                            <Button key={platform} size="small" onClick={() => { setSelectedPlatform(platform); setPage(1); }} variant={selectedPlatform === platform ? 'contained' : 'outlined'} startIcon={<Box component="img" src={getPlatformIcon(platform)} alt={`${platform} icon`} sx={{ width: getPlatformIconSize(platform) * 0.5, height: 'auto' }} />} aria-pressed={selectedPlatform === platform} sx={{ fontSize: '12px', textTransform: 'none', fontFamily: 'Inter, sans-serif', py: 1.25, backgroundColor: selectedPlatform === platform ? 'rgba(59, 130, 246, 0.2)' : 'transparent', border: '1px solid rgba(59, 130, 246, 0.5)', color: zincColors.white, '&:hover': { backgroundColor: 'rgba(59, 130, 246, 0.3)' } }}>
+                                {platform === 'retroachievements' ? 'RetroAchievements' : platform.charAt(0).toUpperCase() + platform.slice(1)}
+                            </Button>
+                        ))}
+                    </Box>
 
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, mb: 2, justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, mb: 2, justifyContent: 'space-between' }}>
                 <TextField
                     size="small"
                     placeholder="Search by title"
@@ -316,19 +317,110 @@ return (
                     </FormControl>
                 </Stack>
             </Box>
-
-<Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mb: 2 }}>
-                <Button size='small' variant={crossPlatformOnly ? 'contained' : 'outlined'} onClick={() => { setCrossPlatformOnly(!crossPlatformOnly); setPage(1); }} aria-pressed={crossPlatformOnly} sx={{ color: zincColors.white, borderColor: 'rgba(255,255,255,0.3)', textTransform: 'none', py: 1.25 }}>Cross-platform only</Button>
-                <Button size='small' variant={completionFilter === 'completed' ? 'contained' : 'outlined'} onClick={() => { setCompletionFilter(completionFilter === 'completed' ? 'all' : 'completed'); setPage(1); }} aria-pressed={completionFilter === 'completed'} sx={{ color: zincColors.white, borderColor: 'rgba(255,255,255,0.3)', textTransform: 'none', py: 1.25 }}>Completed</Button>
-                <Button size='small' variant={completionFilter === 'in_progress' ? 'contained' : 'outlined'} onClick={() => { setCompletionFilter(completionFilter === 'in_progress' ? 'all' : 'in_progress'); setPage(1); }} aria-pressed={completionFilter === 'in_progress'} sx={{ color: zincColors.white, borderColor: 'rgba(255,255,255,0.3)', textTransform: 'none', py: 1.25 }}>In progress</Button>
-                <Button size='small' variant={playedFilter === 'played' ? 'contained' : 'outlined'} onClick={() => { setPlayedFilter(playedFilter === 'played' ? 'all' : 'played'); setPage(1); }} aria-pressed={playedFilter === 'played'} sx={{ color: zincColors.white, borderColor: 'rgba(255,255,255,0.3)', textTransform: 'none', py: 1.25 }}>Played</Button>
-                <Button size='small' variant={playedFilter === 'unplayed' ? 'contained' : 'outlined'} onClick={() => { setPlayedFilter(playedFilter === 'unplayed' ? 'all' : 'unplayed'); setPage(1); }} aria-pressed={playedFilter === 'unplayed'} sx={{ color: zincColors.white, borderColor: 'rgba(255,255,255,0.3)', textTransform: 'none', py: 1.25 }}>Unplayed</Button>
-                {activeFilterCount > 0 && (
-                    <Button size='small' variant='text' onClick={clearFilters} sx={{ color: zincColors.muted, textTransform: 'none', py: 1.25 }}>
-                        Clear filters ({activeFilterCount})
-                    </Button>
-                )}
             </Box>
+
+            {isCompact ? (
+                <Button
+                    variant="outlined"
+                    startIcon={<SlidersHorizontal size={16} />}
+                    onClick={() => setFilterSheetOpen(true)}
+                    aria-label={`Filters (${activeFilterCount} active)`}
+                    sx={{ color: zincColors.white, borderColor: 'rgba(255,255,255,0.3)', textTransform: 'none', py: 1.25, mb: 2, justifyContent: 'center' }}
+                >
+                    Filters ({activeFilterCount})
+                </Button>
+            ) : (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mb: 2, justifyContent: 'flex-start' }}>
+                    <Button size='small' variant={crossPlatformOnly ? 'contained' : 'outlined'} onClick={() => { setCrossPlatformOnly(!crossPlatformOnly); setPage(1); }} aria-pressed={crossPlatformOnly} sx={{ color: zincColors.white, borderColor: 'rgba(255,255,255,0.3)', textTransform: 'none', py: 1.25 }}>Cross-platform only</Button>
+                    <Button size='small' variant={completionFilter === 'completed' ? 'contained' : 'outlined'} onClick={() => { setCompletionFilter(completionFilter === 'completed' ? 'all' : 'completed'); setPage(1); }} aria-pressed={completionFilter === 'completed'} sx={{ color: zincColors.white, borderColor: 'rgba(255,255,255,0.3)', textTransform: 'none', py: 1.25 }}>Completed</Button>
+                    <Button size='small' variant={completionFilter === 'in_progress' ? 'contained' : 'outlined'} onClick={() => { setCompletionFilter(completionFilter === 'in_progress' ? 'all' : 'in_progress'); setPage(1); }} aria-pressed={completionFilter === 'in_progress'} sx={{ color: zincColors.white, borderColor: 'rgba(255,255,255,0.3)', textTransform: 'none', py: 1.25 }}>In progress</Button>
+                    <Button size='small' variant={playedFilter === 'played' ? 'contained' : 'outlined'} onClick={() => { setPlayedFilter(playedFilter === 'played' ? 'all' : 'played'); setPage(1); }} aria-pressed={playedFilter === 'played'} sx={{ color: zincColors.white, borderColor: 'rgba(255,255,255,0.3)', textTransform: 'none', py: 1.25 }}>Played</Button>
+                    <Button size='small' variant={playedFilter === 'unplayed' ? 'contained' : 'outlined'} onClick={() => { setPlayedFilter(playedFilter === 'unplayed' ? 'all' : 'unplayed'); setPage(1); }} aria-pressed={playedFilter === 'unplayed'} sx={{ color: zincColors.white, borderColor: 'rgba(255,255,255,0.3)', textTransform: 'none', py: 1.25 }}>Unplayed</Button>
+                    {activeFilterCount > 0 && (
+                        <Button size='small' variant='text' onClick={clearFilters} sx={{ color: zincColors.muted, textTransform: 'none', py: 1.25 }}>
+                            Clear filters ({activeFilterCount})
+                        </Button>
+                    )}
+                </Box>
+            )}
+
+            {/* Bottom-sheet filter panel (audit #10): on compact profiles every
+                filter control lives in this dismissible sheet instead of the
+                inline desktop stack. Same state drives both, so selections made
+                here are reflected in the sticky summary bar and result count. */}
+            <Drawer
+                anchor="bottom"
+                open={filterSheetOpen}
+                onClose={() => setFilterSheetOpen(false)}
+                aria-label="Game filters"
+                sx={{ '& .MuiDrawer-paper': { bgcolor: 'rgba(15, 17, 21, 1)', borderTop: '1px solid rgba(255,255,255,0.08)', borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: '85vh', overflowY: 'auto', p: 2, pb: 3 } }}
+            >
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                    <Typography variant="h2" sx={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: '1.1rem', color: zincColors.white }}>
+                        Filters
+                    </Typography>
+                    <IconButton onClick={() => setFilterSheetOpen(false)} aria-label="Close filters" size="small" sx={{ color: zincColors.muted }}>
+                        <X size={18} />
+                    </IconButton>
+                </Box>
+
+                <Typography variant="body2" sx={{ color: zincColors.muted, mb: 1 }}>
+                    Platform
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                    <Button
+                        size="small"
+                        onClick={() => { setSelectedPlatform(null); setPage(1); }}
+                        variant={selectedPlatform === null ? 'contained' : 'outlined'}
+                        aria-pressed={selectedPlatform === null}
+                        sx={{ fontSize: '12px', textTransform: 'none', fontFamily: 'Inter, sans-serif', py: 1.25, backgroundColor: selectedPlatform === null ? 'rgba(59, 130, 246, 0.2)' : 'transparent', border: '1px solid rgba(59, 130, 246, 0.5)', color: zincColors.white, '&:hover': { backgroundColor: 'rgba(59, 130, 246, 0.3)' } }}
+                    >
+                        All
+                    </Button>
+                    {availablePlatforms.map((platform) => (
+                        <Button
+                            key={platform}
+                            size="small"
+                            onClick={() => { setSelectedPlatform(platform); setPage(1); }}
+                            variant={selectedPlatform === platform ? 'contained' : 'outlined'}
+                            startIcon={<Box component="img" src={getPlatformIcon(platform)} alt={`${platform} icon`} sx={{ width: getPlatformIconSize(platform) * 0.5, height: 'auto' }} />}
+                            aria-pressed={selectedPlatform === platform}
+                            sx={{ fontSize: '12px', textTransform: 'none', fontFamily: 'Inter, sans-serif', py: 1.25, backgroundColor: selectedPlatform === platform ? 'rgba(59, 130, 246, 0.2)' : 'transparent', border: '1px solid rgba(59, 130, 246, 0.5)', color: zincColors.white, '&:hover': { backgroundColor: 'rgba(59, 130, 246, 0.3)' } }}
+                        >
+                            {platform === 'retroachievements' ? 'RetroAchievements' : platform.charAt(0).toUpperCase() + platform.slice(1)}
+                        </Button>
+                    ))}
+                </Box>
+
+                <Typography variant="body2" sx={{ color: zincColors.muted, mb: 1 }}>
+                    Status
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+                    <Button size='small' variant={crossPlatformOnly ? 'contained' : 'outlined'} onClick={() => { setCrossPlatformOnly(!crossPlatformOnly); setPage(1); }} aria-pressed={crossPlatformOnly} sx={{ color: zincColors.white, borderColor: 'rgba(255,255,255,0.3)', textTransform: 'none', py: 1.25 }}>Cross-platform only</Button>
+                    <Button size='small' variant={completionFilter === 'completed' ? 'contained' : 'outlined'} onClick={() => { setCompletionFilter(completionFilter === 'completed' ? 'all' : 'completed'); setPage(1); }} aria-pressed={completionFilter === 'completed'} sx={{ color: zincColors.white, borderColor: 'rgba(255,255,255,0.3)', textTransform: 'none', py: 1.25 }}>Completed</Button>
+                    <Button size='small' variant={completionFilter === 'in_progress' ? 'contained' : 'outlined'} onClick={() => { setCompletionFilter(completionFilter === 'in_progress' ? 'all' : 'in_progress'); setPage(1); }} aria-pressed={completionFilter === 'in_progress'} sx={{ color: zincColors.white, borderColor: 'rgba(255,255,255,0.3)', textTransform: 'none', py: 1.25 }}>In progress</Button>
+                    <Button size='small' variant={playedFilter === 'played' ? 'contained' : 'outlined'} onClick={() => { setPlayedFilter(playedFilter === 'played' ? 'all' : 'played'); setPage(1); }} aria-pressed={playedFilter === 'played'} sx={{ color: zincColors.white, borderColor: 'rgba(255,255,255,0.3)', textTransform: 'none', py: 1.25 }}>Played</Button>
+                    <Button size='small' variant={playedFilter === 'unplayed' ? 'contained' : 'outlined'} onClick={() => { setPlayedFilter(playedFilter === 'unplayed' ? 'all' : 'unplayed'); setPage(1); }} aria-pressed={playedFilter === 'unplayed'} sx={{ color: zincColors.white, borderColor: 'rgba(255,255,255,0.3)', textTransform: 'none', py: 1.25 }}>Unplayed</Button>
+                </Box>
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
+                    {activeFilterCount > 0 && (
+                        <Button size='small' variant='text' onClick={clearFilters} sx={{ color: zincColors.muted, textTransform: 'none', py: 1.25 }}>
+                            Clear filters ({activeFilterCount})
+                        </Button>
+                    )}
+                    <Box sx={{ flex: 1 }} />
+                    <Button
+                        size='small'
+                        variant='contained'
+                        onClick={() => setFilterSheetOpen(false)}
+                        disabled={visibleGames.length === 0}
+                        sx={{ textTransform: 'none', fontFamily: 'Inter, sans-serif', py: 1.25, px: 2.5 }}
+                    >
+                        Show {visibleGames.length} game{visibleGames.length === 1 ? '' : 's'}
+                    </Button>
+                </Box>
+            </Drawer>
 
             {/* Sticky summary bar: active-filter count + result count stay
                 visible while scrolling (audit #10). */}
@@ -370,7 +462,7 @@ return (
                             '&:focus-visible': { outline: '2px solid #facc15', outlineOffset: 2 },
                         }}>
                             {item.game.imageUrl ? (
-                                <img src={item.game.imageUrl} alt="" loading="lazy" width={48} height={48} style={{ objectFit: 'cover', borderRadius: 4 }} />
+                                <GameImage src={item.game.imageUrl} alt="" loading="lazy" width={48} height={48} style={{ objectFit: 'cover', borderRadius: 4 }} />
                             ) : (
                                 <Box sx={{ width: 48, height: 48, borderRadius: 1, bgcolor: '#27272a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Typography sx={{ color: '#6b7280', fontSize: '10px' }}>No image</Typography>
@@ -406,7 +498,7 @@ return (
                         <Box key={item.game.id} component='a' href={gameLink(item.game)} onClick={(e) => handleGameClick(item.game, e as any)} aria-label={`Open ${item.game.title}`} sx={{ cursor: 'pointer', transition: 'transform 0.2s', '&:hover': { transform: 'scale(1.02)' }, '&:focus-visible': { outline: '2px solid #facc15', outlineOffset: 2 }, color: 'inherit', textDecoration: 'none' }}>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, bgcolor: 'rgba(24, 24, 27, 0.4)', borderRadius: 2, border: '1px solid rgba(255, 255, 255, 0.06)', overflow: 'hidden' }}>
                                 {item.game.imageUrl ? (
-                                    <img src={item.game.imageUrl} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', display: 'block' }} />
+                                    <GameImage src={item.game.imageUrl} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', display: 'block' }} />
                                 ) : (
                                     <Box sx={{ width: '100%', height: 120, bgcolor: '#27272a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <Typography sx={{ color: '#6b7280', fontSize: '12px' }}>No image</Typography>

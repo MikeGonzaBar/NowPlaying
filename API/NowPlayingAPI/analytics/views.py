@@ -10,6 +10,7 @@ from django.core.cache import cache
 from django.conf import settings
 from .services import AnalyticsService
 from query_params import bounded_int
+from utils import versioned_cache_key
 import logging
 import uuid
 
@@ -63,7 +64,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
         try:
             # Check cache first - SAFE OPTIMIZATION
-            cache_key = f"analytics_{request.user.id}_{days}"
+            cache_key = versioned_cache_key("analytics", request.user.id, str(days))
             cached_result = cache.get(cache_key)
             
             # Allow cache bypass with ?nocache=1 query parameter

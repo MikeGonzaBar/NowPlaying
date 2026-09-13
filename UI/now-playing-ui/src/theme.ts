@@ -159,4 +159,13 @@ export const theme = createTheme({
   },
 });
 
+// Layout-specific density tokens (audit #10). Desktop shows comfortable
+// poster cards; narrow profiles switch to compact rows with tighter gaps
+// and shorter touch-friendly row heights. Referencing these tokens keeps
+// the breakpoints consistent across All Games, Analytics, and leaderboards.
+export const density = {
+  comfortable: { rowHeight: 120, gap: 3, thumbnail: 120, chipHeight: 24 },
+  compact: { rowHeight: 56, gap: 1, thumbnail: 48, chipHeight: 20 },
+} as const;
+
 export { zincColors, categoryColors, statusColors };

@@ -102,6 +102,32 @@ def _tmdb_proxy_get(path: str, params: dict | None = None) -> Response:
     return Response(response.json())
 
 
+def _tmdb_episode_still(show_obj, season_number: int, episode_number: int) -> str | None:
+    """Return a w780 episode still from TMDB, or None on any failure."""
+    tmdb_api_key = getattr(settings, "TMDB_API_KEY", "")
+    if not tmdb_api_key:
+        return None
+    url = (
+        f"https://api.themoviedb.org/3/tv/{show_obj.tmdb_id}"
+        f"/season/{season_number}/episode/{episode_number}"
+        f"?api_key={tmdb_api_key}&language=en-US"
+    )
+    try:
+        response = http_client.get(url, logger_name="trakt")
+        if response.status_code == 200:
+            still_path = response.json().get("still_path")
+            if still_path:
+                return f"https://image.tmdb.org/t/p/w780{still_path}"
+    except Exception as e:
+        logger.warning(
+            "Error fetching TMDB episode image for S%sE%s: %s",
+            season_number,
+            episode_number,
+            e,
+        )
+    return None
+
+
 @extend_schema_view(
     list=extend_schema(summary="List Trakt endpoints", responses={200: OpenApiTypes.OBJECT}),
     get_stored_movies=extend_schema(summary="List stored Trakt movies", parameters=[OpenApiParameter("page", OpenApiTypes.INT, OpenApiParameter.QUERY), OpenApiParameter("page_size", OpenApiTypes.INT, OpenApiParameter.QUERY)], responses={200: OpenApiTypes.OBJECT}),
@@ -124,7 +150,6 @@ def _tmdb_proxy_get(path: str, params: dict | None = None) -> Response:
     recent_activity=extend_schema(summary="List recent Trakt activity", responses={200: OpenApiTypes.OBJECT}),
     completed_media=extend_schema(summary="List completed movies and shows", responses={200: OpenApiTypes.OBJECT}),
     profile_stats=extend_schema(summary="Get Trakt profile statistics", responses={200: OpenApiTypes.OBJECT}),
-    rating_comparison=extend_schema(summary="Compare Trakt ratings", responses={200: OpenApiTypes.OBJECT}),
     trending=extend_schema(summary="List trending Trakt media", responses={200: OpenApiTypes.OBJECT}),
     tmdb_detail=extend_schema(
         summary="Proxy TMDB movie or show detail (keeps the TMDB key server-side)",
@@ -469,40 +494,31 @@ class TraktViewSet(viewsets.ViewSet):
                     "episode_count": len(season_data.get("episodes", [])),
                 })
 
-                # Process each episode in the season
+                # Process each episode in the season, deferring any TMDB still fallback so
+                # missing posters are batched into one concurrent fan-out instead of a
+                # blocking HTTP round trip per episode.
+                missing_indexes = []  # (list index, episode_number)
+                season_episodes = []
+                
                 for ep_data in season_data.get("episodes", []):
                     episode_number = ep_data.get("number", 0)
                     key = (season_number, episode_number)
-                    
                     # Get watched data if exists
                     watched_data = watched_episodes_map.get(key, {})
-                    
-                    # Get episode images from Trakt
-                    images = ep_data.get("images", {})
+                
+                    # Preferred poster: Trakt screenshot, then stored DB image.
                     poster = None
+                    images = ep_data.get("images", {})
                     if images and isinstance(images, dict):
                         screenshot = images.get("screenshot", {})
                         if isinstance(screenshot, dict):
                             poster = screenshot.get("full")
-                    
-                    # If no image from Trakt, try fetching from TMDB if we have tmdb_id
-                    if not poster and show_obj.tmdb_id and episode_number:
-                        try:
-                            tmdb_api_key = settings.TMDB_API_KEY
-                            tmdb_ep_url = f"https://api.themoviedb.org/3/tv/{show_obj.tmdb_id}/season/{season_number}/episode/{episode_number}?api_key={tmdb_api_key}&language=en-US"
-                            tmdb_ep_response = http_client.get(tmdb_ep_url, logger_name="trakt")
-                            if tmdb_ep_response.status_code == 200:
-                                tmdb_ep_data = tmdb_ep_response.json()
-                                still_path = tmdb_ep_data.get("still_path")
-                                if still_path:
-                                    poster = f"https://image.tmdb.org/t/p/w780{still_path}"
-                        except Exception as e:
-                            logger.warning(f"Error fetching TMDB episode image for S{season_number}E{episode_number}: {e}")
-                    
-                    # Use database image if available and we don't have one
                     if not poster and watched_data.get("image_url"):
                         poster = watched_data.get("image_url")
-
+                
+                    if not poster and show_obj.tmdb_id and episode_number:
+                        missing_indexes.append((len(season_episodes), episode_number))
+                
                     # Format air_date if present
                     air_date = ep_data.get("first_aired")
                     if air_date:
@@ -511,28 +527,49 @@ class TraktViewSet(viewsets.ViewSet):
                             air_date = isoparse(air_date).date().isoformat()
                         except:
                             air_date = None
-
-                    episode_info = {
-                        "id": watched_data.get("id"),
+                
+                    season_episodes.append({
                         "episode_number": episode_number,
-                        "title": ep_data.get("title"),
-                        "image_url": poster or watched_data.get("image_url"),
-                        "rating": ep_data.get("rating"),
-                        "overview": ep_data.get("overview"),
+                        "poster": poster,
+                        "watched_data": watched_data,
+                        "ep_data": ep_data,
                         "air_date": air_date,
-                        "runtime": ep_data.get("runtime"),
+                    })
+                
+                # Batch-fetch TMDB stills for episodes that still have no poster.
+                if missing_indexes:
+                    from concurrent.futures import ThreadPoolExecutor
+                
+                    def load_still(index: int, episode_number: int) -> None:
+                        still = _tmdb_episode_still(show_obj, season_number, episode_number)
+                        if still:
+                            season_episodes[index]["poster"] = still
+                
+                    with ThreadPoolExecutor(max_workers=8) as executor:
+                        list(executor.map(lambda item: load_still(*item), missing_indexes))
+                
+                for ep in season_episodes:
+                    observed = ep["watched_data"]
+                    source = ep["ep_data"]
+                    episodes_list.append({
+                        "id": observed.get("id"),
+                        "episode_number": ep["episode_number"],
+                        "title": source.get("title"),
+                        "image_url": ep["poster"] or observed.get("image_url"),
+                        "rating": source.get("rating"),
+                        "overview": source.get("overview"),
+                        "air_date": ep["air_date"],
+                        "runtime": source.get("runtime"),
                         "season__id": season_obj.id,
                         "season__season_number": season_number,
                         "show__id": show_obj.id,
                         "show__title": show_obj.title,
                         "show__trakt_id": trakt_id,
-                        "last_watched_at": watched_data.get("last_watched_at"),
-                        "progress": watched_data.get("progress"),
-                        "plays": watched_data.get("plays", 0),
-                        "watched_at": watched_data.get("watched_at"),
-                    }
-                    
-                    episodes_list.append(episode_info)
+                        "last_watched_at": observed.get("last_watched_at"),
+                        "progress": observed.get("progress"),
+                        "plays": observed.get("plays", 0),
+                        "watched_at": observed.get("watched_at"),
+                    })
 
             return Response({
                 "seasons": seasons_list,
@@ -1803,31 +1840,6 @@ curl -X POST \\<br>
             'total_movies': total_movies,
             'total_shows': total_shows,
             'username': request.user.username,
-        })
-
-    @action(detail=False, methods=["get"], url_path="rating-comparison")
-    def rating_comparison(self, request: Request) -> Response:
-        """
-        Returns average rating comparison between user ratings and Trakt global ratings.
-        Note: This is a placeholder - actual Trakt global ratings would require API calls.
-        """
-        from django.db.models import Avg
-        
-        # Calculate user's average movie ratings (if we had ratings stored)
-        # For now, we'll use a placeholder approach
-        user_movie_count = Movie.objects.filter(user=request.user).count()
-        user_show_count = Show.objects.filter(user=request.user).count()
-        
-        # Placeholder values - in a real implementation, you'd fetch from Trakt API
-        return Response({
-            'movies': {
-                'user_avg': 8.5,  # Placeholder
-                'trakt_avg': 7.2,  # Placeholder
-            },
-            'shows': {
-                'user_avg': 9.2,  # Placeholder
-                'trakt_avg': 8.4,  # Placeholder
-            },
         })
 
     @action(detail=False, methods=["get"], url_path="trending")

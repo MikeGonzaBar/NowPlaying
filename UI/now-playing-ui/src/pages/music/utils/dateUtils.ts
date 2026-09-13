@@ -1,13 +1,18 @@
 import { format, isToday, isYesterday, parseISO } from "date-fns";
+import { formatLongDate, formatShortDate } from "../../../utils/dates";
+
+/**
+ * Music-specific date helpers. Absolute-date formatting delegates to the
+ * shared, locale-aware formatters in `utils/dates.ts` (audit #8 convention:
+ * `MMM D, YYYY`); only the relative Today/Yesterday logic lives here since
+ * music history is the only area that uses it.
+ */
 
 export function formatLastPlayed(playedAt: string | null): string {
   if (!playedAt) return "N/A";
-  try {
-    const date = parseISO(playedAt);
-    return format(date, "M/d/yyyy");
-  } catch {
-    return playedAt;
-  }
+  const date = parseISO(playedAt);
+  if (isNaN(date.getTime())) return playedAt;
+  return formatShortDate(date);
 }
 
 export function formatPlayedAt(playedAt: string): string {
@@ -25,6 +30,7 @@ export function formatPlayedAt(playedAt: string): string {
   }
 }
 
+/** Track length in ms -> `m:ss`. Distinct from runtime "Xh Ym" formatters. */
 export function formatDuration(ms: number | null): string {
   if (!ms) return "";
   const seconds = Math.floor(ms / 1000);
@@ -42,9 +48,10 @@ export function formatDateLabel(dateKey: string): string {
     } else if (isYesterday(date)) {
       return "Yesterday";
     } else {
-      return format(date, "MMMM d, yyyy");
+      return formatLongDate(date);
     }
   } catch {
     return dateKey;
   }
 }
+

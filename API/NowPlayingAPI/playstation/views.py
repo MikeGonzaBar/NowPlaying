@@ -1,6 +1,6 @@
 from datetime import timedelta
 import re
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Sum, Case, When, Value, F
 from rest_framework.decorators import action
 from rest_framework import viewsets, status
 from rest_framework.request import Request
@@ -157,26 +157,22 @@ class PSNViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="get-game-list-most-achieved")
     def getGameListMostAchieved(self, request: Request) -> Response:
         """Return stored PlayStation games ordered by weighted trophy score."""
-        # Retrieve stored games filtered by the current user
-        games = list(self.get_queryset().prefetch_related("achievements"))
-
-        # Helper function to calculate the weighted score for unlocked achievements.
-        def calculate_weighted_score(game: PSNGame) -> int:
-            """Return the weighted unlocked trophy score for sorting."""
-            # Assuming achievements is a related name on PSNAchievement
-            unlocked = game.achievements.filter(unlocked=True)
-            score = 0
-            for trophy in unlocked:
-                if trophy.trophy_type.lower() == "platinum":
-                    score += 20
-                elif trophy.trophy_type.lower() == "gold":
-                    score += 3
-                elif trophy.trophy_type.lower() == "silver":
-                    score += 2
-                elif trophy.trophy_type.lower() == "bronze":
-                    score += 1
-            return score
-
-        sorted_games = sorted(games, key=calculate_weighted_score, reverse=True)
-        serializer = self.serializer_class(sorted_games, many=True)
+        # Weighted trophy score computed in a single grouped query instead of
+        # per-game Python iteration (N+1).
+        games = (
+            self.get_queryset()
+            .annotate(
+                score=Sum(
+                    Case(
+                        When(achievements__unlocked=True, achievements__trophy_type__iexact="platinum", then=Value(20)),
+                        When(achievements__unlocked=True, achievements__trophy_type__iexact="gold", then=Value(3)),
+                        When(achievements__unlocked=True, achievements__trophy_type__iexact="silver", then=Value(2)),
+                        When(achievements__unlocked=True, achievements__trophy_type__iexact="bronze", then=Value(1)),
+                        default=Value(0),
+                    )
+                )
+            )
+            .order_by(F("score").desc(nulls_last=True))
+        )
+        serializer = self.serializer_class(games, many=True)
         return Response({"result": serializer.data})

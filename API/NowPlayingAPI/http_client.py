@@ -17,23 +17,6 @@ class ExternalRequestError(Exception):
     pass
 
 
-def request_json(
-    method: str,
-    url: str,
-    *,
-    retries: int = 2,
-    timeout: RequestTimeout = DEFAULT_TIMEOUT,
-    logger_name: str | None = None,
-    **kwargs: Any,
-) -> Any:
-    """Run an HTTP request and decode the response body as JSON."""
-    response = request(method, url, retries=retries, timeout=timeout, logger_name=logger_name, **kwargs)
-    try:
-        return response.json()
-    except ValueError as exc:
-        raise ExternalRequestError(f"Invalid JSON response from {url}") from exc
-
-
 def request(
     method: str,
     url: str,
@@ -78,13 +61,3 @@ def get(url: str, **kwargs: Any) -> requests.Response:
 def post(url: str, **kwargs: Any) -> requests.Response:
     """Send a POST request through the shared retry wrapper."""
     return request("post", url, **kwargs)
-
-
-def get_json(url: str, **kwargs: Any) -> Any:
-    """Send a GET request and return the decoded JSON body."""
-    return request_json("get", url, **kwargs)
-
-
-def post_json(url: str, **kwargs: Any) -> Any:
-    """Send a POST request and return the decoded JSON body."""
-    return request_json("post", url, **kwargs)

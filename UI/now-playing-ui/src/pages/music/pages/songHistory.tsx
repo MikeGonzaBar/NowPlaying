@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Box, Button, CircularProgress, Typography } from "@mui/material";
 import { authenticatedFetch } from "../../../utils/auth";
 import { getApiUrl, API_CONFIG } from "../../../config/api";
+import { avatarUrl } from "../../../utils/avatars";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { format, parseISO } from "date-fns";
@@ -213,8 +214,7 @@ function SongHistory() {
                     <Box
                       component="img"
                       src={
-                        song.album_thumbnail ||
-                        `https://ui-avatars.com/api/?name=${encodeURIComponent(song.title)}&size=64&background=262626&color=fff`
+                        song.album_thumbnail || avatarUrl(song.title, 64)
                       }
                       alt={song.title}
                       sx={{

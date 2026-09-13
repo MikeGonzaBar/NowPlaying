@@ -71,6 +71,46 @@ class DetailEndpointTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_games_detail_by_title_matches_accented_title(self):
+        """Accents must transliterate, not fall through to the punctuation
+        filter ("versión" used to normalize to "versi n" and never match)."""
+        Game.objects.create(
+            user=self.user, appid=224, name="9 Kings (Versión preliminar del juego)"
+        )
+
+        response = self.client.get(
+            "/games/detail-by-title/", {"title": "9 Kings (Versión preliminar del juego)"}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["platform_count"], 1)
+        self.assertEqual(response.data["platforms"][0]["platform"], "steam")
+
+    def test_games_detail_by_title_rescues_legacy_mangled_link(self):
+        """Legacy UI deep links stripped accented characters entirely
+        ("Versión" -> "versin"). The fuzzy fallback must still resolve them."""
+        Game.objects.create(
+            user=self.user, appid=224, name="9 Kings (Versión preliminar del juego)"
+        )
+
+        response = self.client.get(
+            "/games/detail-by-title/", {"title": "9 kings versin preliminar del juego"}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["platforms"][0]["platform"], "steam")
+
+    def test_games_detail_by_title_unrelated_title_still_404s(self):
+        Game.objects.create(
+            user=self.user, appid=224, name="9 Kings (Versión preliminar del juego)"
+        )
+
+        response = self.client.get(
+            "/games/detail-by-title/", {"title": "completely unrelated game"}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_games_detail_by_id_psn_id_does_not_500(self):
         """/game/PPSA01649_00 must resolve to 404, not crash the ORM with an
         integer-backed Steam appid (audit finding #4)."""

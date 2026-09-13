@@ -9,6 +9,7 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
 import { useMusicFetch } from "../hooks/useMusicFetch";
 import { Track } from "../types";
 import { formatLastPlayed } from "../utils/dateUtils";
+import { avatarUrl } from "../../../utils/avatars";
 
 function TopTracks() {
   const navigate = useNavigate();
@@ -192,8 +193,7 @@ function TopTracks() {
                   <Box
                     component="img"
                     src={
-                      track.thumbnail ||
-                      `https://ui-avatars.com/api/?name=${encodeURIComponent(track.title)}&size=300&background=121214&color=fff`
+                      track.thumbnail || avatarUrl(track.title, 300, "121214")
                     }
                     alt={track.title}
                     sx={{
