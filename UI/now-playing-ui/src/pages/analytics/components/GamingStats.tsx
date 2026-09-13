@@ -16,14 +16,14 @@ interface GamingStatsProps {
 
 const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
   const {
-    comprehensive_stats,
-    platform_distribution,
+    comprehensive_stats = { totals: {}, daily_stats: [], period: {} },
+    platform_distribution = {},
     achievement_efficiency,
-    gaming_streaks,
-    weekly_trend,
+    gaming_streaks = [],
+    weekly_trend = [],
     most_played_game,
     hardest_achievement,
-  } = data;
+  } = data || {};
 
   // Calculate completion rate - placeholder for now, needs API support
   const totalGames = Object.values(platform_distribution)
@@ -184,7 +184,10 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
                   mt: 0.5,
                 }}
               >
-                {comprehensive_stats.averages.avg_games_per_day.toFixed(1)} per
+                {comprehensive_stats.averages?.avg_games_per_day != null
+                  ? comprehensive_stats.averages.avg_games_per_day.toFixed(1)
+                  : "—"}{" "}
+                per
                 day
               </Typography>
             </Box>
@@ -252,9 +255,9 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
                   mt: 0.5,
                 }}
               >
-                {comprehensive_stats.averages.avg_achievements_per_day.toFixed(
-                  1,
-                )}{" "}
+                {comprehensive_stats.averages?.avg_achievements_per_day != null
+                  ? comprehensive_stats.averages.avg_achievements_per_day.toFixed(1)
+                  : "—"}{" "}
                 per day
               </Typography>
             </Box>
@@ -330,7 +333,8 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
                   mt: 0.5,
                 }}
               >
-                Avg: {comprehensive_stats.averages.avg_gaming_time_per_day} /
+                Avg: {comprehensive_stats.averages?.avg_gaming_time_per_day ??
+                  "—"} /
                 day
               </Typography>
             </Box>
@@ -501,7 +505,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
                   >
                     <span>Games:</span>
                     <Typography component="span" sx={{ color: "#e2e8f0" }}>
-                      {platform.data.games}
+                      {platform.data?.games ?? "—"}
                     </Typography>
                   </Box>
                   <Box
@@ -514,7 +518,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
                   >
                     <span>Achievements:</span>
                     <Typography component="span" sx={{ color: "#e2e8f0" }}>
-                      {platform.data.achievements}
+                      {platform.data?.achievements ?? "—"}
                     </Typography>
                   </Box>
                   <Typography
@@ -525,7 +529,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
                       color: "#64748b",
                     }}
                   >
-                    Playtime: {platform.data.playtime || "Unavailable"}
+                    Playtime: {platform.data?.playtime || "Unavailable"}
                   </Typography>
                 </Box>
               </Card>

@@ -183,22 +183,30 @@ const normalizeAnalyticsData = (raw: AnalyticsData | null): AnalyticsData => {
         total_watch_time: hasRealStats && rawStats.totals?.total_watch_time ? rawStats.totals.total_watch_time : unavailable,
         total_engagement_time: hasRealStats && rawStats.totals?.total_engagement_time ? rawStats.totals.total_engagement_time : unavailable,
     };
+    // Section payloads live at the TOP level of the response; only
+    // period/totals/averages/daily_stats are nested inside
+    // comprehensive_stats. Read the top level first and keep the legacy
+    // nested location as a fallback for older payloads — reading only the
+    // nested location silently wiped every section to its default and made
+    // GamingStats dereference `platform_distribution.steam` as undefined.
+    const section = (key: string): any => src[key] ?? rawStats?.[key];
+
     return {
         ...src,
         has_partial_failures: hasPartialFailures,
         comprehensive_stats: { ...rawStats, period, totals },
-        platform_distribution: rawStats?.platform_distribution || {},
-        achievement_efficiency: { efficiency_per_hour: 0, ...rawStats?.achievement_efficiency },
-        gaming_streaks: Array.isArray(rawStats?.gaming_streaks) ? rawStats.gaming_streaks : [],
-        weekly_trend: Array.isArray(rawStats?.weekly_trend) ? rawStats.weekly_trend : [],
-        monthly_comparison: { change_percentage: 0, ...rawStats?.monthly_comparison },
-        genre_distribution: rawStats?.genre_distribution || {},
-        music_genre_distribution: rawStats?.music_genre_distribution || {},
-        music_weekly_scrobbles: Array.isArray(rawStats?.music_weekly_scrobbles) ? rawStats.music_weekly_scrobbles : [],
-        music_listening_insights: rawStats?.music_listening_insights || {},
-        media_watch_breakdown: rawStats?.media_watch_breakdown || {},
-        media_genre_distribution: rawStats?.media_genre_distribution || {},
-        media_insights: rawStats?.media_insights || {},
+        platform_distribution: section('platform_distribution') || {},
+        achievement_efficiency: { efficiency_per_hour: 0, ...section('achievement_efficiency') },
+        gaming_streaks: Array.isArray(section('gaming_streaks')) ? section('gaming_streaks') : [],
+        weekly_trend: Array.isArray(section('weekly_trend')) ? section('weekly_trend') : [],
+        monthly_comparison: { change_percentage: 0, ...section('monthly_comparison') },
+        genre_distribution: section('genre_distribution') || {},
+        music_genre_distribution: section('music_genre_distribution') || {},
+        music_weekly_scrobbles: Array.isArray(section('music_weekly_scrobbles')) ? section('music_weekly_scrobbles') : [],
+        music_listening_insights: section('music_listening_insights') || {},
+        media_watch_breakdown: section('media_watch_breakdown') || {},
+        media_genre_distribution: section('media_genre_distribution') || {},
+        media_insights: section('media_insights') || {},
     } as AnalyticsData;
 };
 
