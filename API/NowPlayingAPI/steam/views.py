@@ -25,7 +25,7 @@ class SteamViewSet(viewsets.ModelViewSet):
     queryset = Game.objects.all()
     serializer_class = SteamSerializer
 
-    def get_queryset(self) -> QuerySet[Game]:
+    def get_queryset(self) -> QuerySet[Game]:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return only Steam games owned by the authenticated user."""
         return Game.objects.filter(user=self.request.user).order_by("id")
 

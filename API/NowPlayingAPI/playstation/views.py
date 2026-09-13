@@ -35,7 +35,7 @@ class PSNViewSet(viewsets.ModelViewSet):
     serializer_class = PSNGameSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self) -> QuerySet[PSNGame]:
+    def get_queryset(self) -> QuerySet[PSNGame]:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return only PlayStation games owned by the authenticated user."""
         # Filter games by the authenticated user
         return PSNGame.objects.filter(user=self.request.user)

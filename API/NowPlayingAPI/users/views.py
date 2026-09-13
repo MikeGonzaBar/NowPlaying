@@ -82,7 +82,7 @@ class ApiKeyViewSet(viewsets.ModelViewSet):
     serializer_class = ApiKeySerializer
     permission_classes = [permissions.IsAuthenticated]
     
-    def get_queryset(self) -> QuerySet[UserApiKey]:
+    def get_queryset(self) -> QuerySet[UserApiKey]:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return only API keys owned by the authenticated user."""
         return UserApiKey.objects.filter(user=self.request.user).order_by('-updated_at')
     

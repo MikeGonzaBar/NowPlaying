@@ -145,7 +145,7 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
             songs = songs.filter(artist__iexact=artist)
         return songs
 
-    def get_queryset(self):
+    def get_queryset(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         """
         Filter queryset to return only songs for the authenticated user.
         """
@@ -232,6 +232,12 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
         api_key_obj = get_service_credentials(request.user, "lastfm", require_user_id=True)
         lastfm_api_key = api_key_obj.api_key
         lastfm_username = api_key_obj.service_user_id
+
+        if not lastfm_username:
+            return Response(
+                {"error": "Last.fm username is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             # Check if async mode is requested

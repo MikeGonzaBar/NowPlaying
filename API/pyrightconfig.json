@@ -1,0 +1,10 @@
+{
+  "include": ["NowPlayingAPI/xbox/views.py", "NowPlayingAPI/steam/views.py", "NowPlayingAPI/playstation/views.py", "NowPlayingAPI/users/views.py", "NowPlayingAPI/music/views.py"],
+  "exclude": ["**/venv", "**/__pycache__", "**/migrations"],
+  "venvPath": ".",
+  "venv": "venv",
+  "typeCheckingMode": "standard",
+  "reportMissingModuleSource": "none",
+  "reportIncompatibleMethodOverride": "error",
+  "reportArgumentType": "error"
+}

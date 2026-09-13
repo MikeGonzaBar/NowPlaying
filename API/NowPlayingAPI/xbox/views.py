@@ -1,3 +1,5 @@
+from typing import cast
+
 from django.db.models import IntegerField, Sum, Q, F
 from django.db.models import QuerySet
 from django.db.models.functions import Cast
@@ -25,7 +27,7 @@ class XBOXViewSet(viewsets.ModelViewSet):
     queryset = XboxGame.objects.none()
     serializer_class = XboxGameSerializer
     
-    def get_queryset(self) -> QuerySet[XboxGame]:
+    def get_queryset(self) -> QuerySet[XboxGame]:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return only Xbox games owned by the authenticated user."""
         # Filter games by the authenticated user
         return XboxGame.objects.filter(user=self.request.user)
@@ -40,7 +42,10 @@ class XBOXViewSet(viewsets.ModelViewSet):
             result = XboxAPI.fetch_games(
                 user=request.user,
                 xbox_api_key=api_key.api_key,
-                xuid=api_key.service_user_id,
+                # require_user_id=True above guarantees a non-empty
+                # service_user_id (MissingServiceCredentials is raised
+                # otherwise); cast only informs the type checker.
+                xuid=cast(str, api_key.service_user_id),
             )
             
             return Response({"result": result})
