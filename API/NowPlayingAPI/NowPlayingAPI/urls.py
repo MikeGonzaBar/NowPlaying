@@ -28,7 +28,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
-from django.db.models import Q
+from django.db.models import Q, prefetch_related_objects
 from django.core.cache import cache
 from django.conf import settings
 import difflib
@@ -277,6 +277,10 @@ def games_detail_by_title(request: Request) -> Response:
     platforms_data = []
     fuzzy_producers = []
 
+    def _prefetch_matches(matches):
+        prefetch_related_objects(matches, 'achievements')
+        return matches
+
     def _collect_matches(queryset, title_attr):
         """Exact normalized matches first; near matches (>= 0.9 similarity) are
         kept aside as a fallback for damaged titles — e.g. legacy UI deep links
@@ -303,11 +307,11 @@ def games_detail_by_title(request: Request) -> Response:
             }
 
         exact, near = _collect_matches(
-            SteamGame.objects.filter(user=request.user).prefetch_related('achievements'), 'name'
+            SteamGame.objects.filter(user=request.user), 'name'
         )
-        platforms_data.extend(_steam_entry(game) for game in exact)
+        platforms_data.extend(_steam_entry(game) for game in _prefetch_matches(exact))
         if near:
-            fuzzy_producers.append(lambda near=near: [_steam_entry(game) for game in near])
+            fuzzy_producers.append(lambda near=near: [_steam_entry(game) for game in _prefetch_matches(near)])
     except Exception as e:
         logger.warning("Steam detail by title error: %s", e)
 
@@ -322,11 +326,11 @@ def games_detail_by_title(request: Request) -> Response:
             }
 
         exact, near = _collect_matches(
-            PSNGame.objects.filter(user=request.user).prefetch_related('achievements'), 'name'
+            PSNGame.objects.filter(user=request.user), 'name'
         )
-        platforms_data.extend(_psn_entry(game) for game in exact)
+        platforms_data.extend(_psn_entry(game) for game in _prefetch_matches(exact))
         if near:
-            fuzzy_producers.append(lambda near=near: [_psn_entry(game) for game in near])
+            fuzzy_producers.append(lambda near=near: [_psn_entry(game) for game in _prefetch_matches(near)])
     except Exception as e:
         logger.warning("PSN detail by title error: %s", e)
 
@@ -341,11 +345,11 @@ def games_detail_by_title(request: Request) -> Response:
             }
 
         exact, near = _collect_matches(
-            XboxGame.objects.filter(user=request.user).prefetch_related('achievements'), 'name'
+            XboxGame.objects.filter(user=request.user), 'name'
         )
-        platforms_data.extend(_xbox_entry(game) for game in exact)
+        platforms_data.extend(_xbox_entry(game) for game in _prefetch_matches(exact))
         if near:
-            fuzzy_producers.append(lambda near=near: [_xbox_entry(game) for game in near])
+            fuzzy_producers.append(lambda near=near: [_xbox_entry(game) for game in _prefetch_matches(near)])
     except Exception as e:
         logger.warning("Xbox detail by title error: %s", e)
 

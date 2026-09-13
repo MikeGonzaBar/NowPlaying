@@ -25,6 +25,7 @@ import { zincColors } from '../../../theme';
 import { API_CONFIG } from '../../../config/api';
 import { formatMinutesCompact } from '../utils/utils';
 import { GameImage } from '../components/GameImage';
+import { sortByLatestAchievement } from '../utils/achievementDates';
 
 const PAGE_SIZE = 24;
 
@@ -72,20 +73,6 @@ const countGame = (game: Game): CountedGame => {
         completionPct: total > 0 ? (unlocked / total) * 100 : 0,
         lastPlayed: game.lastPlayed,
     };
-};
-
-const getLatestAchievementDate = (game: Game): Date => {
-    let latest: Date | null = null;
-    game.sources.forEach((source) => {
-        const raw = source.raw as unknown as { achievements?: Array<{ unlock_time?: string; unlockDate?: string; unlocked_at?: string }> };
-        (raw.achievements || []).forEach((achievement) => {
-            const value = achievement.unlock_time || achievement.unlockDate || achievement.unlocked_at;
-            if (!value) return;
-            const parsed = new Date(value);
-            if (!isNaN(parsed.getTime()) && (!latest || parsed > latest)) latest = parsed;
-        });
-    });
-    return latest || new Date(1970, 0, 1);
 };
 
 const AllGames: React.FC = () => {
@@ -191,15 +178,16 @@ const getPlatformIcon = (platformKey: string): string => {
             return playedFilter === 'played' ? hasPlayed : !hasPlayed;
         });
 
+        if (sortKey === 'recently_earned_achievement') {
+            return sortByLatestAchievement(filtered);
+        }
+
         const sorted = [...filtered].sort((a, b) => {
             if (sortKey === 'title') return a.game.title.localeCompare(b.game.title);
             if (sortKey === 'most_played') return b.playtimeMinutes - a.playtimeMinutes;
             if (sortKey === 'completion') {
                 const byPct = b.completionPct - a.completionPct;
                 return byPct !== 0 ? byPct : b.unlockedAchievements - a.unlockedAchievements;
-            }
-            if (sortKey === 'recently_earned_achievement') {
-                return getLatestAchievementDate(b.game).getTime() - getLatestAchievementDate(a.game).getTime();
             }
             const aTime = a.lastPlayed ? a.lastPlayed.getTime() : 0;
             const bTime = b.lastPlayed ? b.lastPlayed.getTime() : 0;

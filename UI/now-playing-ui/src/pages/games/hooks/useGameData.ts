@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useApi } from "../../../hooks/useApi";
 import {
   SteamGame,
@@ -257,17 +257,20 @@ export const useGameData = (beBaseUrl: string) => {
     }
   };
 
-  const getGamePlatform = (game: GameData): string => {
-    const gameId = String(game.appid);
+  const getGamePlatform = useCallback(
+    (game: GameData): string => {
+      const gameId = String(game.appid);
 
-    if (platformGameIds.steam.has(gameId)) return "steam";
-    if (platformGameIds.psn.has(gameId)) return "psn";
-    if (platformGameIds.xbox.has(gameId)) return "xbox";
-    if (platformGameIds.retroachievements.has(gameId))
-      return "retroachievements";
+      if (platformGameIds.steam.has(gameId)) return "steam";
+      if (platformGameIds.psn.has(gameId)) return "psn";
+      if (platformGameIds.xbox.has(gameId)) return "xbox";
+      if (platformGameIds.retroachievements.has(gameId))
+        return "retroachievements";
 
-    return "steam"; // fallback
-  };
+      return "steam"; // fallback
+    },
+    [platformGameIds],
+  );
 
   useEffect(() => {
     fetchGames();

@@ -1,9 +1,57 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useGameData } from "../pages/games/hooks/useGameData";
 import { mockAuthenticatedFetch } from "./setup";
 
 describe("stored game library baseline", () => {
+  it("updates the platform callback after refresh while preserving provider priority", async () => {
+    const steam = {
+      appid: 7,
+      name: "Shared",
+      playtime_forever: 10,
+      last_played: null,
+    };
+    const trophies = { bronze: 0, silver: 0, gold: 0, platinum: 0 };
+    const psn = {
+      appid: "7",
+      name: "Shared",
+      platform: "PS5",
+      total_playtime: "00:00:00",
+      last_played: null,
+      total_achievements: trophies,
+      unlocked_achievements: trophies,
+    };
+    let includeSteam = true;
+    mockAuthenticatedFetch({
+      "/steam/get-game-list-stored/": () => ({
+        result: includeSteam ? [steam] : [],
+      }),
+      "/psn/get-game-list-stored/": { result: [psn] },
+      "/retroachievements/fetch-games/": { result: [] },
+      "/xbox/get-game-list-stored/": { result: [] },
+      "/users/api-keys/services/": [
+        "steam",
+        "psn",
+        "xbox",
+        "retroachievements",
+      ],
+      "/steam/get-game-list/": { result: {} },
+    });
+    const { result } = renderHook(() => useGameData("https://example.test"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const previous = result.current.getGamePlatform;
+    expect(previous(result.current.completeGames[1])).toBe("steam");
+    includeSteam = false;
+    await act(async () => {
+      await result.current.refreshSteam();
+    });
+    expect(result.current.getGamePlatform).not.toBe(previous);
+    expect(
+      result.current.getGamePlatform(result.current.completeGames[0]),
+    ).toBe("psn");
+    expect(result.current.error).toBeNull();
+  });
+
   it("loads configured services and retains unplayed games without extra requests", async () => {
     const consoleError = vi
       .spyOn(console, "error")
@@ -56,8 +104,11 @@ describe("stored game library baseline", () => {
       { title: "Unplayed game", minutes: 0 },
     ]);
     const library = result.current.completeConsolidatedGames;
+    const getPlatform = result.current.getGamePlatform;
+    expect(getPlatform(result.current.completeGames[0])).toBe("steam");
     rerender();
     expect(result.current.completeConsolidatedGames).toBe(library);
+    expect(result.current.getGamePlatform).toBe(getPlatform);
     expect(api.calls).toEqual([
       "/steam/get-game-list-stored/",
       "/psn/get-game-list-stored/",
