@@ -129,7 +129,6 @@ class StaffOnlyRedocView(SpectacularRedocView):
     permission_classes = [IsAdminUser]
 
 
-# Optimized Games Search View with caching
 @extend_schema(
     summary="Search games across connected platforms",
     parameters=[
@@ -151,7 +150,6 @@ def games_search(request: Request) -> Response:
     if not query or len(query) < 2:
         return Response({'results': []})
     
-    # Check cache first - SAFE OPTIMIZATION
     cache_key = f"search_{request.user.id}_{query.lower()}"
     cached_result = cache.get(cache_key)
     if cached_result:
@@ -159,7 +157,6 @@ def games_search(request: Request) -> Response:
     
     results = []
     
-    # Search in Steam games
     try:
         from steam.models import Game as SteamGame
         steam_games = SteamGame.objects.filter(
@@ -168,9 +165,6 @@ def games_search(request: Request) -> Response:
         )[:10]
         
         for game in steam_games:
-            # Ensure we have a full URL for Steam images. header.jpg is used as
-            # the fallback because the library_600x900 heroes are missing from
-            # the Steam CDN for many older/obscure apps (404s).
             cover_image = game.img_icon_url or ''
             if cover_image and not cover_image.startswith('http'):
                 cover_image = f"https://cdn.akamai.steamstatic.com/steam/apps/{game.appid}/header.jpg"
@@ -185,7 +179,6 @@ def games_search(request: Request) -> Response:
     except Exception as e:
         logger.warning("Steam search error: %s", e)
     
-    # Search in PSN games
     try:
         from playstation.models import PSNGame
         psn_games = PSNGame.objects.filter(
@@ -194,7 +187,6 @@ def games_search(request: Request) -> Response:
         )[:10]
         
         for game in psn_games:
-            # PSN images should already be full URLs
             cover_image = game.img_icon_url or ''
             
             results.append({
@@ -207,7 +199,6 @@ def games_search(request: Request) -> Response:
     except Exception as e:
         logger.warning("PSN search error: %s", e)
     
-    # Search in Xbox games
     try:
         from xbox.models import XboxGame
         xbox_games = XboxGame.objects.filter(
@@ -216,7 +207,6 @@ def games_search(request: Request) -> Response:
         )[:10]
         
         for game in xbox_games:
-            # Xbox images should already be full URLs
             cover_image = game.img_icon_url or ''
             
             results.append({
@@ -229,7 +219,6 @@ def games_search(request: Request) -> Response:
     except Exception as e:
         logger.warning("Xbox search error: %s", e)
     
-    # Search in RetroAchievements games
     try:
         from retroachievements.models import RetroAchievementsGame
         retro_games = RetroAchievementsGame.objects.filter(
@@ -238,7 +227,6 @@ def games_search(request: Request) -> Response:
         )[:10]
         
         for game in retro_games:
-            # RetroAchievements images need to be converted to full URLs
             cover_image = game.image_icon or ''
             if cover_image and not cover_image.startswith('http'):
                 cover_image = f"https://retroachievements.org{cover_image}"
@@ -253,11 +241,9 @@ def games_search(request: Request) -> Response:
     except Exception as e:
         logger.warning("RetroAchievements search error: %s", e)
     
-    # Sort results by title and limit to 20 total
     results.sort(key=lambda x: x['title'].lower())
     results = results[:20]
     
-    # Cache results for 5 minutes - SAFE OPTIMIZATION
     cache.set(cache_key, results, getattr(settings, 'CACHE_TIMEOUTS', {}).get('SEARCH_RESULTS', 300))
     
     return Response({'results': results})
@@ -306,7 +292,6 @@ def games_detail_by_title(request: Request) -> Response:
                 near.append(obj)
         return exact, near
 
-    # Search in Steam games
     try:
         from steam.models import Game as SteamGame
         from steam.serializers import SteamSerializer
@@ -326,7 +311,6 @@ def games_detail_by_title(request: Request) -> Response:
     except Exception as e:
         logger.warning("Steam detail by title error: %s", e)
 
-    # Search in PSN games
     try:
         from playstation.models import PSNGame
         from playstation.serializers import PSNGameSerializer
@@ -346,7 +330,6 @@ def games_detail_by_title(request: Request) -> Response:
     except Exception as e:
         logger.warning("PSN detail by title error: %s", e)
 
-    # Search in Xbox games
     try:
         from xbox.models import XboxGame
         from xbox.serializers import XboxGameSerializer
@@ -366,12 +349,10 @@ def games_detail_by_title(request: Request) -> Response:
     except Exception as e:
         logger.warning("Xbox detail by title error: %s", e)
 
-    # Search in RetroAchievements games
     try:
         from retroachievements.models import RetroAchievementsAPI, RetroAchievementsGame
 
         def _retro_entry(game):
-            # Fetch full game details for each RetroAchievements game
             detail = RetroAchievementsAPI.fetch_game_details(user=request.user, game_id=game.game_id)
             if detail:
                 return {
@@ -400,8 +381,6 @@ def games_detail_by_title(request: Request) -> Response:
         logger.warning("RetroAchievements detail by title error: %s", e)
 
     if not platforms_data and fuzzy_producers:
-        # Nothing matched exactly: fall back to the near matches gathered
-        # during the exact pass.
         for producer in fuzzy_producers:
             platforms_data.extend(entry for entry in producer() if entry)
 
@@ -488,8 +467,6 @@ def games_detail_by_id(request: Request) -> Response:
 
     platforms_data = []
     for platform_key, model, serializer in platform_queries:
-        # Steam-backed ids are positive integers; anything else simply cannot
-        # exist in the Steam library and would make the ORM raise (→ 500).
         if platform_key == 'steam' and not _is_positive_int(appid):
             continue
         try:
@@ -499,8 +476,6 @@ def games_detail_by_id(request: Request) -> Response:
                 .first()
             )
         except (ValueError, TypeError) as exc:
-            # A provider whose id field cannot represent this appid is treated
-            # as "not found" for that provider — never a server failure.
             logger.warning(
                 "detail-by-id filter failed platform=%s appid=%r user=%s error=%s",
                 platform_key, appid, request.user.id, exc,
@@ -602,9 +577,6 @@ def games_detail(request: Request) -> Response:
     if not detail:
         return Response({'error': 'Game not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-    # Rank against the stored RetroAchievements library so the detail view can
-    # show a badge without downloading the whole library. The rank is injected
-    # into the game payload (`result`), which is what the frontend reads.
     retro_game = RetroAchievementsGame.objects.filter(
         user=request.user, game_id=game_id
     ).first()

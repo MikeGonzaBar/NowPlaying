@@ -117,8 +117,6 @@ const AllGames: React.FC = () => {
         return () => window.clearTimeout(timer);
     }, [searchQuery]);
 
-    // Persist the exact view state in the URL so filters, sort, and page are
-    // shareable and recoverable on refresh (audit #1, item 6).
     useEffect(() => {
         const next = new URLSearchParams();
         if (selectedPlatform) next.set('provider', selectedPlatform);
@@ -158,7 +156,6 @@ const getPlatformIcon = (platformKey: string): string => {
         library.forEach((game) => {
             game.platforms.forEach((platform) => platforms.add(platform.key));
         });
-        // Keep the canonical hub ordering.
         const order = ['steam', 'psn', 'xbox', 'retroachievements'];
         return order.filter((key) => platforms.has(key));
     }, [library]);
@@ -204,7 +201,6 @@ const getPlatformIcon = (platformKey: string): string => {
             if (sortKey === 'recently_earned_achievement') {
                 return getLatestAchievementDate(b.game).getTime() - getLatestAchievementDate(a.game).getTime();
             }
-            // recently_played: titles without a timestamp sort last.
             const aTime = a.lastPlayed ? a.lastPlayed.getTime() : 0;
             const bTime = b.lastPlayed ? b.lastPlayed.getTime() : 0;
             return bTime - aTime;
@@ -451,7 +447,6 @@ return (
                     </Typography>
                 </Box>
             ) : isCompact ? (
-/* Compact list rows below the card breakpoint (audit #10). */
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     {pageGames.map((item) => (
                         <Box key={item.game.id} component='a' href={gameLink(item.game)} onClick={(e) => handleGameClick(item.game, e as any)} aria-label={`Open ${item.game.title}`} sx={{

@@ -36,7 +36,6 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
   const avgPerDay =
     comprehensive_stats?.averages?.avg_listening_time_per_day ?? "0 minutes";
 
-  // Scrobbles per day: use music_weekly_scrobbles or fallback to last 7 days from daily_stats
   const scrobblesPerDay = music_weekly_scrobbles?.length
     ? music_weekly_scrobbles
     : (comprehensive_stats?.daily_stats?.slice(-7) || []).map((d: any) => ({
@@ -56,7 +55,7 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
 
   return (
     <Box sx={{ fontFamily: "'Inter', sans-serif", color: "#e2e8f0" }}>
-      {/* Top row: 4 cards */}
+
       <Box
         sx={{
           display: "grid",
@@ -69,7 +68,7 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
           mb: 4,
         }}
       >
-        {/* Top Artist - teal card: white text for contrast */}
+
         <Card
           sx={{
             bgcolor: MUSIC_TEAL,

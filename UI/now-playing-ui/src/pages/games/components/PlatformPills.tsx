@@ -15,11 +15,9 @@ interface PlatformPillsProps {
 const PlatformPills: React.FC<PlatformPillsProps> = ({ game }) => {
   const platforms = useMemo(() => {
     const parsed = parsePlatforms(game);
-    // Remove duplicates
     return [...new Set(parsed)];
   }, [game]);
 
-  // Don't show if only one platform (or none)
   if (platforms.length <= 1) {
     return null;
   }
@@ -38,7 +36,7 @@ const PlatformPills: React.FC<PlatformPillsProps> = ({ game }) => {
           key={index}
           sx={{
             padding: "4px 8px",
-            backgroundColor: "#27272a", // zinc-800
+            backgroundColor: "#27272a",
             borderRadius: "6px",
             border: "1px solid rgba(39, 39, 42, 0.5)",
           }}
@@ -47,7 +45,7 @@ const PlatformPills: React.FC<PlatformPillsProps> = ({ game }) => {
             variant="caption"
             sx={{
               fontFamily: "Inter, sans-serif",
-              color: "#a1a1aa", // zinc-400
+              color: "#a1a1aa",
               fontSize: "0.75rem",
               fontWeight: 500,
             }}

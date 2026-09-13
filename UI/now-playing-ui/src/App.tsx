@@ -10,7 +10,6 @@ import {
 import { useAuth } from "./hooks/useAuth";
 import "./App.css";
 
-// Lazy load all page components - SAFE OPTIMIZATION
 const LandingPage = React.lazy(() => import("./pages/LandingPage"));
 const AuthPage = React.lazy(() => import("./pages/auth/AuthPage"));
 const GamesPage = React.lazy(() => import("./pages/games/pages/games"));
@@ -50,7 +49,6 @@ const AnalyticsPage = React.lazy(
   () => import("./pages/analytics/AnalyticsPage"),
 );
 
-// Loading component for Suspense fallbacks
 const LoadingSpinner = () => (
   <div
     style={{
@@ -66,7 +64,6 @@ const LoadingSpinner = () => (
   </div>
 );
 
-// Legacy game URL (/game/title/:title) → canonical (/games/title/:title).
 const LegacyGameTitleRedirect = () => {
   const { title } = useParams<{ title: string }>();
   const location = useLocation();
@@ -78,7 +75,6 @@ const LegacyGameTitleRedirect = () => {
   );
 };
 
-// App Routes component that uses useAuth inside Router context
 const AppRoutes = () => {
   const { authenticated, isLoading } = useAuth();
 

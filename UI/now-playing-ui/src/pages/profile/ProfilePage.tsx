@@ -40,7 +40,6 @@ function ProfilePage() {
     setNPSSO,
   } = usePSNEdit();
 
-  // Handler functions
   const handleSaveApiKey = async (
     serviceName: string,
     keyData?: { userId: string; apiKey: string },
@@ -48,7 +47,6 @@ function ProfilePage() {
     try {
       await saveApiKey(serviceName, keyData);
 
-      // If this was Trakt, refresh auth status
       if (serviceName === "trakt") {
         setTimeout(() => refetchAuthStatus(), 1000);
       }
@@ -61,7 +59,6 @@ function ProfilePage() {
     try {
       await deleteApiKey(apiKeyId);
 
-      // If this was Trakt, refresh auth status
       if (serviceName.toLowerCase() === "trakt") {
         setTimeout(() => refetchAuthStatus(), 1000);
       }

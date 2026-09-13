@@ -1,3 +1,5 @@
+from collections.abc import Iterable
+
 from rest_framework import serializers
 from .models import PSNGame, PSNAchievement
 
@@ -19,7 +21,6 @@ class PSNGameSerializer(serializers.ModelSerializer):
     """Serialize stored PlayStation games with trophy summaries."""
 
     achievements = PSNAchievementSerializer(many=True, read_only=True)
-    # Computed fields that will return dictionaries
     total_achievements = serializers.SerializerMethodField()
     unlocked_achievements = serializers.SerializerMethodField()
 
@@ -33,7 +34,6 @@ class PSNGameSerializer(serializers.ModelSerializer):
             'first_played',
             'last_played',
             'img_icon_url',
-            # Include computed dictionaries instead of raw numeric counts.
             'total_achievements',
             'unlocked_achievements',
             'achievements'
@@ -41,9 +41,7 @@ class PSNGameSerializer(serializers.ModelSerializer):
 
     def get_total_achievements(self, obj: PSNGame) -> dict[str, int]:
         """Return total trophies grouped by trophy type."""
-        # Initialize counters for each trophy type
         counts = {"platinum": 0, "gold": 0, "silver": 0, "bronze": 0}
-        # Iterate over all related achievements to count each type.
         for achievement in obj.achievements.all():
             trophy_type = (achievement.trophy_type or "").lower()
             if trophy_type in counts:
@@ -53,8 +51,16 @@ class PSNGameSerializer(serializers.ModelSerializer):
     def get_unlocked_achievements(self, obj: PSNGame) -> dict[str, int]:
         """Return unlocked trophies grouped by trophy type."""
         counts = {"platinum": 0, "gold": 0, "silver": 0, "bronze": 0}
-        # Iterate over unlocked achievements only.
-        for achievement in obj.achievements.filter(unlocked=True):
+        prefetched = getattr(obj, "_prefetched_objects_cache", {})
+        achievements: Iterable[PSNAchievement]
+        if "achievements" in prefetched:
+            achievements = (
+                achievement for achievement in prefetched["achievements"]
+                if achievement.unlocked
+            )
+        else:
+            achievements = obj.achievements.filter(unlocked=True)
+        for achievement in achievements:
             trophy_type = (achievement.trophy_type or "").lower()
             if trophy_type in counts:
                 counts[trophy_type] += 1

@@ -83,9 +83,6 @@ describe("AnalyticsPage (audit #2)", () => {
 
     renderPage();
 
-    // Date-only ISO inputs parse as UTC midnight; the rendered label follows
-    // the machine's local zone, so assert the MM/DD/YYYY range shape, not the
-    // exact calendar day.
     expect(
       await screen.findByText(/\d{2}\/\d{2}\/\d{4} - \d{2}\/\d{2}\/\d{4}/),
     ).toBeInTheDocument();
@@ -94,9 +91,6 @@ describe("AnalyticsPage (audit #2)", () => {
   });
 
   it("renders the Gaming tab from the real API shape (sections at top level)", async () => {
-    // Regression: sections arrive at the TOP level of the payload, while the
-    // page used to read them out of comprehensive_stats — wiping them to {}
-    // and crashing on `platform_distribution.steam.games`.
     mockAuthenticatedFetch({
       "/analytics/": {
         comprehensive_stats: {
@@ -122,7 +116,6 @@ describe("AnalyticsPage (audit #2)", () => {
     expect(await screen.findByText("Platform Distribution")).toBeInTheDocument();
     expect(screen.getByText("Steam")).toBeInTheDocument();
     expect(screen.getByText("RetroAchievements")).toBeInTheDocument();
-    // Xbox card must show its 2 games, not crash on undefined data.
     expect(screen.getByText("2")).toBeInTheDocument();
   });
 
@@ -134,7 +127,6 @@ describe("AnalyticsPage (audit #2)", () => {
           totals: healthyPayload.comprehensive_stats.totals,
           daily_stats: [],
         },
-        // Steam only — PlayStation/Xbox/RetroAchievements keys absent.
         platform_distribution: {
           steam: { games: 1, achievements: 0, playtime: "3 days, 7 hours and 4 minutes" },
         },

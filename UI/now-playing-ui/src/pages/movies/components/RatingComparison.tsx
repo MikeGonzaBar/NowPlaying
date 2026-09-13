@@ -39,7 +39,7 @@ function RatingComparison({ comparison }: RatingComparisonProps) {
         </Typography>
 
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          {/* Movies */}
+
           <Box>
             <Box
               sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}

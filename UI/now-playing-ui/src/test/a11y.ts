@@ -11,9 +11,7 @@ export async function expectNoA11yViolations(
 ): Promise<void> {
   const { violations } = await axe.run(rendered.container, {
     rules: {
-      // jsdom cannot compute real color contrast reliably; cover it manually.
       "color-contrast": { enabled: false },
-      // jsdom reports 0-size regions for every element; layout is verified manually.
       "region": { enabled: false },
     },
   });

@@ -25,13 +25,11 @@ export const isAuthenticated = () => {
   const token = getAuthToken();
   if (!token) return false;
 
-  // Check if token is expired
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
     const currentTime = Date.now() / 1000;
     return payload.exp > currentTime;
   } catch {
-    // If token is malformed, consider it invalid
     return false;
   }
 };
@@ -39,7 +37,6 @@ export const isAuthenticated = () => {
 export const refreshAuthToken = async (): Promise<boolean> => {
   const refreshToken = getRefreshToken();
   if (!refreshToken) {
-    // Set flag to show error message on auth page
     sessionStorage.setItem("auth_failure", "true");
     return false;
   }
@@ -61,27 +58,20 @@ export const refreshAuthToken = async (): Promise<boolean> => {
     if (response.ok) {
       const data = await response.json();
       setAuthToken(data.access);
-      // Clear any auth failure flags on successful refresh
       sessionStorage.removeItem("auth_failure");
       return true;
     } else {
-      // Refresh token is invalid, remove all tokens
-      // Set flag to show error message on auth page
       sessionStorage.setItem("auth_failure", "true");
       removeAuthToken();
       return false;
     }
   } catch {
-    // Set flag to show error message on auth page
     sessionStorage.setItem("auth_failure", "true");
     removeAuthToken();
     return false;
   }
 };
 
-// Development-only duplicate-GET detection: surfaces runaway request loops
-// (e.g. an effect whose dependency list is re-armed by its own state writes)
-// before they reach production. Stripped from production builds.
 const DUP_WINDOW_MS = 2000;
 const DUP_THRESHOLD = 5;
 const recentGetTimestamps = import.meta.env.DEV
@@ -97,34 +87,27 @@ const trackDuplicateGet = (url: string, method: string) => {
   stamps.push(now);
   recentGetTimestamps.set(url, stamps);
   if (stamps.length === DUP_THRESHOLD) {
-    // Warn exactly once per threshold crossing to avoid log spam during a
-    // genuine loop; the URL is the developer's breadcrumb.
     console.warn(
       `[DEV] duplicate_request_detected count=${stamps.length} window=${DUP_WINDOW_MS}ms url=${url}`,
     );
   }
 };
 
-// API request wrapper that includes the auth token and handles token refresh
 export const authenticatedFetch = async (
   url: string,
   options: RequestInit = {},
 ) => {
   trackDuplicateGet(url, options.method || "GET");
 
-  // Check if we're already on the auth page - don't redirect if we are
   const isOnAuthPage =
     window.location.pathname === "/auth" ||
     window.location.pathname.startsWith("/auth");
 
   let token = getAuthToken();
 
-  // Check if token exists and is valid
   if (!token || !isAuthenticated()) {
-    // Try to refresh the token
     const refreshed = await refreshAuthToken();
     if (!refreshed) {
-      // Only redirect if we're not already on the auth page
       if (!isOnAuthPage) {
         window.location.href = "/auth";
       }
@@ -145,10 +128,8 @@ export const authenticatedFetch = async (
   });
 
   if (response.status === 401) {
-    // Try to refresh token once more
     const refreshed = await refreshAuthToken();
     if (refreshed) {
-      // Retry the request with new token
       const newToken = getAuthToken();
       const retryResponse = await fetch(url, {
         ...options,
@@ -160,7 +141,6 @@ export const authenticatedFetch = async (
       });
       return retryResponse;
     } else {
-      // Token refresh failed, only redirect if we're not already on the auth page
       removeAuthToken();
       if (!isOnAuthPage) {
         window.location.href = "/auth";

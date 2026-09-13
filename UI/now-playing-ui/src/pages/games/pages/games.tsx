@@ -103,13 +103,11 @@ function Games() {
     [latestPlayedGames],
   );
 
-  // Get recently played (top 10)
   const recentlyPlayed = useMemo(
     () => consolidatedGames.slice(0, 10).map((game) => game.sources[0].raw),
     [consolidatedGames],
   );
 
-  // Filter games by platform when a platform is selected
   const filteredGames = useMemo(() => {
     if (!selectedPlatform) return recentlyPlayed;
     return consolidatedGames
@@ -118,7 +116,6 @@ function Games() {
       .map((game) => game.sources[0].raw);
   }, [consolidatedGames, recentlyPlayed, selectedPlatform]);
 
-  // Get recent 100% completed games (last 10)
   const recent100Percent = useMemo(() => {
     return consolidatedGames
       .filter((game) => game.totalAchievements > 0 && game.unlockedAchievements >= game.totalAchievements)
@@ -126,12 +123,10 @@ function Games() {
       .map((game) => game.sources[0].raw)
   }, [consolidatedGames]);
 
-  // Check if carousel is needed after content loads
   useEffect(() => {
     const checkCarouselNeeds = () => {
       if (recentlyPlayedScrollRef.current) {
         const container = recentlyPlayedScrollRef.current;
-        // Add a small threshold to account for rounding
         const needsCarousel = container.scrollWidth > container.clientWidth + 5;
         setNeedsCarouselRecentlyPlayed(needsCarousel);
       }
@@ -142,17 +137,14 @@ function Games() {
       }
     };
 
-    // Check multiple times to ensure DOM is fully rendered
     const timers = [
       setTimeout(checkCarouselNeeds, 50),
       setTimeout(checkCarouselNeeds, 200),
       setTimeout(checkCarouselNeeds, 500),
     ];
 
-    // Also check on window resize
     window.addEventListener("resize", checkCarouselNeeds);
 
-    // Use ResizeObserver for more reliable detection
     const observers: ResizeObserver[] = [];
     if (recentlyPlayedScrollRef.current) {
       const observer = new ResizeObserver(checkCarouselNeeds);
@@ -172,7 +164,6 @@ function Games() {
     };
   }, [recentlyPlayed, recent100Percent, loading]);
 
-  // Extract recent achievements from all games
   const recentAchievements = useMemo(() => {
     const allAchievements: Array<{
       game: string;
@@ -259,8 +250,6 @@ function Games() {
         return dateB - dateA;
       })
       .filter((achievement) => {
-        // Collapse near-duplicate rows surfaced by provider adapters
-        // (audit #8: the hub repeated the same description twice).
         const id = `${achievement.game}\u0000${achievement.name}\u0000${cleanAchievementDescription(achievement.description).toLowerCase()}`;
         const isDuplicate = seenAchievements.has(id);
         if (!isDuplicate) seenAchievements.add(id);
@@ -269,7 +258,6 @@ function Games() {
       .slice(0, 5);
   }, [latestPlayedGames]);
 
-  // Calculate average achievement percentage per platform
   const platformAchievements = useMemo(() => {
     const platforms: Record<
       string,
@@ -310,13 +298,11 @@ function Games() {
 
       const percentage = calculateAchievementPercentage(game);
 
-      // Only count games with valid percentages (not NaN and > 0 or has achievement data)
       if (!isNaN(percentage) && isFinite(percentage)) {
         platforms[platform].percentage += percentage;
         platformCounts[platform]++;
       }
 
-      // For PSN, aggregate trophy counts (only if game has trophy data)
       if (platform === "psn" && isPsnGame(game) && platforms.psn.psnTrophies) {
         platforms.psn.psnTrophies.bronze.unlocked +=
           game.unlocked_achievements?.bronze || 0;
@@ -337,7 +323,6 @@ function Games() {
       }
     });
 
-    // Calculate averages
     Object.keys(platforms).forEach((platform) => {
       if (platformCounts[platform] > 0) {
         const avg = platforms[platform].percentage / platformCounts[platform];
@@ -351,13 +336,11 @@ function Games() {
     return platforms;
   }, [latestPlayedGames, getGamePlatform]);
 
-  // Get top played games (top 5)
   const topPlayedGames = useMemo(
     () => consolidatedGames.slice(0, 5).map((game) => game.sources[0].raw),
     [consolidatedGames],
   );
 
-  // Platform configuration (shared with platformHelper)
   const platformConfig = SERVICE_PLATFORM_CONFIG;
 
   const getGameImageUrl = (
@@ -427,7 +410,6 @@ function Games() {
   };
 
   const getPlatformIconSize = (platformKey: string): number => {
-    // Xbox icon needs to be bigger
     return platformKey === "xbox" ? 60 : 24;
   };
 
@@ -810,8 +792,6 @@ function Games() {
                             component={RouterLink}
                             to={`/games/title/${encodeURIComponent(game.name)}`}
                             onClick={(e) => {
-                              // Capture card position for shared element transition.
-                              // Navigation is handled by the anchor itself.
                               const cardElement = e.currentTarget;
                               const rect =
                                 cardElement.getBoundingClientRect();
@@ -1228,8 +1208,6 @@ function Games() {
                             component={RouterLink}
                             to={`/games/title/${encodeURIComponent(game.name)}`}
                             onClick={(e) => {
-                              // Capture card position for shared element transition.
-                              // Navigation is handled by the anchor itself.
                               const cardElement = e.currentTarget;
                               const rect = cardElement.getBoundingClientRect();
                               const cardPosition = {
@@ -1663,7 +1641,6 @@ function Games() {
                             <TableRow
                               key={`${game.appid}-${index}`}
                               onClick={(e) => {
-                                // Capture card position for shared element transition
                                 const cardElement = e.currentTarget;
                                 const rect =
                                   cardElement.getBoundingClientRect();

@@ -7,8 +7,6 @@ import { theme } from "../theme";
 import AllGames from "../pages/games/pages/allGames";
 import { mockAuthenticatedFetch } from "./setup";
 
-// Minimal smoke test: proves the Vitest + RTL toolchain, the authenticatedFetch
-// mock, and the router/theme providers work end to end against a real page.
 describe("test infrastructure", () => {
   it("renders All Games with mocked provider library data", async () => {
     const steamLibrary = {

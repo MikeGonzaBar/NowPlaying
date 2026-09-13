@@ -5,7 +5,7 @@ interface ShowMoreButtonProps {
   showAll: boolean;
   totalItems: number;
   onShowMore: () => void;
-  itemType: string; // "Artists", "Albums", "Tracks"
+  itemType: string;
   syncLabel?: string;
 }
 

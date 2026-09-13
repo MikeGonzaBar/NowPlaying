@@ -20,8 +20,6 @@ const LegacyGameIdRedirect: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
   const directRouteId = id ? String(id) : undefined;
 
-  // Platform intentionally omitted: the endpoint scans every provider for the
-  // id, which is exactly what a legacy bookmark needs.
   const { game, loading, error } = useGameDetailById(
     API_CONFIG.BASE_URL,
     directRouteId,
@@ -29,8 +27,6 @@ const LegacyGameIdRedirect: React.FC = () => {
   );
 
   if (game?.title) {
-    // resolve once → stable canonical destination. `replace` keeps browser
-    // back behavior to a single hop instead of stacking redirects.
     return (
       <Navigate
         to={`/games/title/${encodeURIComponent(game.title)}`}

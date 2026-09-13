@@ -1,15 +1,13 @@
-import { SteamGame, PsnGame, RetroAchievementsGame, XboxGame } from "./types"; // Adjust the import path as necessary
+import { SteamGame, PsnGame, RetroAchievementsGame, XboxGame } from "./types";
 import {
   isPsnGame,
   isXboxGame,
   isRetroAchievementsGame,
   isSteamGame,
 } from "./typeGuards";
-import { formatLongDate } from "../../../utils/dates";
 
 export const parseDate = (dateString: string): Date => {
   if (!dateString) {
-    // Return fallback invalid timestamp (Jan 1, 1970)
     return new Date(1970, 0, 1);
   }
   if (dateString.includes("/")) {
@@ -20,23 +18,19 @@ export const parseDate = (dateString: string): Date => {
 };
 
 export const getPlaytime = (game: any): number => {
-  // 1) Steam games
   if ("playtime_forever" in game) {
     return game.playtime_forever;
   }
 
-  // 2) Xbox-style games: platform contains one of these → total_playtime is already minutes
   const xboxPlatforms = ["XboxOne", "XboxSeries", "PC", "Xbox360"];
   if (
     "platform" in game &&
     xboxPlatforms.some((plat) => (game.platform as string).includes(plat))
   ) {
-    // cast to number, default 0 if it's missing/NaN
     const mins = parseInt(game.total_playtime as string, 10);
     return isNaN(mins) ? 0 : mins;
   }
 
-  // 3) PSN / other "X days, HH:MM:SS" strings
   if ("total_playtime" in game && typeof game.total_playtime === "string") {
     const parts = game.total_playtime.split(/[:, ]+/);
     const hasDays = parts.includes("days");
@@ -46,12 +40,7 @@ export const getPlaytime = (game: any): number => {
     return days * 24 * 60 + hours * 60 + mins;
   }
 
-  // anything else, give up
   return 0;
-};
-
-export const formatPlaytime = (game: any): string => {
-  return formatMinutesCompact(getPlaytime(game));
 };
 
 export const calculateAchievementPercentage = (
@@ -93,43 +82,6 @@ export const calculateAchievementPercentage = (
 };
 
 /**
- * Formats playtime in a compact "Xd Yh" format (e.g., "41d 11h")
- * Returns days and hours only, omitting minutes for cleaner display
- */
-export const formatPlaytimeCompact = (
-  game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame,
-): string => {
-  return formatMinutesCompact(getPlaytime(game));
-};
-
-/**
- * Gets the rank of a game in the "Most Played" list
- * Returns the 1-based rank, or null if the game is not in the list
- */
-export const getGameRank = (
-  game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame,
-  mostPlayed: (SteamGame | PsnGame | RetroAchievementsGame | XboxGame)[],
-): number | null => {
-  const gameId = String(game.appid);
-  const index = mostPlayed.findIndex((g) => String(g.appid) === gameId);
-  return index >= 0 ? index + 1 : null;
-};
-
-/**
- * Formats a date string to "Last played on [Date]" format
- */
-export const formatLastPlayedDate = (dateString: string): string => {
-  if (!dateString) return "Never played";
-
-  const date = parseDate(dateString);
-  if (date.getTime() === new Date(1970, 0, 1).getTime()) {
-    return "Never played";
-  }
-
-  return formatLongDate(date);
-};
-
-/**
  * Extracts all achievement unlock dates from a game
  * Returns array of Date objects for unlocked achievements
  */
@@ -145,7 +97,6 @@ export const getAchievementUnlockDates = (
   game.achievements.forEach((achievement: any) => {
     if (achievement.unlocked && achievement.unlock_time) {
       const date = parseDate(achievement.unlock_time);
-      // Filter out invalid dates
       if (date.getTime() !== new Date(1970, 0, 1).getTime()) {
         unlockDates.push(date);
       }
@@ -169,7 +120,6 @@ export const groupAchievementsByDate = (
   const startDate = new Date(today);
   startDate.setDate(startDate.getDate() - days);
 
-  // Initialize all days with 0 count
   const dailyCounts: Map<string, number> = new Map();
   for (let i = 0; i < days; i++) {
     const date = new Date(startDate);
@@ -178,14 +128,12 @@ export const groupAchievementsByDate = (
     dailyCounts.set(dateKey, 0);
   }
 
-  // Count unlocks per day
   unlockDates.forEach((date) => {
     const dateKey = date.toISOString().split("T")[0];
     const currentCount = dailyCounts.get(dateKey) || 0;
     dailyCounts.set(dateKey, currentCount + 1);
   });
 
-  // Convert to array and sort by date
   const result: Array<{ date: Date; count: number }> = [];
   dailyCounts.forEach((count, dateKey) => {
     result.push({
@@ -206,20 +154,16 @@ export const parsePlatforms = (
 ): string[] => {
   const platforms: string[] = [];
 
-  // Xbox games have comma-separated platform string
   if (isXboxGame(game) && game.platform) {
     const platformList = game.platform.split(",").map((p) => p.trim());
     platforms.push(...platformList);
   }
-  // PSN games have single platform
   else if (isPsnGame(game) && game.platform) {
     platforms.push(game.platform);
   }
-  // RetroAchievements games have console_name
   else if (isRetroAchievementsGame(game) && game.console_name) {
     platforms.push(game.console_name);
   }
-  // Steam games - default to Steam
   else {
     platforms.push("Steam");
   }
@@ -287,7 +231,9 @@ export const parsePlaytimeMinutes = (
     };
   }
 
-  const clockParts = normalized.match(/^(?:(\d+)\s+days?,?\s+)?(\d+):(\d+)(?::(\d+))?$/);
+  const clockParts = normalized.match(
+    /^(?:(\d+)\s+days?,?\s+)?(\d+):(\d+)(?::(\d+))?$/,
+  );
   if (clockParts) {
     const days = Number(clockParts[1] || 0);
     const hoursOrMinutes = Number(clockParts[2]);
@@ -330,10 +276,11 @@ export const cleanAchievementDescription = (text: string): string => {
   const value = (text || "").trim();
   if (!value) return value;
 
-  // Collapse sequences of terminal punctuation created by concatenation.
-  let cleaned = value.replace(/\.{2,}/g, ".").replace(/\.\s*$/g, ".").trim();
+  let cleaned = value
+    .replace(/\.{2,}/g, ".")
+    .replace(/\.\s*$/g, ".")
+    .trim();
 
-  // If the whole string is exactly two copies of itself, keep one copy.
   if (cleaned.length >= 2 && cleaned.length % 2 === 0) {
     const half = cleaned.length / 2;
     if (cleaned.slice(0, half) === cleaned.slice(half)) {
@@ -342,18 +289,4 @@ export const cleanAchievementDescription = (text: string): string => {
   }
 
   return cleaned.trim();
-};
-
-/**
- * Joins a list of provider names with English list grammar:
- * `["Steam"]` → "Steam"; `["Steam","Xbox"]` → "Steam and Xbox";
- * `["Steam","PlayStation","Xbox"]` → "Steam, PlayStation, and Xbox"
- * (audit #8: "across Steam, and Xbox" was ungrammatical).
- */
-export const formatProviderList = (names: string[]): string => {
-  const unique = [...new Set(names.map((name) => name.trim()).filter(Boolean))];
-  if (unique.length === 0) return "";
-  if (unique.length === 1) return unique[0];
-  if (unique.length === 2) return `${unique[0]} and ${unique[1]}`;
-  return `${unique.slice(0, -1).join(", ")}, and ${unique[unique.length - 1]}`;
 };

@@ -10,7 +10,7 @@ logger = logging.getLogger("steam")
 class Game(models.Model):
     """Stored Steam game owned by a local user."""
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='steam_games')  # Allow null initially for migration
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='steam_games')
     appid = models.PositiveIntegerField()
     name = models.CharField(max_length=255)
     playtime_forever = models.PositiveIntegerField(default=0)
@@ -21,13 +21,13 @@ class Game(models.Model):
     content_descriptorids = models.JSONField(default=list, blank=True)
 
     class Meta:
-        unique_together = ('user', 'appid')  # A game can appear multiple times, but only once per user
+        unique_together = ('user', 'appid')
         indexes = [
-            models.Index(fields=['user', '-last_played']),  # For latest played games
-            models.Index(fields=['user', '-playtime_forever']),  # For most played games
-            models.Index(fields=['user', 'appid']),  # For game lookups
-            models.Index(fields=['last_played']),  # For date filtering
-            models.Index(fields=['playtime_forever']),  # For playtime sorting
+            models.Index(fields=['user', '-last_played']),
+            models.Index(fields=['user', '-playtime_forever']),
+            models.Index(fields=['user', 'appid']),
+            models.Index(fields=['last_played']),
+            models.Index(fields=['playtime_forever']),
         ]
 
     def __str__(self) -> str:
@@ -36,16 +36,12 @@ class Game(models.Model):
 
     def convert_playtime(self) -> str:
         """Return total Steam playtime formatted as hours and minutes."""
-        # Convert minutes into a formatted time string: "Xh Ym Zs"
         playtime_minutes = self.playtime_forever
         hours, minutes = divmod(playtime_minutes, 60)
-        # Converting minutes (remaining) to seconds is optional;
-        # here we keep the minutes part intact.
         return f"{hours}h {minutes}m"
     
     def save(self, *args: object, **kwargs: object) -> None:
         """Update formatted playtime before saving."""
-        # Automatically update the formatted playtime
         self.playtime_formatted = self.convert_playtime()
         super().save(*args, **kwargs)
 
@@ -53,7 +49,7 @@ class Achievement(models.Model):
     """Stored Steam achievement for a game."""
 
     game = models.ForeignKey(Game, related_name="achievements", on_delete=models.CASCADE)
-    name = models.CharField(max_length=255)  # The display name from Steam
+    name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     image = models.URLField(max_length=500, blank=True)
     unlocked = models.BooleanField(default=False)
@@ -131,11 +127,10 @@ class SteamAPI:
             steam_id (str): The Steam ID of the player
             user (User, optional): The Django User model instance to associate with this game
         """
-        # Create or update the Game instance
         logger = logging.getLogger(__name__)
         game_instance,_ = Game.objects.update_or_create(
             appid=game_data["appid"],
-            user=user,  # Add user to query criteria
+            user=user,
             defaults={
                 "name": game_data.get("name", ""),
                 "playtime_forever": game_data.get("playtime_forever", 0),
@@ -145,14 +140,12 @@ class SteamAPI:
                     game_data.get("rtime_last_played", 0), timezone.utc
                 ) if game_data.get("rtime_last_played") else None,
                 "content_descriptorids": game_data.get("content_descriptorids", []),
-                "user": user,  # Add user to defaults as well
+                "user": user,
             }
         )
         
-        # Fetch achievements
         global_achievements, error = cls.fetch_global_achievements(game_data["appid"], steam_api_key)
         if error:
-            # You might want to log the error or handle it appropriately here.
             return {"message": error}
 
         player_achievements, error = cls.fetch_player_achievements(game_data["appid"], steam_id, steam_api_key)
@@ -161,7 +154,6 @@ class SteamAPI:
 
         unlocked_count = 0
 
-        # Loop through each global achievement and update/create related achievement records
         from django.db import transaction
         
         try:
@@ -190,7 +182,6 @@ class SteamAPI:
                         )
                     except Exception as e:
                         logger.error(f"Error updating achievement {achievement.get('displayName', 'Unknown')}: {str(e)}")
-                        # Continue with next achievement instead of failing completely
                         continue
         except Exception as e:
             logger.error(f"Critical database error during achievement update: {str(e)}")
@@ -236,7 +227,6 @@ class SteamAPI:
         formatted_games = []
         for game in games:
             update_result = cls.update_game_and_achievements(game, steam_id, steam_api_key, user)
-            # Retrieve fresh game data along with achievements from the database
             game_instance = Game.objects.get(appid=game["appid"], user=user)
             achievements = list(game_instance.achievements.all().values(
                 "name", "description", "image", "unlocked", "unlock_time"

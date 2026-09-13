@@ -19,9 +19,6 @@ function TopTracks() {
   });
   const [showAll, setShowAll] = useState(false);
 
-  // Canonical href per track: carries the recording_id so the detail page
-  // resolves the exact artist + title recording instead of title alone.
-  // Rendered as a real anchor (router Link), not a div onClick.
   const trackHref = (track: Track) => {
     const recordingId = track.recording_id
       ? `?recording_id=${encodeURIComponent(track.recording_id)}`
@@ -255,8 +252,6 @@ function TopTracks() {
                         fontWeight: 700,
                         color: "#fff",
                         textTransform: "uppercase",
-                        // Wrap long titles to two lines instead of forcing a
-                        // nowrap minimum width that overflows small screens.
                         display: "-webkit-box",
                         WebkitBoxOrient: "vertical",
                         WebkitLineClamp: 2,

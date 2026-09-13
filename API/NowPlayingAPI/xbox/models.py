@@ -4,7 +4,6 @@ from django.contrib.auth.models import User
 import logging
 import http_client
 
-# Set up logging
 logger = logging.getLogger("xbox")
 
 class XboxGame(models.Model):
@@ -20,7 +19,7 @@ class XboxGame(models.Model):
     img_icon_url = models.URLField(max_length=500, blank=True)
     
     class Meta:
-        unique_together = ('user', 'appid')  # A game can appear multiple times, but only once per user
+        unique_together = ('user', 'appid')
     
     def __str__(self) -> str:
         """Return the Xbox game name."""
@@ -133,16 +132,15 @@ class XboxAPI:
         last_played_str = title_history.get("lastTimePlayed")
 
         if not last_played_str:
-            return True  # or False depending on your app logic
+            return True
 
         last_played = datetime.fromisoformat(last_played_str.replace("Z", "+00:00"))
 
         try:
             existing = XboxGame.objects.get(appid=appid, user=user)
         except XboxGame.DoesNotExist:
-            return True  # Not in DB → needs to be created
+            return True
 
-        # If last_played from API is newer than in DB → needs update
         if last_played > existing.last_played:
             return True
 
@@ -249,7 +247,6 @@ class XboxAPI:
                                 logger.error(f"Error updating Xbox achievement {ach.get('name', 'Unknown')}: {str(e)}")
                                 continue
                         
-                        # Get fresh data from database
                         achievements = game_instance.achievements.all()
                         
                         games_info.append({
@@ -270,11 +267,10 @@ class XboxAPI:
                     else:
                         logger.info(f"Skipping {game['name']} - No update needed")
                         
-                        # Add to games_info even if not updated
                         game_instance = XboxGame.objects.get(appid=game["titleId"], user=user)
                         achievements = game_instance.achievements.all()
                         unlocked_count = achievements.filter(unlocked=True).count()
-                        
+
                         games_info.append({
                             "appid": game_instance.appid,
                             "name": game_instance.name,
@@ -306,9 +302,14 @@ class XboxAPI:
             raise ValueError("User must be provided to retrieve their games.")
             
         games_info = []
-        for game in XboxGame.objects.filter(user=user).order_by("-last_played"):
-            achievements = game.achievements.all()
-            unlocked_count = achievements.filter(unlocked=True).count()
+        games = (
+            XboxGame.objects.filter(user=user)
+            .order_by("-last_played")
+            .prefetch_related("achievements")
+        )
+        for game in games:
+            achievements = list(game.achievements.all())
+            unlocked_count = sum(achievement.unlocked for achievement in achievements)
             games_info.append({
                 "appid": game.appid,
                 "name": game.name,
@@ -317,11 +318,19 @@ class XboxAPI:
                 "first_played": game.first_played,
                 "last_played": game.last_played,
                 "img_icon_url": game.img_icon_url,
-                "total_achievements": achievements.count(),
+                "total_achievements": len(achievements),
                 "unlocked_achievements": unlocked_count,
-                "locked_achievements": achievements.count() - unlocked_count,
-                "achievements": list(
-                    achievements.values("name", "description", "image", "unlocked", "unlock_time", "achievement_value")
-                ),
+                "locked_achievements": len(achievements) - unlocked_count,
+                "achievements": [
+                    {
+                        "name": achievement.name,
+                        "description": achievement.description,
+                        "image": achievement.image,
+                        "unlocked": achievement.unlocked,
+                        "unlock_time": achievement.unlock_time,
+                        "achievement_value": achievement.achievement_value,
+                    }
+                    for achievement in achievements
+                ],
             })
         return {"games": games_info}

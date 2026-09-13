@@ -78,8 +78,6 @@ export const SERVICE_PLATFORM_CONFIG = {
   retroachievements: { name: "RetroAchievements", color: "#ff6b35" },
 } as const;
 
-export type ServicePlatformKey = keyof typeof SERVICE_PLATFORM_CONFIG;
-
 export const getPlatformMatch = (
   game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame,
 ) => {

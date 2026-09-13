@@ -30,9 +30,6 @@ function TrackDetail() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const decodedName = name ? decodeURIComponent(name) : "";
-  // Canonical identity: recording_id (artist + exact title) when provided by
-  // the leaderboard/album/artist links, falling back to name-only for legacy
-  // URLs.
   const recordingId = searchParams.get("recording_id") || undefined;
 
   const { data: track, loading } = useMusicDetail<TrackDetailData>({
@@ -146,7 +143,7 @@ function TrackDetail() {
           </Typography>
         )}
 
-        {/* Stats */}
+
         {track && (
           <Box
             sx={{
@@ -232,7 +229,7 @@ function TrackDetail() {
           </Box>
         )}
 
-        {/* Play history (audit #5: sampled-vs-complete disclosure + load more) */}
+
         <PlayHistorySection
           type="track"
           name={decodedName}

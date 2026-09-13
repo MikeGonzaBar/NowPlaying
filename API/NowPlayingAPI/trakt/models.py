@@ -25,7 +25,6 @@ def _parse_trakt_datetime(value):
         return None
 
 
-# Create your models here.
 
 
 class TraktToken(models.Model):
@@ -35,11 +34,11 @@ class TraktToken(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trakt_tokens')
     access_token = models.CharField(max_length=255)
     refresh_token = models.CharField(max_length=255)
-    expires_at = models.DateTimeField()  # When the token expires
+    expires_at = models.DateTimeField()
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('user',)  # Each user can have only one token
+        unique_together = ('user',)
 
     def is_expired(self) -> bool:
         """Return whether the token has expired."""
@@ -63,19 +62,19 @@ class Movie(models.Model):
     studios = models.JSONField(default=list, blank=True)
     runtime = models.IntegerField(null=True, blank=True)
     rating = models.FloatField(null=True, blank=True)
-    plays = models.IntegerField(default=0)  # Number of plays
+    plays = models.IntegerField(default=0)
     last_watched_at = models.DateTimeField(
         null=True, blank=True
-    )  # Last watched timestamp
+    )
     last_updated_at = models.DateTimeField(
         null=True, blank=True
-    )  # Last updated timestamp
-    imdb_id = models.CharField(max_length=255, null=True, blank=True)  # IMDb ID
-    tmdb_id = models.CharField(max_length=255, null=True, blank=True)  # TMDb ID
-    slug = models.CharField(max_length=255, null=True, blank=True)  # Trakt slug
+    )
+    imdb_id = models.CharField(max_length=255, null=True, blank=True)
+    tmdb_id = models.CharField(max_length=255, null=True, blank=True)
+    slug = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
-        unique_together = ('user', 'trakt_id')  # Each user can have their own copy of the same movie
+        unique_together = ('user', 'trakt_id')
 
     def __str__(self) -> str:
         """Return the movie title and owner."""
@@ -91,7 +90,7 @@ class MovieWatch(models.Model):
     watched_at = models.DateTimeField(default=timezone.now)
     progress = models.FloatField(
         default=100.0
-    )  # Percentage watched (100 means finished)
+    )
 
     def __str__(self) -> str:
         """Return the watched movie and timestamp."""
@@ -104,7 +103,6 @@ class Show(models.Model):
     """
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trakt_shows')
     trakt_id = models.CharField(max_length=100)
-    slug = models.CharField(max_length=255, null=True, blank=True)  # Trakt slug
     tmdb_id = models.CharField(max_length=255, null=True, blank=True)
     title = models.CharField(max_length=255)
     year = models.IntegerField(null=True, blank=True)
@@ -114,13 +112,13 @@ class Show(models.Model):
     status = models.CharField(max_length=50, null=True, blank=True)
     runtime = models.IntegerField(null=True, blank=True)
     rating = models.FloatField(null=True, blank=True)
-    slug = models.CharField(max_length=255, null=True, blank=True)  # Trakt slug
+    slug = models.CharField(max_length=255, null=True, blank=True)
     last_watched_at = models.DateTimeField(
         null=True, blank=True
-    )  # Last watched timestamp
+    )
 
     class Meta:
-        unique_together = ('user', 'trakt_id')  # Each user can have their own copy of the same show
+        unique_together = ('user', 'trakt_id')
 
     def __str__(self) -> str:
         """Return the show title and owner."""
@@ -135,8 +133,8 @@ class Season(models.Model):
     show = models.ForeignKey(Show, on_delete=models.CASCADE, related_name="seasons")
     season_number = models.IntegerField()
     image_url = models.URLField(null=True, blank=True)
-    title = models.CharField(max_length=255, null=True, blank=True)  # Optional title
-    air_date = models.DateField(null=True, blank=True)  # Optional air date
+    title = models.CharField(max_length=255, null=True, blank=True)
+    air_date = models.DateField(null=True, blank=True)
 
     class Meta:
         unique_together = ("show", "season_number")
@@ -159,23 +157,23 @@ class Episode(models.Model):
     title = models.CharField(max_length=255, null=True, blank=True)
     image_url = models.URLField(null=True, blank=True)
     air_date = models.DateField(null=True, blank=True)
-    plays = models.IntegerField(default=0)  # Number of times the episode was watched
-    watched_at = models.DateTimeField(null=True, blank=True)  # Last watched timestamp
+    plays = models.IntegerField(default=0)
+    watched_at = models.DateTimeField(null=True, blank=True)
     last_updated_at = models.DateTimeField(
         null=True, blank=True
-    )  # Last updated timestamp
-    overview = models.TextField(null=True, blank=True)  # Episode overview
-    rating = models.FloatField(null=True, blank=True)  # Episode rating
-    runtime = models.IntegerField(null=True, blank=True)  # Episode runtime in minutes
+    )
+    overview = models.TextField(null=True, blank=True)
+    rating = models.FloatField(null=True, blank=True)
+    runtime = models.IntegerField(null=True, blank=True)
     episode_type = models.CharField(
         max_length=50, null=True, blank=True
-    )  # Episode type (e.g., "series_premiere")
+    )
     ids = models.JSONField(
         null=True, blank=True
-    )  # Store all IDs (trakt, tvdb, imdb, tmdb, etc.)
+    )
     available_translations = models.JSONField(
         null=True, blank=True
-    )  # List of available translations
+    )
 
     class Meta:
         unique_together = ("show", "season", "episode_number")
@@ -196,7 +194,7 @@ class EpisodeWatch(models.Model):
     watched_at = models.DateTimeField(default=timezone.now)
     progress = models.FloatField(
         default=100.0
-    )  # Percentage progress (100 means finished)
+    )
 
     def __str__(self) -> str:
         """Return the watched episode and timestamp."""
@@ -224,7 +222,7 @@ def refresh_trakt_token(token_instance: TraktToken) -> TraktToken:
         "refresh_token": token_instance.refresh_token,
         "client_id": client_id,
         "client_secret": client_secret,
-        "redirect_uri": settings.TRAKT_REDIRECT_URI,  # This can stay in settings as it's app-level config
+        "redirect_uri": settings.TRAKT_REDIRECT_URI,
         "grant_type": "refresh_token",
     }
     response = http_client.post(url, json=data, logger_name="trakt")
@@ -445,7 +443,6 @@ def _process_single_movie(user: User, item: dict[str, object]) -> dict[str, obje
     if not trakt_id or trakt_id == "None":
         return None
     
-    # Handle last_updated_at - it might not exist in the item
     api_last_updated = None
     if item.get("last_updated_at"):
         try:
@@ -458,7 +455,6 @@ def _process_single_movie(user: User, item: dict[str, object]) -> dict[str, obje
     except Movie.DoesNotExist:
         movie_obj = None
     
-    # Skip if movie hasn't been updated on Trakt, unless we need to backfill image or analytics metadata.
     needs_image_backfill = movie_obj and not movie_obj.image_url
     needs_metadata_backfill = movie_obj and any([
         not movie_obj.genres,
@@ -477,7 +473,7 @@ def _process_single_movie(user: User, item: dict[str, object]) -> dict[str, obje
     ):
         return {"skipped": True, "reason": "No updates needed"}
 
-    plays = item.get("plays", 0)  # Number of times the movie was watched
+    plays = item.get("plays", 0)
     last_updated_at = item.get("last_updated_at")
     watched_at = item.get("last_watched_at")
     title = movie_data.get("title")
@@ -487,7 +483,6 @@ def _process_single_movie(user: User, item: dict[str, object]) -> dict[str, obje
     tmdb_id = movie_data.get("ids", {}).get("tmdb")
     tmdb_metadata = fetch_tmdb_movie_metadata(tmdb_id)
     
-    # Handle images safely - Trakt API may not return images or may return them in different formats
     poster = None
     images = movie_data.get("images")
     if images and isinstance(images, dict):
@@ -495,15 +490,12 @@ def _process_single_movie(user: User, item: dict[str, object]) -> dict[str, obje
         if isinstance(poster_data, dict):
             poster = poster_data.get("full")
     
-    # If Trakt didn't provide an image, try fetching from TMDB
     if not poster:
         poster = tmdb_metadata.get("poster") or fetch_tmdb_poster_for_movie(tmdb_id)
     
-    # If we're backfilling and still don't have a poster, keep existing if it exists
     if needs_image_backfill and not poster and movie_obj and movie_obj.image_url:
         poster = movie_obj.image_url
 
-    # Update or create the movie record
     movie_obj, _ = Movie.objects.update_or_create(
         trakt_id=trakt_id,
         user=user,
@@ -525,7 +517,6 @@ def _process_single_movie(user: User, item: dict[str, object]) -> dict[str, obje
         },
     )
 
-    # Create a watch record for this movie
     MovieWatch.objects.create(
         movie=movie_obj,
         watched_at=make_timezone_aware(_parse_trakt_datetime(watched_at)) if watched_at else None,
@@ -546,7 +537,6 @@ def fetch_latest_watched_movies(user: User) -> list[dict[str, object]]:
     sorted_data = sorted(data, key=lambda x: x.get("last_updated_at"), reverse=True)
 
     for item in sorted_data:
-        # Use the helper function to process this movie
         _process_single_movie(user, item)
 
     return sorted_data
@@ -559,8 +549,6 @@ def fetch_single_movie(user: User, trakt_id: str | int) -> dict[str, object]:
     """
     headers = get_trakt_headers(user)
 
-    # Trakt does NOT support GET /movies/{id}/watched (405). For per-user watched info,
-    # reuse the same endpoint as the bulk sync and filter down to the requested movie.
     url = "https://api.trakt.tv/users/me/watched/movies?extended=full"
     response = http_client.get(url, headers=headers, logger_name="trakt")
 
@@ -585,7 +573,6 @@ def fetch_single_movie(user: User, trakt_id: str | int) -> dict[str, object]:
             break
 
     if not item:
-        # Not in watched list; still refresh base movie metadata so we can backfill poster/etc.
         movie_url = f"https://api.trakt.tv/movies/{trakt_id}?extended=full"
         movie_response = http_client.get(movie_url, headers=headers, logger_name="trakt")
         if movie_response.status_code != 200:
@@ -601,7 +588,6 @@ def fetch_single_movie(user: User, trakt_id: str | int) -> dict[str, object]:
             "last_updated_at": None,
         }
     
-    # Process the movie using the helper function
     result = _process_single_movie(user, item)
     
     if result and result.get("skipped"):
@@ -634,7 +620,6 @@ def _process_single_show(
     title = show_data.get("title")
     tmdb_id = show_data.get("ids", {}).get("tmdb")
     
-    # Safely parse last_watched_at, handling None or missing values
     last_watched_at_str = item.get("last_watched_at")
     api_last = None
     if last_watched_at_str:
@@ -650,7 +635,6 @@ def _process_single_show(
         last_db = None
     logger.info("Received show %s API last=%s DB last=%s", title, api_last, last_db)
     
-    # Skip if show hasn't been updated on Trakt, unless we need to backfill image or analytics metadata.
     needs_image_backfill = existing and not existing.image_url
     needs_metadata_backfill = existing and any([
         not existing.genres,
@@ -665,8 +649,6 @@ def _process_single_show(
     year = show_data.get("year")
     slug = show_data.get("ids", {}).get("slug")
     tmdb_metadata = fetch_tmdb_show_metadata(tmdb_id)
-    # Extract the TMDb ID from the response
-    # Handle images safely - Trakt API may not return images or may return them in different formats
     poster = None
     images = show_data.get("images")
     if images and isinstance(images, dict):
@@ -674,15 +656,12 @@ def _process_single_show(
         if isinstance(poster_data, dict):
             poster = poster_data.get("full")
     
-    # If Trakt didn't provide an image, try fetching from TMDB
     if not poster:
         poster = tmdb_metadata.get("poster") or fetch_tmdb_poster_for_show(tmdb_id)
     
-    # If we're backfilling and still don't have a poster, keep existing if it exists
     if needs_image_backfill and not poster and existing and existing.image_url:
         poster = existing.image_url
     
-    # Update or create the show record
     show_defaults = {
         "title": title,
         "year": year,
@@ -695,7 +674,6 @@ def _process_single_show(
         "runtime": show_data.get("runtime") or tmdb_metadata.get("runtime"),
         "rating": show_data.get("rating") or tmdb_metadata.get("rating"),
     }
-    # Only update last_watched_at if we have a valid date
     if api_last:
         show_defaults["last_watched_at"] = api_last
     
@@ -705,10 +683,8 @@ def _process_single_show(
         defaults=show_defaults,
     )
 
-    # Initialize the latest watched timestamp for the show
     latest_watched_at = api_last if api_last else None
 
-    # Loop through each season in the result
     seasons = item.get("seasons", [])
     for season in seasons:
         season_number = season.get("number")
@@ -716,7 +692,6 @@ def _process_single_show(
             show=show_obj, season_number=season_number
         )
 
-        # Loop through each episode in the season
         episodes = season.get("episodes", [])
         for episode in episodes:
             episode_number = episode.get("number")
@@ -724,7 +699,6 @@ def _process_single_show(
             plays = episode.get("plays", 0)
             logger.info("Processing show %s S:%s E:%s", title, season_number, episode_number)
 
-            # Make an extra API call to fetch detailed info for the episode
             ep_url = f"https://api.trakt.tv/shows/{trakt_id}/seasons/{season_number}/episodes/{episode_number}?extended=full"
             ep_response = http_client.get(ep_url, headers=headers, logger_name="trakt")
             if ep_response.status_code == 200:
@@ -740,7 +714,6 @@ def _process_single_show(
                 available_translations = ep_details.get(
                     "available_translations", []
                 )
-                # Parse the air_date to extract only the date
                 if air_date:
                     air_date = datetime.fromisoformat(
                         air_date.replace("Z", "+00:00")
@@ -751,7 +724,7 @@ def _process_single_show(
                 if tmdb_id:
                     tmdb_api_key = (
                         settings.TMDB_API_KEY
-                    )  # Ensure you have this in your settings
+                    )
                     tmdb_url = f"https://api.themoviedb.org/3/tv/{tmdb_id}/season/{season_number}/episode/{episode_number}?api_key={tmdb_api_key}&language=en-US"
                     tmdb_response = http_client.get(tmdb_url, logger_name="trakt")
                     if tmdb_response.status_code == 200:
@@ -762,7 +735,6 @@ def _process_single_show(
                                 f"https://image.tmdb.org/t/p/w780{still_path}"
                             )
 
-                # Update or create the episode record
                 episode_obj, _ = Episode.objects.update_or_create(
                     show=show_obj,
                     season=season_obj,
@@ -783,7 +755,6 @@ def _process_single_show(
                     },
                 )
 
-                # Update the latest watched timestamp for the show
                 if watched_at:
                     try:
                         watched_at_dt = timezone.datetime.fromisoformat(
@@ -794,8 +765,7 @@ def _process_single_show(
                     except (ValueError, TypeError, AttributeError) as e:
                         logger.warning(f"Error parsing watched_at for episode: {e}")
 
-                # Record the watch event
-                progress = 100.0  # Adjust if you receive partial progress
+                progress = 100.0
                 try:
                     EpisodeWatch.objects.create(
                         episode=episode_obj,
@@ -804,9 +774,7 @@ def _process_single_show(
                     )
                 except Exception as e:
                     logger.warning(f"Error creating EpisodeWatch: {e}")
-                    # Continue processing other episodes even if one fails
 
-    # Update the show's last_watched_at field
     if latest_watched_at:
         show_obj.last_watched_at = latest_watched_at
         show_obj.save()
@@ -823,14 +791,12 @@ def fetch_latest_watched_shows(user: User) -> dict[str, object] | list[object]:
     headers = get_trakt_headers(user)
     response = http_client.get(url, headers=headers, logger_name="trakt")
     
-    # Check if the response is successful
     if response.status_code != 200:
         error_msg = f"Trakt API returned status {response.status_code}: {response.text}"
         logger.error(error_msg)
         raise Exception(error_msg)
     
     data = response.json()
-    # Handle case where data might be empty or not a list
     if not isinstance(data, list):
         logger.warning(f"Unexpected response format from Trakt API: {type(data)}")
         return []
@@ -841,10 +807,8 @@ def fetch_latest_watched_shows(user: User) -> dict[str, object] | list[object]:
         reverse=True
     )
     for item in sorted_data:
-        # Use the helper function to process this show
         _process_single_show(user, item, headers)
 
-    # Return a simple success message instead of the full data
     return {"message": "Shows fetched and stored successfully", "count": len(sorted_data)}
 
 
@@ -856,20 +820,16 @@ def fetch_single_show(user: User, trakt_id: str | int) -> dict[str, object]:
     """
     headers = get_trakt_headers(user)
     
-    # First, try to fetch the show's watched data
     url = f"https://api.trakt.tv/shows/{trakt_id}/watched?extended=full"
     response = http_client.get(url, headers=headers, logger_name="trakt")
     
-    # If show is not watched (404) or method not allowed (405), fetch show details instead
     if response.status_code in [404, 405]:
         logger.info(f"Show {trakt_id} not in watched list, fetching show details instead")
         
-        # Fetch show details
         show_url = f"https://api.trakt.tv/shows/{trakt_id}?extended=full"
         show_response = http_client.get(show_url, headers=headers, logger_name="trakt")
         
         if show_response.status_code == 404:
-            # Show doesn't exist in Trakt - log and return gracefully
             logger.warning(f"Show {trakt_id} does not exist in Trakt API")
             return {"message": f"Show {trakt_id} does not exist in Trakt", "trakt_id": trakt_id}
         elif show_response.status_code != 200:
@@ -879,10 +839,9 @@ def fetch_single_show(user: User, trakt_id: str | int) -> dict[str, object]:
         
         show_data = show_response.json()
         
-        # Create a mock watched response structure for _process_single_show
         data = {
             "show": show_data,
-            "seasons": [],  # No watched episodes
+            "seasons": [],
             "last_watched_at": None
         }
     elif response.status_code != 200:
@@ -892,21 +851,15 @@ def fetch_single_show(user: User, trakt_id: str | int) -> dict[str, object]:
     else:
         data = response.json()
         
-        # The response should be a single show object with seasons/episodes
         if not isinstance(data, dict) or "show" not in data:
             error_msg = f"Unexpected response format from Trakt API for show {trakt_id}"
             logger.warning(error_msg)
             raise Exception(error_msg)
     
-    # Process the show using the helper function
     result = _process_single_show(user, data, headers)
     
     if result and result.get("skipped"):
         return {"message": f"Show {result.get('title', trakt_id)} skipped - no updates needed"}
     
     return {"message": f"Show {result.get('title', trakt_id)} updated successfully", "trakt_id": trakt_id}
-
-
-
-
 

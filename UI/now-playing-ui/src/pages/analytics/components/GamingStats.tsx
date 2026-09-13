@@ -25,7 +25,6 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
     hardest_achievement,
   } = data || {};
 
-  // Calculate completion rate - placeholder for now, needs API support
   const totalGames = Object.values(platform_distribution)
     .filter((platform: any) => platform.games !== undefined)
     .reduce((sum: number, platform: any) => sum + platform.games, 0);
@@ -37,14 +36,10 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
       ).toFixed(1)
     : "0.0";
 
-  // Format gaming time - parse the formatted string or use directly
   const formatTimeString = (timeStr: string) => {
-    // If it's already formatted like "16 days, 16 hours and 35 minutes", return as is
-    // Otherwise, try to format it
     return timeStr || "Unavailable";
   };
 
-  // Platform data with icons
   const platforms = [
     {
       name: "Steam",
@@ -76,26 +71,22 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
     },
   ];
 
-  // Most played game - use API data or fallback
   const mostPlayedGame = most_played_game || {
     name: "N/A",
     image_url: null,
   };
 
-  // Hardest achievement - use API data or fallback
   const hardestAchievementData = hardest_achievement || {
     name: "N/A",
     rarity_percentage: null,
   };
 
-  // Gaming consistency - calculate from daily stats
   const daysWithGaming = comprehensive_stats.daily_stats.filter(
     (day: any) => day.games_played > 0,
   ).length;
   const totalDays = comprehensive_stats.period.days;
   const consistencyText = `Playing on ${daysWithGaming}/${totalDays} days`;
 
-  // Daily gaming activity data - use weekly_trend or calculate from daily_stats
   const dailyActivityData =
     weekly_trend && weekly_trend.length > 0
       ? weekly_trend.map((day: any) => ({

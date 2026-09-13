@@ -17,7 +17,6 @@ from datetime import timedelta
 from typing import Any
 from django.core.exceptions import ImproperlyConfigured
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(find_dotenv())
 
@@ -77,7 +76,6 @@ TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "")
 SPOTIFY_ACCESS_TOKEN = os.environ.get("SPOTIFY_ACCESS_TOKEN", "")
 
 
-# Application definition
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -105,7 +103,7 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
-    "django.middleware.gzip.GZipMiddleware",  # SAFE: Compress responses
+    "django.middleware.gzip.GZipMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -135,15 +133,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "NowPlayingAPI.wsgi.application"
 
 
-# Database
-# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.sqlite3",
-#         "NAME": BASE_DIR / "db.sqlite3",
-#     }
-# }
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -155,8 +145,6 @@ DATABASES = {
     }
 }
 
-# Password validation
-# https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -174,8 +162,6 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# Internationalization
-# https://docs.djangoproject.com/en/5.1/topics/i18n/
 
 LANGUAGE_CODE = "en-us"
 
@@ -186,15 +172,10 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# SAFE: Optimized pagination settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -203,7 +184,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 25,  # SAFE: Increased from 20 for better performance
+    'PAGE_SIZE': 25,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
@@ -223,7 +204,6 @@ SPECTACULAR_SETTINGS: dict[str, Any] = {
     'REDOC_DIST': 'SIDECAR',
 }
 
-# JWT settings
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
@@ -246,36 +226,31 @@ if IS_PRODUCTION and CORS_ALLOW_ALL_ORIGINS:
 if IS_PRODUCTION and not CORS_ALLOWED_ORIGINS:
     raise ImproperlyConfigured("CORS_ALLOWED_ORIGINS must be set in production.")
 
-# Caching Configuration
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
         'LOCATION': f"redis://{os.environ.get('REDIS_HOST', 'localhost')}:{os.environ.get('REDIS_PORT', '6379')}/1",
-        'TIMEOUT': 3600,  # 1 hour default timeout
+        'TIMEOUT': 3600,
         'KEY_PREFIX': 'nowplaying',
     }
 }
 
-# SAFE: Cache timeout configuration for different endpoints
 CACHE_TIMEOUTS = {
-    'MUSIC': 900,  # 15 minutes
-    'STEAM_GAMES': 900,  # 15 minutes
-    'SEARCH_RESULTS': 300,  # 5 minutes
-    'ANALYTICS': 3600,  # 1 hour
-    'USER_PROFILE': 1800,  # 30 minutes
+    'MUSIC': 900,
+    'STEAM_GAMES': 900,
+    'SEARCH_RESULTS': 300,
+    'ANALYTICS': 3600,
+    'USER_PROFILE': 1800,
 }
 
-# SAFE: Static files optimization
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 STATIC_URL = '/static/'
 STATIC_ROOT = os.environ.get('STATIC_ROOT', os.path.join(BASE_DIR, 'staticfiles'))
 FILE_UPLOAD_PERMISSIONS = None
 
-# SAFE: Browser caching for static files
 if not DEBUG:
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# SAFE: Response headers for optimization
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
@@ -295,14 +270,14 @@ LOGGING = {
     },
     "handlers": {
         "console": {
-            "level": "INFO",  # Set to INFO to capture logger.info messages
+            "level": "INFO",
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
     },
     "root": {
         "handlers": ["console"],
-        "level": "INFO",  # Set the root logger level to INFO
+        "level": "INFO",
     },
     "loggers": {
         "django": {
@@ -310,7 +285,7 @@ LOGGING = {
             "level": "INFO",
             "propagate": False,
         },
-        "steam": {  # Replace with your app name, e.g., "steam"
+        "steam": {
             "handlers": ["console"],
             "level": "INFO",
             "propagate": False,

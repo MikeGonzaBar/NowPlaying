@@ -8,9 +8,6 @@ import {
   RetroAchievementsGame,
   XboxGame,
 } from "../utils/types";
-// NOTE: useGameData (which downloads all four provider libraries) is
-// intentionally not used here — canonical detail endpoints now carry
-// recency_rank so one game detail never loads every provider's library.
 import { useGameDetail, useGameDetailById, usePlatformGameDetail } from "../hooks/useGameDetail";
 import {
   calculateAchievementPercentage,
@@ -48,13 +45,7 @@ const GameDetails: React.FC = () => {
   const [selectedPlatformIndex, setSelectedPlatformIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(true);
 
-  // Route params are canonical. Location state is only an optimization and must
-  // never override a direct URL load or stale browser history state.
   const directRouteId = id ? String(id) : undefined;
-  // Typed provider enum (audit #4): reject any route/platform fragment that is
-  // not one of the four known providers before it can reach a request. A
-  // serialized `[object Object]` (or any other string) must never be forwarded
-  // to detail-by-id as a platform query parameter.
   const VALID_PROVIDERS = ["steam", "psn", "xbox", "retroachievements"] as const;
   const typedPlatform = VALID_PROVIDERS.find((p) => p === routePlatform);
   const routeGame = location.state?.game as
@@ -69,14 +60,7 @@ const GameDetails: React.FC = () => {
         ? routeGame
         : undefined
       : routeGame;
-  // Deferred provider loading: the four provider libraries are intentionally
-  // NOT fetched here. The canonical detail endpoints supply everything the
-  // detail view needs, including recency_rank for the "#N Most Played" badge.
 
-  // Prefer the canonical route ID, then fall back to a title lookup only when
-  // the route does not carry a valid app identifier.
-  // React Router already percent-decodes route params; re-decoding would
-  // throw on titles containing a literal "%" (e.g. "100% Orange Juice").
   const gameTitle = routeTitle
     ? routeTitle
     : !directRouteId
@@ -93,13 +77,12 @@ const GameDetails: React.FC = () => {
   );
   const resolvedCrossPlatformGame = idGame || crossPlatformGame;
 
-  // Get card position from sessionStorage for shared element transition
   const cardPosition = useMemo(() => {
     try {
       const stored = sessionStorage.getItem("gameCardPosition");
       if (stored) {
         const position = JSON.parse(stored);
-        sessionStorage.removeItem("gameCardPosition"); // Clean up after use
+        sessionStorage.removeItem("gameCardPosition");
         return position as {
           x: number;
           y: number;
@@ -108,12 +91,11 @@ const GameDetails: React.FC = () => {
         };
       }
     } catch {
-      // Ignore parsing errors
+      return undefined;
     }
     return undefined;
   }, []);
 
-  // Find the game from navigation state, or from the resolved detail payload.
   const game = useMemo(() => {
     if (matchingRouteGame) return matchingRouteGame;
     if (directRouteId) {
@@ -129,21 +111,14 @@ const GameDetails: React.FC = () => {
     return null;
   }, [matchingRouteGame, directRouteId, resolvedCrossPlatformGame]);
 
-  // Determine if this is a cross-platform game
   const isCrossPlatform = resolvedCrossPlatformGame && resolvedCrossPlatformGame.platforms.length > 1;
 
-  // Tab index 0 is the combined cross-platform truth (default); provider
-  // tabs start at index 1 and are drill-downs. For single-platform games
-  // there is no Combined tab and index 0 maps to the only platform.
   const onCombined = isCrossPlatform && selectedPlatformIndex === 0;
   const providerIndex =
     isCrossPlatform && selectedPlatformIndex > 0
       ? selectedPlatformIndex - 1
       : selectedPlatformIndex;
 
-  // Combined truth across every connected provider, computed the same way
-  // the Comparison footer does so header, body, and footer always agree
-  // (audit: list/detail/headline numbers must reconcile).
   const combinedMetrics = useMemo(() => {
     if (!isCrossPlatform || !resolvedCrossPlatformGame) return null;
     let playtimeMinutes = 0;
@@ -173,15 +148,11 @@ const GameDetails: React.FC = () => {
     };
   }, [isCrossPlatform, resolvedCrossPlatformGame]);
 
-  // Keep the tab index aligned with the API platform array (Combined shifts
-  // provider indices by 1, so the selected platform for detail drills is
-  // providerIndex, and the Combined tab intentionally defers provider data).
   const selectedPlatformData =
     resolvedCrossPlatformGame && !onCombined
       ? resolvedCrossPlatformGame.platforms[providerIndex]
       : null;
 
-  // Fetch detailed data for the selected platform if needed
   const {
     game: platformGameDetail,
     loading: platformLoading,
@@ -191,27 +162,21 @@ const GameDetails: React.FC = () => {
     selectedPlatformData?.data?.appid?.toString() || selectedPlatformData?.data?.id?.toString()
   );
 
-  // Use the selected platform's detail/data for every platform-specific section.
   const displayGame = (selectedPlatformData
     ? platformGameDetail || selectedPlatformData.data
     : platformGameDetail || game || resolvedCrossPlatformGame?.platforms[0]?.data || null) as SteamGame | PsnGame | RetroAchievementsGame | XboxGame | null;
 
-  // Check if we have any game data to display
   const hasGameData = game || resolvedCrossPlatformGame || platformGameDetail;
 
   const platform = useMemo(
     () => (displayGame ? getPlatformMatch(displayGame) : null),
     [displayGame],
   );
-  // Headline scope, declared after `platform` resolves: the Combined tab shows
-  // cross-platform truth, provider tabs show that provider's name.
   const currentScopeLabel = onCombined
     ? "Combined"
     : platform?.value
       ? platform.value
       : "This platform";
-  // When a game is selected, use the merged total playtime so the
-  // headline always reflects combined truth — not one provider's view.
   const playtime = useMemo(
     () =>
       displayGame
@@ -219,8 +184,6 @@ const GameDetails: React.FC = () => {
         : "0m",
     [displayGame],
   );
-  // Sources that do not report playtime (e.g. RetroAchievements) must not be
-  // presented as "0h" — that reads as zero activity rather than missing data.
   const hasPlaytime = useMemo(
     () => !!displayGame && ("playtime_forever" in displayGame || "total_playtime" in displayGame),
     [displayGame],
@@ -231,9 +194,6 @@ const GameDetails: React.FC = () => {
     return isNaN(percentage) || !isFinite(percentage) ? 0 : percentage;
   }, [displayGame]);
 
-  // Headline bento values: Combined tab shows the cross-platform truth;
-  // provider tabs show that provider's figures. Everything below carries the
-  // scope label so viewers never conflate one provider with the whole game.
   const bentoPlaytime = onCombined && combinedMetrics
     ? combinedMetrics.playtime
     : hasPlaytime
@@ -244,8 +204,6 @@ const GameDetails: React.FC = () => {
     : completionPercentage;
   const bentoHasPlaytime =
     onCombined ? Boolean(combinedMetrics) : hasPlaytime;
-  // Deferred provider loading: rank comes from the detail response's
-  // recency_rank (computed server-side); no full library fetches here.
   const rank = useMemo(() => {
     if (!displayGame) return null;
     const withRank = displayGame as {
@@ -254,14 +212,6 @@ const GameDetails: React.FC = () => {
     return withRank.recency_rank?.rank ?? null;
   }, [displayGame]);
 
-  // Legacy URL canonicalization: bare /game/:id bookmarks still resolve, then
-  // the address bar is replaced with the canonical /games/:platform/:id form
-  // so exactly one shareable URL scheme exists. No-op on canonical routes.
-  // NOTE: `platform` above (getPlatformMatch) is a display-config OBJECT, not a
-  // string — it must never be interpolated into the URL. Interpolating it used
-  // to produce "/games/[object Object]/:id", whose captured `:platform` was then
-  // forwarded to the API as ?platform=[object%20Object] → HTTP 400. Derive the
-  // provider key explicitly instead.
   const providerKey = useMemo<string | null>(() => {
     if (!displayGame) return null;
     if (isRetroAchievementsGame(displayGame)) return "retroachievements";
@@ -292,9 +242,7 @@ const GameDetails: React.FC = () => {
     directRouteId,
   ]);
 
-  // Handle transition animation
   useEffect(() => {
-    // Trigger transition animation after mount
     const timer = setTimeout(() => {
       setIsTransitioning(false);
     }, 50);
@@ -302,8 +250,6 @@ const GameDetails: React.FC = () => {
   }, []);
 
   const handleClose = () => {
-    // Return to wherever the user came from (e.g. a filtered All Games
-    // list) instead of always bouncing back to /games and losing context.
     if (window.history.length > 1) {
       navigate(-1);
     } else {

@@ -135,7 +135,7 @@ function AlbumDetail() {
           <Typography sx={{ color: zincColors.muted }}>Album not found</Typography>
         )}
 
-        {/* Track list */}
+
         {album?.top_tracks && album.top_tracks.length > 0 && (
           <Box sx={{ mb: 6 }}>
             <Typography
@@ -176,8 +176,7 @@ function AlbumDetail() {
           </Box>
         )}
 
-        {/* Play history (audit #5: replaces the misleading `visiblePlays` slice
-            that expanded only the first fetched page and hid the rest) */}
+
         <PlayHistorySection
           type="album"
           name={decodedName}

@@ -12,8 +12,6 @@ from .models import Game, SteamAPI
 from .serializers import SteamSerializer
 from users.credentials import get_service_credentials
 
-# Django model attribute access (ForeignKey reverse relations, dynamic attributes)
-# is not fully modeled in typeshed stubs.
 # pyright: reportAttributeAccessIssue=false
 
 
@@ -74,17 +72,19 @@ class SteamViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="get-game-list-stored")
     def getGameListStored(self, request: Request) -> Response:
         """Return stored Steam games ordered by most recent play."""
-        # Check cache first - SAFE OPTIMIZATION
         cache_key = f"steam_stored_{request.user.id}"
         cached_result = cache.get(cache_key)
         if cached_result:
             return Response({"result": cached_result})
         
-        # Retrieve stored games and sort by last played (most recent first).
-        games = self.get_queryset().select_related('user').order_by("-last_played")
+        games = (
+            self.get_queryset()
+            .select_related('user')
+            .prefetch_related("achievements")
+            .order_by("-last_played")
+        )
         serializer = SteamSerializer(games, many=True)
         
-        # Cache for 15 minutes - SAFE OPTIMIZATION
         cache.set(cache_key, serializer.data, 900)
         
         return Response({"result": serializer.data})
@@ -92,17 +92,19 @@ class SteamViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="get-game-list-total-playtime")
     def getGameListPlaytimeForever(self, request: Request) -> Response:
         """Return stored Steam games ordered by total playtime."""
-        # Check cache first - SAFE OPTIMIZATION
         cache_key = f"steam_playtime_{request.user.id}"
         cached_result = cache.get(cache_key)
         if cached_result:
             return Response({"result": cached_result})
         
-        # Sorting stored games based on playtime_forever.
-        games = self.get_queryset().select_related('user').order_by("-playtime_forever")
+        games = (
+            self.get_queryset()
+            .select_related('user')
+            .prefetch_related("achievements")
+            .order_by("-playtime_forever")
+        )
         serializer = SteamSerializer(games, many=True)
         
-        # Cache for 15 minutes - SAFE OPTIMIZATION
         cache.set(cache_key, serializer.data, 900)
         
         return Response({"result": serializer.data})
@@ -110,17 +112,15 @@ class SteamViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="get-game-list-most-achieved")
     def getGameListMostAchieved(self, request: Request) -> Response:
         """Return stored Steam games ordered by achievement completion."""
-        # Check cache first - SAFE OPTIMIZATION
         cache_key = f"steam_achievements_{request.user.id}"
         cached_result = cache.get(cache_key)
         if cached_result:
             return Response({"result": cached_result})
         
-        # Compute the completion percentage per game in a single grouped query
-        # instead of issuing per-game achievement counts (N+1).
         games = (
             self.get_queryset()
             .select_related("user")
+            .prefetch_related("achievements")
             .annotate(
                 total=Count("achievements"),
                 unlocked=Count("achievements", filter=Q(achievements__unlocked=True)),
@@ -129,7 +129,6 @@ class SteamViewSet(viewsets.ModelViewSet):
         ordered = sorted(games, key=lambda g: (g.unlocked / g.total * 100) if g.total else 0, reverse=True)  # pyright: ignore[reportAttributeAccessIssue]
         serializer = SteamSerializer(ordered, many=True)
 
-        # Cache for 15 minutes - SAFE OPTIMIZATION
         cache.set(cache_key, serializer.data, 900)
 
         return Response({"result": serializer.data})

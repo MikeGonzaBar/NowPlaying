@@ -35,7 +35,6 @@ interface EnhancedTimeMetricsProps {
 const EnhancedTimeMetrics: React.FC<EnhancedTimeMetricsProps> = ({ game }) => {
   const platform = useMemo(() => getPlatformMatch(game), [game]);
 
-  // Get first and last played dates
   const firstPlayed = useMemo(() => {
     if ("first_played" in game && game.first_played) {
       return parseDate(game.first_played);
@@ -50,16 +49,12 @@ const EnhancedTimeMetrics: React.FC<EnhancedTimeMetricsProps> = ({ game }) => {
     return null;
   }, [game]);
 
-  // Generate bar chart data from achievement unlock dates.
-  // Achievement unlock events are the only per-day activity signal this
-  // source provides — they must never be labelled as hours played.
   const chartData = useMemo(() => {
     const unlockDates = getAchievementUnlockDates(game);
     if (unlockDates.length === 0) {
       return [];
     }
 
-    // Group by date and convert to hours (using count as proxy: 1 achievement ≈ 1 hour)
     const grouped = groupAchievementsByDate(unlockDates, 30);
 
     return grouped.map((item) => ({
@@ -130,7 +125,7 @@ const EnhancedTimeMetrics: React.FC<EnhancedTimeMetricsProps> = ({ game }) => {
         gap: 3,
       }}
     >
-      {/* Metadata Sidebar */}
+
       <Box
         sx={{
           backgroundColor: "rgba(24, 24, 27, 0.3)",
@@ -157,7 +152,7 @@ const EnhancedTimeMetrics: React.FC<EnhancedTimeMetricsProps> = ({ game }) => {
           Metadata
         </Typography>
 
-        {/* Platform Identity */}
+
         {platform && (
           <Box
             sx={{
@@ -192,7 +187,7 @@ const EnhancedTimeMetrics: React.FC<EnhancedTimeMetricsProps> = ({ game }) => {
           </Box>
         )}
 
-        {/* First Session */}
+
         {firstPlayed &&
           firstPlayed.getTime() !== new Date(1970, 0, 1).getTime() && (
             <Box>
@@ -223,7 +218,7 @@ const EnhancedTimeMetrics: React.FC<EnhancedTimeMetricsProps> = ({ game }) => {
             </Box>
           )}
 
-        {/* Most Recent Session */}
+
         {lastPlayed &&
           lastPlayed.getTime() !== new Date(1970, 0, 1).getTime() && (
             <Box>
@@ -255,7 +250,7 @@ const EnhancedTimeMetrics: React.FC<EnhancedTimeMetricsProps> = ({ game }) => {
           )}
       </Box>
 
-      {/* Bar Chart */}
+
       <Box
         sx={{
           backgroundColor: "rgba(24, 24, 27, 0.3)",

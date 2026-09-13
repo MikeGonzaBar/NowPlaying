@@ -44,9 +44,3 @@ export interface NewApiKey {
   userId: string;
   apiKey: string;
 }
-
-export interface PSNEditState {
-  isEditing: boolean;
-  npssoToken: string;
-  isUpdating: boolean;
-}

@@ -33,7 +33,6 @@ const MasterAchievementList: React.FC<MasterAchievementListProps> = ({
       filtered = filtered.filter((ach: any) => !ach.unlocked);
     }
 
-    // Sort: unlocked first, then by name
     return filtered.sort((a: any, b: any) => {
       if (a.unlocked !== b.unlocked) {
         return a.unlocked ? -1 : 1;
@@ -77,7 +76,7 @@ const MasterAchievementList: React.FC<MasterAchievementListProps> = ({
           All Achievements ({achievements.length})
         </Typography>
 
-        {/* Filter Bar */}
+
         <Box
           sx={{
             display: "flex",

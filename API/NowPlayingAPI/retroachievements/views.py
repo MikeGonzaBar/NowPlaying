@@ -57,7 +57,6 @@ class RetroAchievementsViewSet(viewsets.ViewSet):
         api_key = get_service_credentials(request.user, "retroachievements", require_user_id=True)
 
         try:
-            # Call the new API method to fetch/update games and achievements
             result = RetroAchievementsAPI.populate_recently_played_games(
                 user=request.user,
                 ra_username=api_key.service_user_id,
@@ -107,7 +106,6 @@ class RetroAchievementsViewSet(viewsets.ViewSet):
         """
         game_id = request.query_params.get("game_id")
 
-        # Validate that game_id is provided
         if not game_id:
             raise ValidationError({"detail": "The 'game_id' parameter is required."})
 

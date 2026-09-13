@@ -61,7 +61,6 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
     }));
   }, [game, days]);
 
-  // Get achievements for a specific date
   const selectedAchievements = useMemo(() => {
     if (
       !selectedDate ||
@@ -78,7 +77,6 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
         return false;
       }
       const unlockDate = parseDate(achievement.unlock_time);
-      // Filter out invalid dates
       if (unlockDate.getTime() === new Date(1970, 0, 1).getTime()) {
         return false;
       }
@@ -87,7 +85,6 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
     });
   }, [selectedDate, game]);
 
-  // Custom dot component that's clickable
   const CustomDot = (props: any) => {
     const { cx, cy, payload } = props;
 
@@ -216,7 +213,7 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
         position: "relative",
       }}
     >
-      {/* Date Range Label */}
+
       {dateRange && (
         <Box
           sx={{
@@ -259,7 +256,7 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
         </Box>
       )}
 
-      {/* Line Chart Container */}
+
       <Box
         sx={{
           width: "100%",
@@ -350,7 +347,7 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
         </ResponsiveContainer>
       </Box>
 
-      {/* Legend/Explanation */}
+
       <Box
         sx={{
           display: "flex",
@@ -379,14 +376,14 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
         </Typography>
       </Box>
 
-      {/* Achievements Dialog */}
+
       <Dialog
         open={dialogOpen}
         onClose={handleCloseDialog}
         maxWidth="md"
         fullWidth
         sx={{
-          zIndex: 10000, // Higher than the game detail overlay (9999)
+          zIndex: 10000,
         }}
         PaperProps={{
           sx: {
@@ -488,7 +485,7 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
                     },
                   }}
                 >
-                  {/* Achievement Icon */}
+
                   <Box
                     sx={{
                       flexShrink: 0,
@@ -534,7 +531,7 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
                     )}
                   </Box>
 
-                  {/* Achievement Info */}
+
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography
                       variant="body2"

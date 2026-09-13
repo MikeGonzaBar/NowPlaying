@@ -17,8 +17,6 @@ from .serializers import (
 from .models import UserApiKey
 from rest_framework.decorators import action
 
-# Django model attribute access (ForeignKey reverse relations, dynamic attributes)
-# is not fully modeled in typeshed stubs.
 # pyright: reportAttributeAccessIssue=false
 
 

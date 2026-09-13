@@ -52,7 +52,6 @@ const AuthPage: React.FC = () => {
   const navigate = useNavigate();
   const { authenticated, login } = useAuth();
 
-  // Session expiry is a login-only concern — never show it during registration.
   useEffect(() => {
     if (!isLogin || !sessionEnded) return;
     const authFailure = sessionStorage.getItem("auth_failure") === "true";

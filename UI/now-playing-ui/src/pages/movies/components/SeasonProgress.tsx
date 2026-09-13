@@ -70,8 +70,6 @@ function SeasonProgress({
   };
 
   const isSeasonLocked = (seasonNumber: number) => {
-    // A season is locked if previous seasons aren't completed
-    // For simplicity, we'll mark seasons as locked if they're significantly higher than completed ones
     const completedSeasons = seasons.filter((s) =>
       isSeasonCompleted(s.season_number),
     );
@@ -104,7 +102,6 @@ function SeasonProgress({
         <Typography
           component="button"
           onClick={() => {
-            // Expand all logic could go here
           }}
           sx={{
             color: "#ed1c24",
@@ -280,9 +277,6 @@ function SeasonProgress({
                       selectedSeason === season.season_number &&
                       selectedEpisode === episode.episode_number;
                     return (
-                      // Audit #7: every episode row is a real anchor so
-                      // keyboard and assistive-technology users get a
-                      // dependable deep link to the exact episode.
                       <Box
                         component={RouterLink}
                         to={`/shows/${episode.show__trakt_id}/seasons/${season.season_number}/episodes/${episode.episode_number}`}

@@ -39,10 +39,6 @@ export function MusicItemCard({
   const pulseBorderRadius = imageShape === "circle" ? "50%" : "16px";
   const interactive = Boolean(to || url);
 
-  // Render as a real anchor: canonical internal route gets a router Link
-  // (real <a>, client-side navigation); an external url gets a plain anchor.
-  // This replaces the former div-with-role="link" emulation so the card is
-  // keyboard-operable, AT-discoverable, and supports standard link behavior.
   const linkProps = to
     ? { component: RouterLink, to }
     : url

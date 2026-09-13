@@ -48,12 +48,28 @@ vi.mock("../utils/auth", async (importOriginal) => {
       }
       const route = apiState.routes[matchKey];
       const payload =
-        typeof route === "function" ? (route as (url: string) => unknown)(target) : route;
-      // Payloads may opt into a non-200 status with `__status` (stripped from
-      // the body), e.g. { __status: 503, error: "..." }.
-      const { __status, ...body } = (payload ?? {}) as Record<string, unknown> & { __status?: number };
+        typeof route === "function"
+          ? (route as (url: string) => unknown)(target)
+          : route;
+      let body = payload;
+      let status = 200;
+      if (
+        payload !== null &&
+        typeof payload === "object" &&
+        !Array.isArray(payload) &&
+        "__status" in payload
+      ) {
+        const { __status, ...responseBody } = payload as Record<
+          string,
+          unknown
+        > & {
+          __status?: number;
+        };
+        body = responseBody;
+        status = __status ?? 200;
+      }
       return new Response(JSON.stringify(body), {
-        status: __status ?? 200,
+        status,
         headers: { "Content-Type": "application/json" },
       });
     }),

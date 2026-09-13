@@ -42,10 +42,6 @@ export const useGameData = (beBaseUrl: string) => {
   const [latestPlayedGames, setLatestPlayedGames] = useState<GameData[]>([]);
   const [mostPlayed, setMostPlayed] = useState<GameData[]>([]);
   const [mostAchieved, setMostAchieved] = useState<GameData[]>([]);
-  // The complete, unfiltered union of every provider's stored library. Unlike
-  // ``latestPlayedGames`` this keeps titles that have no ``last_played`` so the
-  // All Games library can honor "Unplayed" filters and complete archive scans
-  // (audit #1/#3: the canonical library must not silently drop older titles).
   const [allGamesList, setAllGamesList] = useState<GameData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +51,6 @@ export const useGameData = (beBaseUrl: string) => {
     Record<string, boolean>
   >({});
 
-  // Platform mapping - track which games belong to which platform
   const [platformGameIds, setPlatformGameIds] = useState<
     Record<string, Set<string>>
   >({
@@ -107,7 +102,6 @@ export const useGameData = (beBaseUrl: string) => {
     try {
       setLoading(true);
 
-      // Optimize: Make only 4 API calls instead of 11
       const [steamArray, psnArray, retroArray, xboxArray] = await Promise.all([
         fetchGameData(`${beBaseUrl}/steam/get-game-list-stored/`),
         fetchGameData(`${beBaseUrl}/psn/get-game-list-stored/`),
@@ -115,7 +109,6 @@ export const useGameData = (beBaseUrl: string) => {
         fetchGameData(`${beBaseUrl}/xbox/get-game-list-stored/`),
       ]);
 
-      // Track platform membership based on original API response lists
       const newPlatformGameIds: Record<string, Set<string>> = {
         steam: new Set(steamArray.map((game) => String(game.appid))),
         psn: new Set(psnArray.map((game) => String(game.appid))),
@@ -126,7 +119,6 @@ export const useGameData = (beBaseUrl: string) => {
       };
       setPlatformGameIds(newPlatformGameIds);
 
-      // Process all three views from the same data
       const allGames = [
         ...steamArray,
         ...psnArray,
@@ -134,7 +126,6 @@ export const useGameData = (beBaseUrl: string) => {
         ...xboxArray,
       ];
 
-      // Latest played games
       const merged = mergeAndSortGames(
         steamArray,
         psnArray,
@@ -143,17 +134,13 @@ export const useGameData = (beBaseUrl: string) => {
       );
       setLatestPlayedGames(merged);
 
-      // Keep the complete union for the All Games archive (includes titles
-      // with no last_played timestamp, so "Unplayed" filtering stays honest).
       setAllGamesList(allGames);
 
-      // Most played games - filter from all games instead of separate API calls
       const mergedPlaytimeGames = allGames
         .filter((game) => getPlaytime(game) > 0)
         .sort((a, b) => getPlaytime(b) - getPlaytime(a));
       setMostPlayed(mergedPlaytimeGames);
 
-      // Most achieved games - process from all games instead of separate API calls
       const mergedMostAchievedGames = allGames
         .map((game) => {
           const percentage = calculateAchievementPercentage(game);
@@ -210,7 +197,6 @@ export const useGameData = (beBaseUrl: string) => {
     }
   };
 
-  // Individual platform refresh functions
   const refreshSteam = async () => {
     try {
       setUpdatingPlatforms((prev) => ({ ...prev, steam: true }));
@@ -297,7 +283,6 @@ export const useGameData = (beBaseUrl: string) => {
     }
   };
 
-  // Function to get platform of a game based on stored mapping
   const getGamePlatform = (game: GameData): string => {
     const gameId = String(game.appid);
 
@@ -315,7 +300,6 @@ export const useGameData = (beBaseUrl: string) => {
     checkApiKeys();
   }, []);
 
-  // Canonical cross-platform model
   const consolidatedGames = useMemo(
     () => consolidateRawGames(latestPlayedGames),
     [latestPlayedGames],
@@ -326,8 +310,6 @@ export const useGameData = (beBaseUrl: string) => {
     [consolidatedGames],
   );
 
-  // Canonical model built from the complete library (no last_played filter)
-  // — this is what the All Games archive renders (audit #1, #3).
   const completeConsolidatedGames = useMemo(
     () => consolidateRawGames(allGamesList),
     [allGamesList],
@@ -349,7 +331,6 @@ export const useGameData = (beBaseUrl: string) => {
     configuredServices,
     updatingPlatforms,
     getGamePlatform,
-    // Canonical cross-platform model
     consolidatedGames,
     crossPlatformGames,
     completeGames: allGamesList,

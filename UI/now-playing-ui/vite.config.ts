@@ -3,14 +3,12 @@ import react from '@vitejs/plugin-react'
 import dotenv from "dotenv";
 import { visualizer } from 'rollup-plugin-visualizer'
 
-// https://vite.dev/config/
 dotenv.config();
 
 export default defineConfig(({ mode }) => ({
   cacheDir: 'C:/Users/gonza/AppData/Local/Temp/vite-tmp',
   plugins: [
     react(),
-    // Bundle analyzer (opt-in: vite build --mode analyze)
     ...(mode === 'analyze'
       ? [
         visualizer({
@@ -26,7 +24,6 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: {
-          // Split large vendor libraries for browser caching.
           'vendor-router': ['react-router-dom'],
           'vendor-mui': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
           'vendor-icons': ['react-icons'],

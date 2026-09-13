@@ -12,8 +12,6 @@ interface CompletedSectionProps {
 function CompletedSection({ shows }: CompletedSectionProps) {
   const navigate = useNavigate();
 
-  // Only show completed shows (most recent first - already sorted by API)
-  // Filter out shows without last_watched_at and limit to 6 for dashboard
   const completedShows = shows
     .filter((show) => show.last_watched_at)
     .map((show) => ({ ...show, type: "show" as const }))
@@ -22,7 +20,6 @@ function CompletedSection({ shows }: CompletedSectionProps) {
   const completedMedia = completedShows;
 
   const handleClick = (media: any) => {
-    // Only shows are displayed, so always navigate to show details
     navigate(media.trakt_id ? `/shows/${media.trakt_id}` : "/movies", {
       state: {
         show: {
@@ -37,11 +34,9 @@ function CompletedSection({ shows }: CompletedSectionProps) {
   };
 
   const getPosterUrl = (media: any) => {
-    // Use image_url if available
     if (media.image_url) {
       return media.image_url;
     }
-    // Return null if no image available
     return null;
   };
 

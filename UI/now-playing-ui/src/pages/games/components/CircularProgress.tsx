@@ -16,7 +16,6 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (percentage / 100) * circumference;
 
-  // Clamp percentage between 0 and 100
   const clampedPercentage = Math.max(0, Math.min(100, percentage));
 
   return (
@@ -41,22 +40,22 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
           },
         }}
       >
-        {/* Background circle */}
+
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="rgba(39, 39, 42, 0.5)" // zinc-800 with opacity
+          stroke="rgba(39, 39, 42, 0.5)"
           strokeWidth={strokeWidth}
         />
-        {/* Progress circle */}
+
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="#3b82f6" // blue-500
+          stroke="#3b82f6"
           strokeWidth={strokeWidth}
           strokeDasharray={circumference}
           strokeDashoffset={offset}

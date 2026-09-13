@@ -10,6 +10,39 @@ import http_client
 from .models import Movie, Show, _process_single_movie, _process_single_show
 
 
+class ShowSlugContractTests(TestCase):
+    def test_slug_field_definition_and_position(self):
+        fields = list(Show._meta.local_fields)
+        slug_fields = [field for field in fields if field.name == "slug"]
+
+        self.assertEqual(len(slug_fields), 1)
+        self.assertEqual(
+            slug_fields[0].deconstruct(),
+            (
+                "slug",
+                "django.db.models.CharField",
+                [],
+                {"max_length": 255, "blank": True, "null": True},
+            ),
+        )
+        names = [field.name for field in fields]
+        self.assertEqual(names[names.index("slug") - 1], "rating")
+        self.assertEqual(names[names.index("slug") + 1], "last_watched_at")
+
+    def test_slug_round_trips_null_blank_and_populated_values(self):
+        user = User.objects.create_user(username="show-slug-contract")
+        for index, slug in enumerate((None, "", "existing-show-slug")):
+            with self.subTest(slug=slug):
+                show = Show.objects.create(
+                    user=user,
+                    trakt_id=str(index),
+                    title="Slug contract",
+                    slug=slug,
+                )
+                show.refresh_from_db()
+                self.assertEqual(show.slug, slug)
+
+
 class TraktShowSyncTests(TestCase):
     def test_process_single_show_uses_module_logger(self):
         user = User.objects.create_user(username="trakt-user")

@@ -60,8 +60,8 @@ Redirects legacy game-id routes to the canonical detail pages.
 
 - `EnhancedTimeMetrics.tsx` — playtime breakdown display
 - `GameComparison.tsx` — cross-platform playtime comparison
-- `achievementCard.tsx` / `MasterAchievementList.tsx` — achievement browsing
-- `TrophyIcon.tsx`, `PlatformPills.tsx`, `GameContextMetadata.tsx` — presentation details
+- `MasterAchievementList.tsx` — achievement browsing
+- `PlatformPills.tsx`, `GameContextMetadata.tsx` — presentation details
 - `RecentWinsStrip.tsx`, `ActivitySparkline.tsx`, `CircularProgress.tsx` — dashboard visuals
 
 ### Hooks

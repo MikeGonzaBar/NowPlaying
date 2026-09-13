@@ -19,7 +19,6 @@ class LastFmIntegrationTestCase(APITestCase):
         )
         self.client.force_authenticate(user=self.user)
         
-        # Create a test Last.fm API key
         self.api_key = UserApiKey(
             user=self.user,
             service_name='lastfm'
@@ -29,7 +28,6 @@ class LastFmIntegrationTestCase(APITestCase):
 
     def test_fetch_lastfm_recent_missing_api_key(self):
         """Test that missing API key returns appropriate error"""
-        # Delete the API key
         self.api_key.delete()
         
         response = self.client.get('/music/fetch-lastfm-recent/')
@@ -38,7 +36,6 @@ class LastFmIntegrationTestCase(APITestCase):
 
     def test_fetch_lastfm_recent_missing_username(self):
         """Test that missing username returns appropriate error"""
-        # Clear the service_user_id
         self.api_key.service_user_id = None
         self.api_key.save()
         
@@ -49,7 +46,6 @@ class LastFmIntegrationTestCase(APITestCase):
     @patch('music.models.http_client.get')
     def test_fetch_lastfm_recent_success_with_enhanced_data(self, mock_get):
         """Test successful Last.fm API call with all enhanced fields"""
-        # Mock the Last.fm API response with extended data
         recent_response = MagicMock()
         recent_response.status_code = 200
         recent_response.json.return_value = {
@@ -94,8 +90,6 @@ class LastFmIntegrationTestCase(APITestCase):
         }
         mock_get.side_effect = [recent_response, tags_response]
         today = timezone.now().date()
-        # Seed the current cache generation with stale payloads for every
-        # versioned family the refresh invalidates.
         stale = [
             ("analytics", "30"),
             ("analytics", f"30_{today}"),
@@ -109,19 +103,15 @@ class LastFmIntegrationTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('Last.fm ALL recent tracks fetched and stored successfully', response.data['message'])
         self.assertEqual(len(response.data['data']), 1)
-        # The refresh bumps each cache generation, orphaning the seeded one; a
-        # fresh lookup at the new generation must miss so data is recomputed.
         for namespace, suffix in stale:
             self.assertIsNone(cache.get(versioned_cache_key(namespace, self.user.id, suffix)))
         
-        # Check that the song was saved to the database with enhanced data
         song = Song.objects.filter(user=self.user, source='lastfm').first()
         self.assertIsNotNone(song)
         self.assertEqual(song.title, 'Test Song')
         self.assertEqual(song.artist, 'Test Artist')
         self.assertEqual(song.source, 'lastfm')
         
-        # Test enhanced fields
         self.assertEqual(song.track_mbid, 'test-track-mbid-789')
         self.assertEqual(song.artist_mbid, 'test-artist-mbid-123')
         self.assertEqual(song.album_mbid, 'test-album-mbid-456')
@@ -130,14 +120,12 @@ class LastFmIntegrationTestCase(APITestCase):
         self.assertTrue(song.streamable)
         self.assertEqual(song.genre_tags, ["Rock", "Alternative Rock"])
         
-        # Test image fields
         self.assertEqual(song.album_thumbnail_small, 'https://example.com/small.jpg')
         self.assertEqual(song.album_thumbnail_medium, 'https://example.com/medium.jpg')
         self.assertEqual(song.album_thumbnail_large, 'https://example.com/large.jpg')
         self.assertEqual(song.album_thumbnail_extralarge, 'https://example.com/extralarge.jpg')
-        self.assertEqual(song.album_thumbnail, 'https://example.com/extralarge.jpg')  # Should use largest
+        self.assertEqual(song.album_thumbnail, 'https://example.com/extralarge.jpg')
         
-        # Check response data includes enhanced fields
         track_data = response.data['data'][0]
         self.assertEqual(track_data['track_mbid'], 'test-track-mbid-789')
         self.assertEqual(track_data['artist_mbid'], 'test-artist-mbid-123')
@@ -147,7 +135,6 @@ class LastFmIntegrationTestCase(APITestCase):
         self.assertTrue(track_data['streamable'])
         self.assertEqual(track_data['genre_tags'], ["Rock", "Alternative Rock"])
         
-        # Check album thumbnails object
         thumbnails = track_data['album_thumbnails']
         self.assertEqual(thumbnails['small'], 'https://example.com/small.jpg')
         self.assertEqual(thumbnails['medium'], 'https://example.com/medium.jpg')
@@ -215,7 +202,6 @@ class LastFmIntegrationTestCase(APITestCase):
 
     def test_get_stored_songs_filter_by_source(self):
         """Test filtering songs by source"""
-        # Create test songs
         Song.objects.create(
             user=self.user,
             title='Spotify Song',
@@ -233,12 +219,10 @@ class LastFmIntegrationTestCase(APITestCase):
             track_mbid='test-mbid-123'
         )
         
-        # Test getting all songs
         response = self.client.get('/music/get-stored-songs/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 2)
         
-        # Test filtering by Last.fm
         response = self.client.get('/music/get-stored-songs/?source=lastfm')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
@@ -247,7 +231,6 @@ class LastFmIntegrationTestCase(APITestCase):
         self.assertTrue(result['loved'])
         self.assertEqual(result['track_mbid'], 'test-mbid-123')
         
-        # Test filtering by Spotify
         response = self.client.get('/music/get-stored-songs/?source=spotify')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
