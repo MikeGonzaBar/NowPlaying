@@ -474,7 +474,7 @@ class AnalyticsService:
         ]
     
     @staticmethod
-    def _format_time_ago(minutes: int | None) -> str:
+    def _format_time_ago(minutes: float) -> str:
         """Format minutes into human-readable time ago string"""
         if minutes < 1:
             return "0 minutes ago"
@@ -499,7 +499,7 @@ class AnalyticsService:
         return AnalyticsService._format_time_ago(minutes_ago)
     
     @staticmethod
-    def get_weekly_trend(user: User, days: int = 30) -> StatsPayload:
+    def get_weekly_trend(user: User, days: int = 30) -> list:
         """Get weekly trend data for Time Dedicated Trend chart - returns last 7 days (rolling)"""
         end_date = timezone.now().date()
         # Get last 7 days for the chart (rolling, not week-based)
@@ -766,7 +766,7 @@ class AnalyticsService:
         return active_platforms
     
     @staticmethod
-    def get_genre_distribution(user: User, days: int = 30) -> StatsList:
+    def get_genre_distribution(user: User, days: int = 30) -> StatsPayload:
         """Get genre distribution across gaming, music, and movies/TV"""
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)

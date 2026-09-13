@@ -1,6 +1,6 @@
 {
   "include": ["NowPlayingAPI/xbox/views.py", "NowPlayingAPI/steam/views.py", "NowPlayingAPI/playstation/views.py", "NowPlayingAPI/users/views.py", "NowPlayingAPI/music/views.py"],
-  "exclude": ["**/venv", "**/__pycache__", "**/migrations"],
+  "exclude": ["**/venv", "**/__pycache__", "**/migrations", "**/node_modules", "**/.*", "nowPlayingVenv"],
   "venvPath": ".",
   "venv": "venv",
   "typeCheckingMode": "standard",
