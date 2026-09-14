@@ -52,6 +52,8 @@ export const SERVICES: ServiceConfig[] = [
     placeholder: "Client ID",
     imagePath: "/Platforms/trakt.png",
     requiresOAuth: true,
+    notice:
+      "Trakt now requires a paid VIP subscription to register new API apps, and free tracking is limited to 1 streaming service (the rest are VIP-only). Existing connections still work, but we're exploring an alternative for movie & TV tracking.",
     userIdLabel: "Client ID",
     apiKeyLabel: "Client Secret",
     apiKeyPlaceholder: "Your Trakt Client Secret",

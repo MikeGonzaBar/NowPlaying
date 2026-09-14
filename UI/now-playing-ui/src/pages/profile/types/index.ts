@@ -27,6 +27,7 @@ export interface ServiceConfig {
   placeholder: string;
   imagePath: string;
   requiresOAuth?: boolean;
+  notice?: string;
   userIdLabel?: string;
   apiKeyLabel?: string;
   apiKeyPlaceholder?: string;

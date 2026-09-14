@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  Alert,
   Paper,
   Box,
   Typography,
@@ -226,6 +227,12 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
             </IconButton>
           )}
         </Box>
+
+        {service.notice && (
+          <Alert severity="warning" role="alert" sx={{ mb: 2 }}>
+            {service.notice}
+          </Alert>
+        )}
 
         {/* Step 1: API Credentials */}
         {!existingApiKey && (
