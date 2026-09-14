@@ -74,7 +74,7 @@ function WatchHistory() {
   const [historyData, setHistoryData] = useState<WatchHistoryResponse | null>(
     null,
   );
-  const [allHistoryItems, setAllHistoryItems] = useState<HistoryItem[]>([]); // Accumulated items
+  const [allHistoryItems, setAllHistoryItems] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [filterType, setFilterType] = useState<"all" | "movies" | "shows">(
@@ -122,7 +122,6 @@ function WatchHistory() {
       if (response.ok) {
         const data = await response.json();
 
-        // Check for duplicates in the response
         const historyIds =
           data.history?.map(
             (item: HistoryItem) => `${item.type}-${item.id}-${item.watched_at}`,
@@ -135,7 +134,6 @@ function WatchHistory() {
             duplicates: historyIds.length - uniqueIds.size,
           });
 
-          // Find duplicate IDs
           const idCounts: Record<string, number> = {};
           historyIds.forEach((id: string) => {
             idCounts[id] = (idCounts[id] || 0) + 1;
@@ -149,20 +147,16 @@ function WatchHistory() {
           );
         }
 
-        // Update history data (for pagination info)
         setHistoryData(data);
 
-        // Accumulate history items with deduplication
         if (isInitial) {
           setAllHistoryItems(data.history || []);
         } else {
           setAllHistoryItems((prev) => {
-            // Create a Set of existing item IDs for quick lookup
             const existingIds = new Set(
               prev.map((item: HistoryItem) => `${item.type}-${item.id}`),
             );
 
-            // Filter out items that already exist
             const newItems = (data.history || []).filter(
               (item: HistoryItem) =>
                 !existingIds.has(`${item.type}-${item.id}`),
@@ -178,18 +172,14 @@ function WatchHistory() {
           });
         }
 
-        // Fetch genres for movies from TMDB
         const moviesToFetch = data.history.filter(
           (item: HistoryItem) => item.type === "movie" && item.tmdb_id,
         );
         const genresMap: Record<string, string[]> = {};
 
         for (const movie of moviesToFetch.slice(0, 10)) {
-          // Limit to avoid too many API calls
           if (movie.tmdb_id && !genresMap[movie.tmdb_id]) {
             try {
-              // TMDB is proxied through the backend so the API key never
-              // reaches the browser.
               const tmdbRes = await authenticatedFetch(
                 getApiUrl(
                   `${API_CONFIG.TRAKT_ENDPOINT}/tmdb-detail/?tmdb_id=${encodeURIComponent(String(movie.tmdb_id))}&type=movie`,
@@ -214,8 +204,6 @@ function WatchHistory() {
           return updated;
         });
 
-        // Top genres are fetched from backend endpoint which uses ALL stored data
-        // No need to calculate from visible items here
       }
     } catch (error) {
       console.error("Error fetching watch history:", error);
@@ -226,7 +214,6 @@ function WatchHistory() {
   };
 
   useEffect(() => {
-    // Reset pagination when visible filters change, but keep the current list visible while refetching.
     setPage(1);
     fetchHistory(1, true);
     fetchActivityHeatmap();
@@ -235,15 +222,12 @@ function WatchHistory() {
   }, [filterType, dateRange, sortOrder]);
 
   useEffect(() => {
-    // Load more when page changes (but not on initial load)
     if (page > 1) {
       fetchHistory(page, false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
-  // Top genres are now fetched from backend endpoint which uses ALL stored data
-  // Removed calculateTopGenres() function - using backend data instead
 
   const fetchActivityHeatmap = async () => {
     try {
@@ -345,7 +329,7 @@ function WatchHistory() {
         }
         groups[key].push(item);
       } catch {
-        // Skip invalid dates
+        return;
       }
     });
 
@@ -380,7 +364,6 @@ function WatchHistory() {
     }
   };
 
-  // Memoize grouped history to prevent re-rendering on every component update
   const groupedHistory = useMemo(() => {
     if (!allHistoryItems || allHistoryItems.length === 0) return {};
     return groupByDate(allHistoryItems);
@@ -392,16 +375,13 @@ function WatchHistory() {
     SORT_OPTIONS.find((option) => option.value === sortOrder)?.label ||
     "Newest first";
 
-  // Infinite scroll handler
   useEffect(() => {
     const handleScroll = () => {
-      // Check if we're near the bottom of the page
       const scrollTop =
         window.pageYOffset || document.documentElement.scrollTop;
       const windowHeight = window.innerHeight;
       const documentHeight = document.documentElement.scrollHeight;
 
-      // Load more when user is within 200px of the bottom
       if (scrollTop + windowHeight >= documentHeight - 200) {
         if (
           historyData &&
@@ -780,7 +760,6 @@ function WatchHistory() {
                 </Box>
               ) : (
                 Object.entries(groupedHistory).map(([dateKey, items]) => {
-                  // Check for duplicates in this group
                   const itemKeys = items.map(
                     (item) => `${item.type}-${item.id}-${item.watched_at}`,
                   );
@@ -831,7 +810,6 @@ function WatchHistory() {
                         />
                       </Box>
                       {items.map((item) => {
-                        // Use watch ID as key since it's guaranteed to be unique
                         const itemKey = `${item.type}-${item.id}`;
 
                         return (
@@ -1104,7 +1082,6 @@ function WatchHistory() {
                   }}
                 >
                   {useMemo(() => {
-                    // Generate last 6 months (180 days)
                     const today = new Date();
                     const sixMonthsAgo = new Date(today);
                     sixMonthsAgo.setDate(today.getDate() - 180);
@@ -1116,24 +1093,20 @@ function WatchHistory() {
                       days.push(date);
                     }
 
-                    // Create a map of date -> count
                     const dateCountMap = new Map<string, number>();
                     heatmapData.forEach((item) => {
                       dateCountMap.set(item.date, item.count);
                     });
 
-                    // Find max count for normalization
                     const counts = Array.from(dateCountMap.values());
                     const maxCount =
                       counts.length > 0 ? Math.max(...counts, 1) : 1;
 
-                    // Generate grid cells
                     const cells = days.map((day) => {
                       const dateKey = format(day, "yyyy-MM-dd");
                       const count = dateCountMap.get(dateKey) || 0;
                       const intensity = maxCount > 0 ? count / maxCount : 0;
 
-                      // Determine color based on intensity
                       let backgroundColor = "#1f2937"; // No activity
                       if (intensity > 0.75) {
                         backgroundColor = "#ed1c24"; // High activity
@@ -1148,7 +1121,6 @@ function WatchHistory() {
                       return { date: dateKey, count, backgroundColor };
                     });
 
-                    // Group into weeks (7 days per week, ~26 weeks for 6 months)
                     const weeks: Array<
                       Array<{
                         date: string;
@@ -1160,7 +1132,6 @@ function WatchHistory() {
                       weeks.push(cells.slice(i, i + 7));
                     }
 
-                    // Transpose: each row is a day of week, each column is a week
                     const gridCells: Array<{
                       date: string;
                       count: number;

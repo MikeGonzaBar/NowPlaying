@@ -43,7 +43,6 @@ function CompletedMedia() {
           type: "show" as const,
         }));
 
-        // Sort by last_watched_at (most recent first)
         shows.sort((a: CompletedItem, b: CompletedItem) => {
           const aDate = a.last_watched_at
             ? new Date(a.last_watched_at).getTime()
@@ -86,7 +85,6 @@ function CompletedMedia() {
     }
   };
 
-  // Only shows, already sorted by most recent first
   const allItems = completedShows;
 
   return (

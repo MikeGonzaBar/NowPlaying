@@ -73,7 +73,6 @@ export const useTraktAuth = (userProfile: UserProfile | null) => {
         setOauthDialogOpen(false);
         setAuthCode("");
 
-        // Refresh auth status
         await fetchTraktAuthStatus();
 
         return data.message || "Successfully authenticated with Trakt!";

@@ -23,7 +23,6 @@ interface ServiceSectionProps {
   psnNPSSO?: string;
   psnUpdating?: boolean;
 
-  // Event handlers
   onNewKeyChange: (
     serviceName: string,
     field: "userId" | "apiKey",
@@ -108,7 +107,6 @@ export const ServiceSection: React.FC<ServiceSectionProps> = ({
               onDelete={() =>
                 onDeleteApiKey(existingApiKey!.id, service.displayName)
               }
-              // PSN specific props
               isPSNEditing={service.name === "psn" ? isPSNEditing : false}
               psnNPSSO={psnNPSSO}
               psnUpdating={psnUpdating}
@@ -118,7 +116,6 @@ export const ServiceSection: React.FC<ServiceSectionProps> = ({
                 onPSNSave ? () => onPSNSave(existingApiKey!.id) : undefined
               }
               onPSNChange={onPSNChange}
-              // Trakt specific props
               traktAuthStatus={
                 service.name === "trakt" ? traktAuthStatus : undefined
               }

@@ -34,10 +34,3 @@ export interface Show {
   last_watched_at: string;
   show: ShowType;
 }
-
-export interface TraktDetails {
-  certification?: string;
-  title?: string;
-  year?: number;
-  // Add other properties as needed
-}

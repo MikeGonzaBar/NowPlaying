@@ -102,9 +102,6 @@ export interface XboxGame {
   locked_achievements: number;
 }
 
-// =============================================================================
-// Canonical Cross-Platform Game Model
-// =============================================================================
 
 /**
  * Platform metadata for display purposes.

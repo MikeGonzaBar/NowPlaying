@@ -67,8 +67,8 @@ class SongAdmin(admin.ModelAdmin):
     
     def has_add_permission(self, request: object) -> bool:
         """Prevent manual song creation in admin."""
-        return False  # Prevent manual addition since data comes from API
+        return False
     
     def has_change_permission(self, request: object, obj: object | None = None) -> bool:
         """Prevent manual song edits in admin."""
-        return False  # Prevent editing since data should come from API
+        return False

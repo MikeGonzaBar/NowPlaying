@@ -10,8 +10,8 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from .models import PSNGame
 from .serializers import PSNGameSerializer
-from .models import PSN  # Import the utility class that contains get_games() and get_games_stored()
-from users.models import UserApiKey  # Import UserApiKey from users app
+from .models import PSN
+from users.models import UserApiKey
 from users.credentials import InvalidServiceCredentials, MissingServiceCredentials
 from rest_framework.permissions import IsAuthenticated
 from psnawp_api import PSNAWP
@@ -38,7 +38,6 @@ class PSNViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self) -> QuerySet[PSNGame]:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return only PlayStation games owned by the authenticated user."""
-        # Filter games by the authenticated user
         return PSNGame.objects.filter(user=self.request.user)
 
     @action(detail=False, methods=["get"], url_path="get-game-list")
@@ -124,9 +123,7 @@ class PSNViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="get-game-list-stored")
     def getGameListStored(self, request: Request) -> Response:
         """Return stored PlayStation games with trophy breakdowns."""
-        # Use the stored PSNGame records filtered by the current user
         try:
-            # Use the serializer to get the proper data structure with trophy breakdowns
             games = self.get_queryset().prefetch_related("achievements")
             serializer = self.serializer_class(games, many=True)
             return Response({"result": serializer.data})
@@ -136,7 +133,6 @@ class PSNViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="get-game-list-total-playtime")
     def getGameListPlaytime(self, request: Request) -> Response:
         """Return stored PlayStation games ordered by parsed total playtime."""
-        # Retrieve stored games sorted by playtime
         def parse_playtime(playtime: str) -> float:
             """Convert a PSN playtime string into seconds for sorting."""
             match = re.match(r"(?:(\d+) days?, )?(\d+):(\d+):(\d+)", playtime)
@@ -150,8 +146,7 @@ class PSNViewSet(viewsets.ModelViewSet):
                 ).total_seconds()
             return 0
 
-        games = list(self.get_queryset())
-        # Sort using the helper function:
+        games = list(self.get_queryset().prefetch_related("achievements"))
         sorted_games = sorted(games, key=lambda g: parse_playtime(g.total_playtime), reverse=True)
         serializer = self.serializer_class(sorted_games, many=True)
         return Response({"result": serializer.data})
@@ -159,10 +154,9 @@ class PSNViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="get-game-list-most-achieved")
     def getGameListMostAchieved(self, request: Request) -> Response:
         """Return stored PlayStation games ordered by weighted trophy score."""
-        # Weighted trophy score computed in a single grouped query instead of
-        # per-game Python iteration (N+1).
         games = (
             self.get_queryset()
+            .prefetch_related("achievements")
             .annotate(
                 score=Sum(
                     Case(

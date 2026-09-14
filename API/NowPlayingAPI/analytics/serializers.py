@@ -20,7 +20,6 @@ class UserStatisticsSerializer(serializers.ModelSerializer):
         """Convert timedelta fields to string representation"""
         data = super().to_representation(instance)
 
-        # Convert timedelta fields to string
         if instance.total_gaming_time:
             data['total_gaming_time'] = str(instance.total_gaming_time)
         if instance.total_listening_time:

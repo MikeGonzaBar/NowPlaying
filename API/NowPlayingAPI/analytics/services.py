@@ -18,8 +18,6 @@ from utils import versioned_cache_key, versioned_cache_invalidate
 import logging
 import re
 
-# Django model attribute access (ForeignKey reverse relations, dynamic attributes)
-# is not fully modeled in typeshed stubs.
 # pyright: reportAttributeAccessIssue=false
 
 logger = logging.getLogger(__name__)
@@ -115,12 +113,9 @@ class AnalyticsService:
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days)
         
-        # Convert to datetime for proper filtering with timezone-aware datetimes
         start_datetime = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
         end_datetime = timezone.make_aware(datetime.combine(end_date, datetime.max.time()))
         
-        # === GAMING STATISTICS (optimized queries) ===
-        # Get all gaming data in bulk - use datetime filtering to avoid naive datetime warnings
         steam_games = SteamGame.objects.filter(
             user=user,
             last_played__gte=start_datetime,
@@ -175,7 +170,6 @@ class AnalyticsService:
             date_earned__lte=end_datetime
         ).count()
         
-        # Calculate totals
         total_games_played = AnalyticsService._unique_game_count(user, start_datetime, end_datetime)
         total_achievements_earned = (
             steam_achievements + psn_achievements + 
@@ -183,7 +177,6 @@ class AnalyticsService:
         )
         total_gaming_time = timedelta(minutes=steam_games['total_playtime'] or 0)
         
-        # === MUSIC STATISTICS (optimized) ===
         songs_data = Song.objects.filter(
             user=user,
             played_at__gte=start_datetime,
@@ -196,11 +189,9 @@ class AnalyticsService:
         total_songs_listened = songs_data['count'] or 0
         total_duration_ms = songs_data['total_duration'] or 0
         total_listening_time = timedelta(milliseconds=total_duration_ms)
-        # If no duration stored (e.g. Last.fm doesn't provide it), estimate ~3.5 min per track
         if total_listening_time.total_seconds() == 0 and total_songs_listened > 0:
             total_listening_time = timedelta(minutes=round(total_songs_listened * 3.5))
         
-        # === MOVIE/TV STATISTICS (optimized) ===
         movie_watches_count = MovieWatch.objects.filter(
             movie__user=user,
             watched_at__gte=start_datetime,
@@ -213,19 +204,15 @@ class AnalyticsService:
             watched_at__lte=end_datetime
         ).count()
         
-        # Estimate watch time (2 hours per movie, 45 minutes per episode)
         total_watch_time = timedelta(
             hours=2 * movie_watches_count,
             minutes=45 * episode_watches_count
         )
         
-        # === TOTALS ===
         total_engagement_time = total_gaming_time + total_listening_time + total_watch_time
         
-        # Calculate completed games
         total_games_completed = AnalyticsService._calculate_games_completed(user, days)
         
-        # === BUILD RESPONSE ===
         result = {
             'period': {
                 'start_date': start_date,
@@ -255,7 +242,6 @@ class AnalyticsService:
             'daily_stats': AnalyticsService._get_daily_breakdown(user, start_date, end_date),
         }
         
-        # Cache for 1 hour
         cache.set(cache_key, result, 3600)
         return result
     
@@ -266,7 +252,6 @@ class AnalyticsService:
         current_date = start_date
         
         while current_date <= end_date:
-            # Optimized daily queries
             daily_movies = MovieWatch.objects.filter(
                 movie__user=user,
                 watched_at__date=current_date
@@ -293,7 +278,6 @@ class AnalyticsService:
                 played_at__date=current_date
             ).count()
             
-            # Only include days with activity
             if daily_movies > 0 or daily_episodes > 0 or daily_games > 0 or daily_songs > 0:
                 daily_stats.append({
                     'date': current_date.isoformat(),
@@ -325,7 +309,6 @@ class AnalyticsService:
         start_datetime = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
         end_datetime = timezone.make_aware(datetime.combine(end_date, datetime.max.time()))
         
-        # Optimized platform queries
         platforms = {
             'steam': {'games': 0, 'achievements': 0, 'playtime': timedelta()},
             'psn': {'games': 0, 'achievements': 0, 'playtime': timedelta()},
@@ -341,7 +324,6 @@ class AnalyticsService:
         platforms['spotify']['connected'] = 'spotify' in connected_services
         platforms['lastfm']['connected'] = 'lastfm' in connected_services
         
-        # Steam data
         steam_data = SteamGame.objects.filter(
             user=user,
             last_played__gte=start_datetime,
@@ -359,7 +341,6 @@ class AnalyticsService:
             unlocked=True
         ).count()
         
-        # PSN, Xbox, RetroAchievements data
         platforms['psn']['games'] = PSNGame.objects.filter(user=user, last_played__gte=start_datetime, last_played__lte=end_datetime).count()
         platforms['psn']['achievements'] = PSNAchievement.objects.filter(
             game__user=user, unlock_time__gte=start_datetime, unlock_time__lte=end_datetime, unlocked=True
@@ -377,7 +358,6 @@ class AnalyticsService:
             game__user=user, date_earned__gte=start_datetime, date_earned__lte=end_datetime
         ).count()
         
-        # Music platforms
         spotify_data = Song.objects.filter(
             user=user, played_at__gte=start_datetime, played_at__lte=end_datetime, source='spotify'
         ).aggregate(count=Count('id'), total_duration=Sum('duration_ms'))
@@ -394,7 +374,6 @@ class AnalyticsService:
         if platforms['lastfm']['songs'] and platforms['lastfm']['listening_time'].total_seconds() == 0:
             platforms['lastfm']['listening_time'] = timedelta(minutes=round(platforms['lastfm']['songs'] * 3.5))
         
-        # Trakt data
         movie_watches = MovieWatch.objects.filter(movie__user=user, watched_at__gte=start_datetime, watched_at__lte=end_datetime).count()
         episode_watches = EpisodeWatch.objects.filter(episode__show__user=user, watched_at__gte=start_datetime, watched_at__lte=end_datetime).count()
         
@@ -402,7 +381,6 @@ class AnalyticsService:
         platforms['trakt']['episodes'] = episode_watches
         platforms['trakt']['watch_time'] = timedelta(hours=2 * movie_watches, minutes=45 * episode_watches)
         
-        # Format all time-related values for human readability
         formatted_platforms = {}
         for platform, data in platforms.items():
             formatted_data = data.copy()
@@ -416,7 +394,6 @@ class AnalyticsService:
             
             formatted_platforms[platform] = formatted_data
         
-        # Cache for 1 hour
         cache.set(cache_key, formatted_platforms, 3600)
         return formatted_platforms
     
@@ -427,7 +404,6 @@ class AnalyticsService:
         start_date = end_date - timedelta(days=days)
         start_datetime = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
         
-        # Get total achievements earned in one query
         total_achievements = (
             SteamAchievement.objects.filter(
                 game__user=user, unlock_time__gte=start_datetime, unlocked=True
@@ -443,13 +419,11 @@ class AnalyticsService:
             ).count()
         )
         
-        # Get total gaming time
         steam_playtime = SteamGame.objects.filter(
             user=user, last_played__gte=start_datetime
         ).aggregate(total=Sum('playtime_forever'))['total'] or 0
         total_gaming_time = timedelta(minutes=steam_playtime)
         
-        # Calculate efficiency
         efficiency = 0
         if total_gaming_time.total_seconds() > 0:
             efficiency = total_achievements / (total_gaming_time.total_seconds() / 3600)
@@ -484,7 +458,7 @@ class AnalyticsService:
             return "0 minutes ago"
         elif minutes < 60:
             return f"{int(minutes)} minute{'s' if int(minutes) != 1 else ''} ago"
-        elif minutes < 1440:  # Less than 24 hours
+        elif minutes < 1440:
             hours = int(minutes // 60)
             return f"{hours} hour{'s' if hours != 1 else ''} ago"
         else:
@@ -506,23 +480,16 @@ class AnalyticsService:
     def get_weekly_trend(user: User, days: int = 30) -> list:
         """Get weekly trend data for Time Dedicated Trend chart - returns last 7 days (rolling)"""
         end_date = timezone.now().date()
-        # Get last 7 days for the chart (rolling, not week-based)
         chart_start_date = end_date - timedelta(days=6)
         
-        # Calculate max time for normalization
         max_total_time = 0
         
-        # First pass: calculate all daily stats
         daily_data = []
         for i in range(7):
             day_date = chart_start_date + timedelta(days=i)
             if day_date > end_date:
                 break
             
-            # Calculate time spent for this day
-            # Use __date lookup for consistency with comprehensive_stats (which works correctly)
-            # For gaming: estimate based on achievements unlocked on this day (proxy for activity)
-            # 1 achievement ≈ 30 minutes of gaming (heuristic)
             daily_achievements = (
                 SteamAchievement.objects.filter(
                     game__user=user, 
@@ -545,7 +512,6 @@ class AnalyticsService:
                 ).count()
             )
             
-            # Also check if any games were played on this day
             daily_games_played = (
                 SteamGame.objects.filter(
                     user=user, 
@@ -565,8 +531,6 @@ class AnalyticsService:
                 ).count()
             )
             
-            # Estimate gaming time: achievements * 30 min + games played * 1 hour minimum
-            # Cap at 24h per day to avoid unrealistic totals (e.g. many achievements in one day)
             raw_gaming_minutes = (daily_achievements * 30) + (daily_games_played * 60)
             estimated_gaming_minutes = min(raw_gaming_minutes, 24 * 60)
             day_gaming_time = timedelta(minutes=estimated_gaming_minutes)
@@ -581,7 +545,6 @@ class AnalyticsService:
                 day_gaming_time.total_seconds() / 3600
             )
             
-            # For music: use actual duration from played_at; fallback 3.5 min per track when duration missing (same as Music tab)
             day_songs_data = Song.objects.filter(
                 user=user,
                 played_at__date=day_date
@@ -594,10 +557,8 @@ class AnalyticsService:
             if total_ms > 0:
                 day_music_time = timedelta(milliseconds=total_ms)
             else:
-                # Fallback: 3.5 min per scrobble when duration not available (align with music listening time logic)
                 day_music_time = timedelta(minutes=3.5 * song_count)
             
-            # For TV/Movies: count watches and estimate time
             day_movie_watches = MovieWatch.objects.filter(
                 movie__user=user,
                 watched_at__date=day_date
@@ -624,7 +585,6 @@ class AnalyticsService:
                 'games_played': daily_games_played,
             })
         
-        # Second pass: normalize to percentages for stacked bar chart
         daily_stats = []
         for day_data in daily_data:
             total_time = day_data['gaming_time'] + day_data['music_time'] + day_data['tv_time']
@@ -638,29 +598,23 @@ class AnalyticsService:
                 music_pct = 0
                 tv_pct = 0
             
-            # Calculate relative heights (0-100) for visualization
             if max_total_time > 0:
                 relative_height = (total_time.total_seconds() / max_total_time) * 100
             else:
                 relative_height = 0
             
-            # Calculate average session duration (estimate)
-            # Use heuristic: average session = total gaming time / max(games played, 1)
-            # If no games played, use 0
             gaming_time_hours = day_data['gaming_time'].total_seconds() / 3600
             gaming_time_minutes = day_data['gaming_time'].total_seconds() / 60
             games_played = day_data.get('games_played', 0)
             avg_session_minutes = 0
             if games_played > 0:
-                # Estimate average session: total time / games played (at least 1 hour per game)
                 avg_session_minutes = max(60, gaming_time_minutes / games_played)
             elif gaming_time_minutes > 0:
-                # If there's gaming time but no games recorded, use a default
                 avg_session_minutes = gaming_time_minutes
             
             day_result = {
                 'date': day_data['date'].isoformat(),
-                'day_name': day_data['date'].strftime('%a'),  # Mon, Tue, etc.
+                'day_name': day_data['date'].strftime('%a'),
                 'gaming_percentage': round(gaming_pct, 1),
                 'music_percentage': round(music_pct, 1),
                 'tv_percentage': round(tv_pct, 1),
@@ -668,7 +622,7 @@ class AnalyticsService:
                 'music_time_hours': day_data['music_time'].total_seconds() / 3600,
                 'tv_time_hours': day_data['tv_time'].total_seconds() / 3600,
                 'avg_session_duration_minutes': round(avg_session_minutes, 0),
-                'relative_height': round(relative_height, 1),  # For chart visualization
+                'relative_height': round(relative_height, 1),
             }
             
             daily_stats.append(day_result)
@@ -682,11 +636,9 @@ class AnalyticsService:
         start_date = end_date - timedelta(days=days)
         previous_start = start_date - timedelta(days=days)
         
-        # Convert dates to datetime for queries
         start_datetime = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
         previous_start_datetime = timezone.make_aware(datetime.combine(previous_start, datetime.min.time()))
         
-        # Current period
         current_gaming = timedelta(minutes=SteamGame.objects.filter(
             user=user, last_played__gte=start_datetime
         ).aggregate(total=Sum('playtime_forever'))['total'] or 0)
@@ -706,7 +658,6 @@ class AnalyticsService:
         
         current_total = current_gaming + current_music + current_tv
         
-        # Previous period
         previous_gaming = timedelta(minutes=SteamGame.objects.filter(
             user=user, last_played__gte=previous_start_datetime, last_played__lt=start_datetime
         ).aggregate(total=Sum('playtime_forever'))['total'] or 0)
@@ -726,15 +677,14 @@ class AnalyticsService:
         
         previous_total = previous_gaming + previous_music + previous_tv
         
-        # Calculate percentage change
         if previous_total.total_seconds() > 0:
             change_pct = ((current_total.total_seconds() - previous_total.total_seconds()) / previous_total.total_seconds()) * 100
         else:
             change_pct = 100 if current_total.total_seconds() > 0 else 0
         
         return {
-            'current_time': current_total.total_seconds() / 3600,  # hours
-            'previous_time': previous_total.total_seconds() / 3600,  # hours
+            'current_time': current_total.total_seconds() / 3600,
+            'previous_time': previous_total.total_seconds() / 3600,
             'change_percentage': round(change_pct, 1),
         }
     
@@ -746,7 +696,6 @@ class AnalyticsService:
         
         active_platforms = 0
         
-        # Gaming platforms
         if SteamGame.objects.filter(user=user, last_played__gte=start_date).exists():
             active_platforms += 1
         if PSNGame.objects.filter(user=user, last_played__gte=start_date).exists():
@@ -756,13 +705,11 @@ class AnalyticsService:
         if RetroAchievementsGame.objects.filter(user=user, last_played__gte=start_date).exists():
             active_platforms += 1
         
-        # Music platforms
         if Song.objects.filter(user=user, played_at__gte=start_date, source='spotify').exists():
             active_platforms += 1
         if Song.objects.filter(user=user, played_at__gte=start_date, source='lastfm').exists():
             active_platforms += 1
         
-        # TV/Movies platform
         if (MovieWatch.objects.filter(movie__user=user, watched_at__gte=start_date).exists() or
             EpisodeWatch.objects.filter(episode__show__user=user, watched_at__gte=start_date).exists()):
             active_platforms += 1
@@ -777,12 +724,7 @@ class AnalyticsService:
         
         genres = []
         
-        # For now, we'll create a simple distribution based on available data
-        # This can be enhanced later with actual genre data from games/movies
-        # Since we don't have genre data in the current models, we'll return a placeholder
-        # that shows distribution by content type
         
-        # Count by content type as a proxy for genre distribution
         gaming_count = (
             SteamGame.objects.filter(user=user, last_played__gte=start_date).count() +
             PSNGame.objects.filter(user=user, last_played__gte=start_date).count() +
@@ -829,7 +771,6 @@ class AnalyticsService:
             'total_tags': len(genres)
         }
     
-    # ---------- Music analytics (Gaming Tab style) ----------
     
     @staticmethod
     def get_top_artist(user: User, days: int = 30) -> StatsPayload | None:
@@ -847,7 +788,6 @@ class AnalyticsService:
         )
         if not top:
             return None
-        # Get top album for this artist in period
         artist_album = Song.objects.filter(
             user=user, artist=top['artist'],
             played_at__gte=start_datetime, played_at__lte=end_datetime
@@ -938,8 +878,8 @@ class AnalyticsService:
         songs = Song.objects.filter(
             user=user, played_at__gte=start_datetime, played_at__lte=end_datetime
         ).only('played_at')
-        morning = 0  # 05–12
-        evening = 0  # 18–24
+        morning = 0
+        evening = 0
         for s in songs:
             h = s.played_at.hour
             if 5 <= h < 12:
@@ -949,7 +889,6 @@ class AnalyticsService:
         total = morning + evening
         evening_pct = round((evening / total) * 100, 0) if total else 0
         listener_type = 'Evening Listener' if evening_pct >= 50 else 'Morning Listener'
-        # Total scrobbles all-time for milestone (next 50k step)
         total_scrobbles = Song.objects.filter(user=user).count()
         milestone = 50000
         while total_scrobbles >= milestone:
@@ -1041,7 +980,6 @@ class AnalyticsService:
         max_playtime = 0
         platform = None
         
-        # Check Steam games
         steam_games = SteamGame.objects.filter(
             user=user,
             last_played__gte=start_datetime
@@ -1052,20 +990,11 @@ class AnalyticsService:
             most_played = steam_games
             platform = 'steam'
         
-        # Check PSN games - total_playtime is stored as string, so we can't easily compare
-        # For now, we'll primarily use Steam for most_played_game as it has numeric playtime
-        # PSN/Xbox games can still be returned if they're the only games
         
-        # Check Xbox games - similar to PSN, stored as string
-        # We'll focus on Steam for accurate comparison
         
-        # RetroAchievements doesn't have playtime stored, so skip for now
         
         if most_played:
             if platform == 'steam':
-                # Steam game
-                # header.jpg over library_600x900_2x.jpg: the 600x900 heroes are
-                # missing from the Steam CDN for many older apps (404s).
                 image_url = most_played.img_icon_url or f"https://cdn.akamai.steamstatic.com/steam/apps/{most_played.appid}/header.jpg"
                 return {
                     'name': most_played.name,
@@ -1075,7 +1004,6 @@ class AnalyticsService:
                     'appid': most_played.appid
                 }
             elif platform in ['psn', 'xbox']:
-                # PSN or Xbox game
                 image_url = most_played.img_icon_url or ''
                 return {
                     'name': most_played.name,
@@ -1094,10 +1022,8 @@ class AnalyticsService:
         start_datetime = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
         
         hardest = None
-        lowest_rarity = 100.0  # Start with 100% (common), we want lowest
+        lowest_rarity = 100.0
         
-        # Check RetroAchievements - use true_ratio (lower = rarer)
-        # Note: true_ratio is a score, lower means rarer
         retro_achievements = GameAchievement.objects.filter(
             game__user=user,
             date_earned__gte=start_datetime,
@@ -1105,9 +1031,6 @@ class AnalyticsService:
         ).select_related('game').order_by('true_ratio').first()
         
         if retro_achievements:
-            # Convert true_ratio to percentage (this is approximate)
-            # Lower true_ratio means fewer people have it
-            # We'll use a heuristic: if true_ratio < 1000, it's very rare (<1%)
             if retro_achievements.true_ratio < 1000:
                 estimated_rarity = 0.1
             elif retro_achievements.true_ratio < 5000:
@@ -1125,15 +1048,8 @@ class AnalyticsService:
                     'unlock_date': retro_achievements.date_earned.isoformat() if retro_achievements.date_earned else None
                 }
         
-        # For Steam, PSN, Xbox - we don't have rarity stored
-        # So we'll check if there are achievements and return the most recent rare one
-        # or just use a placeholder
         
-        # Check Steam achievements - no rarity data, so we'll skip for now
-        # In a real implementation, you'd need to fetch from Steam API
         
-        # Check PSN achievements - no rarity data stored
-        # Check Xbox achievements - no rarity data stored
         
         return hardest
     
@@ -1146,7 +1062,6 @@ class AnalyticsService:
         
         completed_titles = set()
         
-        # Steam: Game is completed if 100% achievements unlocked
         steam_games = SteamGame.objects.filter(user=user, last_played__gte=start_datetime)
         for game in steam_games:
             total_achievements = game.achievements.count()
@@ -1155,10 +1070,8 @@ class AnalyticsService:
                 if unlocked_count == total_achievements:
                     completed_titles.add(AnalyticsService._game_identity(game.name))
         
-        # PSN: Game is completed if platinum trophy earned
         psn_games = PSNGame.objects.filter(user=user, last_played__gte=start_datetime)
         for game in psn_games:
-            # Check if platinum trophy exists and is unlocked
             platinum_trophy = PSNAchievement.objects.filter(
                 game=game,
                 unlocked=True
@@ -1168,7 +1081,6 @@ class AnalyticsService:
             if platinum_trophy:
                 completed_titles.add(AnalyticsService._game_identity(game.name))
         
-        # Xbox: Game is completed if all achievements unlocked
         xbox_games = XboxGame.objects.filter(user=user, last_played__gte=start_datetime)
         for game in xbox_games:
             total_achievements = game.achievements.count()
@@ -1177,7 +1089,6 @@ class AnalyticsService:
                 if unlocked_count == total_achievements:
                     completed_titles.add(AnalyticsService._game_identity(game.name))
         
-        # RetroAchievements: Game is completed if all achievements unlocked
         retro_games = RetroAchievementsGame.objects.filter(user=user, last_played__gte=start_datetime)
         for game in retro_games:
             if game.num_possible_achievements > 0:
@@ -1186,7 +1097,6 @@ class AnalyticsService:
         
         return len({title for title in completed_titles if title})
 
-    # ---------- Movies & TV (Trakt) analytics ----------
 
     @staticmethod
     def get_media_movies_change(user: User, days: int = 30) -> StatsPayload:

@@ -51,7 +51,7 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
     top_studio: null,
   };
 
-  const dayLabels = ["S", "M", "T", "W", "T", "F", "S"]; // Sun=0, Mon=1, ... Sat=6
+  const dayLabels = ["S", "M", "T", "W", "T", "F", "S"];
   const dailyWatch = media_weekly_watch?.length
     ? media_weekly_watch
     : (comprehensive_stats?.daily_stats?.slice(-7) || []).map((d: any) => ({
@@ -69,7 +69,7 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
 
   return (
     <Box sx={{ fontFamily: "'Inter', sans-serif", color: "#e2e8f0" }}>
-      {/* Top row: 4 cards */}
+
       <Box
         sx={{
           display: "grid",
@@ -82,7 +82,7 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
           mb: 4,
         }}
       >
-        {/* Movies Watched - light card */}
+
         <Card
           sx={{
             bgcolor: SILVER_LIGHT,

@@ -124,7 +124,6 @@ class AnalyticsApiContractTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("partial_failures", response.data)
         self.assertIn("comprehensive_stats", response.data["partial_failures"])
-        # Correlatable id must be present on success too.
         self.assertIn("request_id", response.data)
         self.assertTrue(response.data["request_id"])
 
@@ -150,8 +149,6 @@ class AnalyticsApiContractTests(APITestCase):
             required_keys.issubset(response.data.keys()),
             f"Missing keys: {required_keys - set(response.data.keys())}",
         )
-        # comprehensive_stats must include the period/totals/averages the
-        # frontend reads (and which previously crashed when empty).
         stats = response.data["comprehensive_stats"]
         for section in ("period", "totals", "averages"):
             self.assertIn(section, stats)

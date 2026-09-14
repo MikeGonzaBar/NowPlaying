@@ -1,22 +1,19 @@
 import { createTheme } from "@mui/material/styles";
 
-// Dark Mode Zinc Color Palette
 const zincColors = {
   background: "#09090b",
   card: "#18181b",
   border: "#27272a",
-  muted: "#a1a1aa", // zinc-400
+  muted: "#a1a1aa",
   white: "#ffffff",
 };
 
-// Category colors for glows
 const categoryColors = {
-  games: "#3b82f6", // blue
-  movies: "#ef4444", // red
-  music: "#10b981", // green
-  analytics: "#8b5cf6", // purple
+  games: "#3b82f6",
+  movies: "#ef4444",
+  music: "#10b981",
+  analytics: "#8b5cf6",
 };
-// Semantic status colors (reserved for status only — the product accent drives interactivity)
 const statusColors = {
   success: "#22c55e",
   warning: "#f59e0b",
@@ -158,14 +155,5 @@ export const theme = createTheme({
     },
   },
 });
-
-// Layout-specific density tokens (audit #10). Desktop shows comfortable
-// poster cards; narrow profiles switch to compact rows with tighter gaps
-// and shorter touch-friendly row heights. Referencing these tokens keeps
-// the breakpoints consistent across All Games, Analytics, and leaderboards.
-export const density = {
-  comfortable: { rowHeight: 120, gap: 3, thumbnail: 120, chipHeight: 24 },
-  compact: { rowHeight: 56, gap: 1, thumbnail: 48, chipHeight: 20 },
-} as const;
 
 export { zincColors, categoryColors, statusColors };

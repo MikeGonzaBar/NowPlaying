@@ -9,7 +9,6 @@ from rest_framework.exceptions import APIException
 from .credentials import get_service_credentials
 from .models import UserApiKey
 
-# Create your tests here.
 
 class AuthTests(TestCase):
     def setUp(self):
@@ -31,14 +30,12 @@ class AuthTests(TestCase):
         self.assertEqual(User.objects.count(), 1)
         
     def test_user_login(self):
-        # Create user first
         user = User.objects.create_user(
             username=self.user_data['username'],
             email=self.user_data['email'],
             password=self.user_data['password']
         )
         
-        # Login
         login_data = {
             'username': self.user_data['username'],
             'password': self.user_data['password']

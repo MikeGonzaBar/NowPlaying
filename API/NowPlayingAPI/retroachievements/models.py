@@ -1,17 +1,13 @@
 from django.db import models
 from django.utils.timezone import make_aware
 from datetime import datetime
-from django.db.models import F, FloatField, ExpressionWrapper
+from django.db.models import F, FloatField, ExpressionWrapper, Prefetch
 from django.contrib.auth.models import User
 import logging
 import http_client
 
-# Set up logging
 logger = logging.getLogger("retroachievements")
 
-# Your credentials
-# api_key = settings.RETROACHIEVEMENTS_API_KEY
-# username = settings.RETROACHIEVEMENTS_USER
 
 def get_json_response(url: str) -> object | None:
     """Helper function to GET a URL and return JSON data, handling errors."""
@@ -19,7 +15,7 @@ def get_json_response(url: str) -> object | None:
         response = http_client.get(url, logger_name="retroachievements")
         logger.debug(f"Requesting: {url}")
         logger.debug("Status Code: %s", response.status_code)
-        response.raise_for_status()  # Raises HTTPError for bad responses (4xx or 5xx)
+        response.raise_for_status()
         try:
             return response.json()
         except ValueError as json_err:
@@ -32,20 +28,19 @@ def get_json_response(url: str) -> object | None:
 
 def parse_datetime(datetime_str: str | None) -> datetime | None:
     """Convert a naive datetime string to a timezone-aware datetime object."""
-    if not datetime_str:  # Check if the datetime string is None or empty
+    if not datetime_str:
         return None
     try:
         naive_datetime = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
-        return make_aware(naive_datetime)  # Convert to timezone-aware datetime
+        return make_aware(naive_datetime)
     except ValueError:
         return None
 
 class RetroAchievementsGame(models.Model):
     """Stored RetroAchievements game owned by a local user."""
 
-    # Django will automatically add an id field as primary key
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='retroachievements_games')
-    game_id = models.IntegerField()  # Not a primary key
+    game_id = models.IntegerField()
     console_id = models.IntegerField()
     console_name = models.CharField(max_length=100)
     title = models.CharField(max_length=255)
@@ -74,9 +69,8 @@ class RetroAchievementsGame(models.Model):
 class GameAchievement(models.Model):
     """Stored RetroAchievements achievement for a game."""
 
-    # Django will automatically add an id field as primary key
     game = models.ForeignKey(RetroAchievementsGame, related_name="achievements", on_delete=models.CASCADE)
-    achievement_id = models.IntegerField()  # Not a primary key
+    achievement_id = models.IntegerField()
     title = models.CharField(max_length=255)
     description = models.TextField()
     points = models.IntegerField()
@@ -119,7 +113,7 @@ class RetroAchievementsAPI:
             games_info = []
             
             for game_data in recent_games:
-                last_played = parse_datetime(game_data['LastPlayed'])  # Convert to timezone-aware
+                last_played = parse_datetime(game_data['LastPlayed'])
                 
                 game, created = RetroAchievementsGame.objects.update_or_create(
                     user=user,
@@ -132,7 +126,7 @@ class RetroAchievementsAPI:
                         'image_title': game_data['ImageTitle'],
                         'image_ingame': game_data['ImageIngame'],
                         'image_box_art': game_data['ImageBoxArt'],
-                        'last_played': last_played,  # Use timezone-aware datetime
+                        'last_played': last_played,
                         'achievements_total': game_data['AchievementsTotal'],
                         'num_possible_achievements': game_data['NumPossibleAchievements'],
                         'possible_score': game_data['PossibleScore'],
@@ -143,10 +137,8 @@ class RetroAchievementsAPI:
                     }
                 )
                 
-                # Populate achievements for the game
                 RetroAchievementsAPI.populate_achievements_for_game(game, ra_username, ra_api_key)
                 
-                # Collect information about the game and its achievements
                 achievements = game.achievements.all().order_by('display_order')
                 
                 formatted_achievements = [
@@ -223,7 +215,6 @@ class RetroAchievementsAPI:
     def get_most_achieved_games(user: User) -> dict[str, object]:
         """Get the list of games ordered by the percentage of unlocked achievements."""
         try:
-            # Exclude games with no achievements to avoid division by zero
             games = RetroAchievementsGame.objects.filter(
                 user=user,
                 achievements_total__gt=0
@@ -232,12 +223,18 @@ class RetroAchievementsAPI:
                     F('num_achieved') * 100.0 / F('achievements_total'),
                     output_field=FloatField()
                 )
-            ).order_by('-unlocked_percentage')  # Order by percentage in descending order
+            ).order_by('-unlocked_percentage').prefetch_related(
+                Prefetch(
+                    "achievements",
+                    queryset=GameAchievement.objects.order_by("display_order"),
+                    to_attr="ordered_achievements",
+                )
+            )
             
             games_info = []
             
             for game in games:
-                achievements = game.achievements.all().order_by('display_order')
+                achievements = game.ordered_achievements
                 
                 formatted_achievements = [
                     {
@@ -280,12 +277,18 @@ class RetroAchievementsAPI:
     def fetch_games(user: User) -> dict[str, object]:
         """Fetch all games for a specific user."""
         try:
-            games = RetroAchievementsGame.objects.filter(user=user).order_by('-last_played')
+            games = RetroAchievementsGame.objects.filter(user=user).order_by('-last_played').prefetch_related(
+                Prefetch(
+                    "achievements",
+                    queryset=GameAchievement.objects.order_by("display_order"),
+                    to_attr="ordered_achievements",
+                )
+            )
             
             games_info = []
             
             for game in games:
-                achievements = game.achievements.all().order_by('display_order')
+                achievements = game.ordered_achievements
                 
                 formatted_achievements = [
                     {

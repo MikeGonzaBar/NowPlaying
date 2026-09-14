@@ -3,7 +3,6 @@ from django.utils.safestring import mark_safe
 from .models import TraktToken, Movie, MovieWatch, Show, Season, Episode, EpisodeWatch
 
 
-# Register your models here.
 @admin.register(TraktToken)
 class TraktTokenAdmin(admin.ModelAdmin):
     """Admin view for stored Trakt OAuth tokens."""

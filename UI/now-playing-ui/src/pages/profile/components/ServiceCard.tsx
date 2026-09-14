@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  Alert,
   Paper,
   Box,
   Typography,
@@ -33,7 +34,6 @@ interface ServiceCardProps {
   onSave: (keyData?: NewApiKey) => Promise<void>;
   onDelete: () => Promise<void>;
 
-  // PSN specific props
   isPSNEditing?: boolean;
   psnNPSSO?: string;
   psnUpdating?: boolean;
@@ -42,7 +42,6 @@ interface ServiceCardProps {
   onPSNSave?: () => Promise<void>;
   onPSNChange?: (value: string) => void;
 
-  // Trakt specific props
   traktAuthStatus?: TraktAuthStatus | null;
   traktLoading?: boolean;
   onTraktOAuth?: () => Promise<void>;
@@ -122,7 +121,6 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
     if (value.length <= 8) return `${value.slice(0, 2)}••••${value.slice(-2)}`;
     return `${value.slice(0, 4)}••••${value.slice(-4)}`;
   };
-  // Special handling for Trakt OAuth
   if (service.requiresOAuth && service.name === "trakt") {
     return (
       <Paper
@@ -229,6 +227,12 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
             </IconButton>
           )}
         </Box>
+
+        {service.notice && (
+          <Alert severity="warning" role="alert" sx={{ mb: 2 }}>
+            {service.notice}
+          </Alert>
+        )}
 
         {/* Step 1: API Credentials */}
         {!existingApiKey && (
@@ -388,7 +392,6 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
     );
   }
 
-  // Regular API key handling
   return (
     <Paper
       sx={{

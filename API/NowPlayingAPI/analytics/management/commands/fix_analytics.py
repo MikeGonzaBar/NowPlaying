@@ -44,12 +44,10 @@ class Command(BaseCommand):
         for user in users:
             self.stdout.write(f"\n--- Processing user: {user.username} ---")
 
-            # Delete existing UserStatistics for this user
             deleted_count = UserStatistics.objects.filter(user=user).count()
             UserStatistics.objects.filter(user=user).delete()
             self.stdout.write(f"Deleted {deleted_count} existing UserStatistics records")
 
-            # Trigger recalculation
             try:
                 result = AnalyticsService.get_comprehensive_statistics(user, days=days)
                 totals = result['totals']

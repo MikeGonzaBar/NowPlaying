@@ -21,10 +21,8 @@ import requests
 import webbrowser
 from urllib.parse import urlparse, parse_qs
 
-# Add the project directory to the path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Setup Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'NowPlayingAPI.settings')
 django.setup()
 
@@ -76,7 +74,6 @@ def main() -> None:
     print("🎬 Trakt OAuth Setup")
     print("===================")
 
-    # Get JWT token
     print("\n1. Getting authentication token...")
     token, base_url = get_jwt_token()
     if not token:
@@ -85,7 +82,6 @@ def main() -> None:
 
     print("✅ Authentication token obtained!")
 
-    # Get authentication URL
     print("\n2. Getting Trakt authentication URL...")
     auth_url_endpoint = f"{base_url}/trakt/authenticate/"
     headers = {
@@ -109,16 +105,13 @@ def main() -> None:
         print(f"❌ Failed to get authentication URL: {e}")
         return
 
-    # Open browser
     print("\n3. Opening browser for Trakt authorization...")
     webbrowser.open(auth_url)
     print("🌐 Browser opened. Please authorize your Trakt account.")
 
-    # Get authorization code
     print("\n4. After authorizing, you'll be redirected to a page with an authorization code.")
     redirect_url = input("Please paste the full redirect URL here: ").strip()
 
-    # Parse the authorization code
     try:
         parsed_url = urlparse(redirect_url)
         query_params = parse_qs(parsed_url.query)
@@ -135,7 +128,6 @@ def main() -> None:
         print(f"❌ Failed to parse redirect URL: {e}")
         return
 
-    # Send callback to server
     print("\n5. Completing authentication...")
     callback_url = f"{base_url}/trakt/oauth-callback/"
     callback_data = {

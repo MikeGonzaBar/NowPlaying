@@ -11,27 +11,25 @@ from .auth import create_psnawp_from_stored_auth, serialize_psn_auth_payload
 
 logger = logging.getLogger("playstation")
 
-# Model for PSN games (titles)
 class PSNGame(models.Model):
     """Stored PlayStation title owned by a local user."""
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='psn_games')
-    appid = models.CharField(max_length=100)  # title_id from PSN
+    appid = models.CharField(max_length=100)
     name = models.CharField(max_length=255)
     platform = models.CharField(max_length=50)
-    total_playtime = models.CharField(max_length=50, blank=True)  # We'll store a string format of the timedelta.
+    total_playtime = models.CharField(max_length=50, blank=True)
     first_played = models.DateTimeField(null=True, blank=True)
     last_played = models.DateTimeField(null=True, blank=True)
     img_icon_url = models.URLField(max_length=500, blank=True)
 
     class Meta:
-        unique_together = ('user', 'appid')  # A game can appear multiple times, but only once per user
+        unique_together = ('user', 'appid')
 
     def __str__(self) -> str:
         """Return the PlayStation game name."""
         return self.name
 
-# Model for PSN achievements (trophies)
 class PSNAchievement(models.Model):
     """Stored PlayStation trophy for a game."""
 
@@ -77,7 +75,6 @@ class PSN:
             if not trophies:
                 return {"achievements": [], "total": {}, "unlocked": {}}
             achievements = []
-            # Counters as dictionaries if needed by your business logic
             trophy_counts = {"platinum": 0, "gold": 0, "silver": 0, "bronze": 0}
             unlocked_counts = {"platinum": 0, "gold": 0, "silver": 0, "bronze": 0}
             for trophy in trophies:
@@ -130,12 +127,9 @@ class PSN:
             titles = list(client.title_stats())
             
             games_info = []
-            # Loop through each title and update or create a PSNGame record,
-            # then update or create related PSNAchievement records.
             for title in titles:
                 achievements_data = cls.fetch_achievements(client, title.title_id, title.category)
                 
-                # Create or update the game record.
                 game, created = PSNGame.objects.update_or_create(
                     appid=title.title_id,
                     user=user,
@@ -150,13 +144,11 @@ class PSN:
                     },
                 )
                 
-                # Now, update or create each achievement for this game.
                 unlocked_count = 0
                 for ach in achievements_data["achievements"]:
                     if ach["unlocked"]:
                         unlocked_count += 1
                         
-                    # We assume the combination of game and achievement name uniquely identifies a trophy.
                     try:
                         PSNAchievement.objects.update_or_create(
                             game=game,
@@ -165,7 +157,6 @@ class PSN:
                                 "description": ach["description"],
                                 "image": ach["image"],
                                 "unlocked": ach["unlocked"],
-                                # Convert the ISO string to a datetime object if necessary.
                                 "unlock_time": (
                                     make_timezone_aware(datetime.fromisoformat(ach["unlock_time"])) if ach["unlock_time"] else None
                                 ),
@@ -176,7 +167,6 @@ class PSN:
                         logger.error(f"Error updating PSN achievement {ach.get('name', 'Unknown')}: {str(e)}")
                         continue
                 
-                # Prepare the game info with achievements for the response
                 achievements_qs = game.achievements.all()
                 achievements_list = list(
                     achievements_qs.values("name", "description", "image", "unlocked", "unlock_time", "trophy_type")
@@ -232,5 +222,3 @@ class PSN:
                 ),
             })
         return {"games": games_info}
-
-

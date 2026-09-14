@@ -39,7 +39,6 @@ function MoviesDashboard() {
     try {
       setLoading(true);
 
-      // Use only existing, stable endpoints from the API
       const [moviesRes, showsRes, completedRes] = await Promise.all([
         authenticatedFetch(
           getApiUrl(
@@ -67,7 +66,6 @@ function MoviesDashboard() {
       const completedShows = completedData.completed_shows || [];
       const completedMovies = completedData.completed_movies || [];
 
-      // Simple derived \"activity\" based on recent watches so the section isn't empty
       const activities = [
         ...recentMovies.slice(0, 3).map((m: any) => ({
           type: "check_in",
@@ -89,7 +87,6 @@ function MoviesDashboard() {
         })),
       ];
 
-      // Basic profile stats derived from stored movies/shows
       const profileStats = {
         total_movies: moviesData.total_items || recentMovies.length,
         total_shows: showsData.total_items || recentShows.length,
@@ -104,11 +101,9 @@ function MoviesDashboard() {
         recentMovies,
         recentShows,
         activities,
-        // Use actual completed media from backend endpoint
         completedShows,
         completedMovies,
         profileStats,
-        // Rating comparison and trending use their own internal fallbacks
         ratingComparison: null,
         trending: null,
       });

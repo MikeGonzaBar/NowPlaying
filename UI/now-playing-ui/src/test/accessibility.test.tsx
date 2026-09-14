@@ -84,7 +84,6 @@ describe("accessibility (audit #9)", () => {
       </MemoryRouter>,
     );
 
-    // Wait for the fetch to resolve and the dashboard sections to render.
     expect(
       await screen.findByRole("button", { name: /see all artists/i }),
     ).toBeInTheDocument();
@@ -111,8 +110,6 @@ describe("accessibility (audit #9)", () => {
     );
 
     await screen.findByText(/entertainment statistics/);
-    // Scope to the main content region so the shared SideBar chrome (a
-    // pre-existing structure) does not fail the page-level assertion.
     const main = rendered.container.querySelector("main") ?? rendered.container;
     await expectNoA11yViolations(
       { container: main } as never,

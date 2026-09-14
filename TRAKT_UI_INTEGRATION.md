@@ -23,6 +23,8 @@ Your NowPlaying application now has complete Trakt OAuth integration! The backen
 ## 🚀 **How to Set Up Trakt OAuth**
 
 ### **Step 1: Create Trakt API Application**
+>
+> ⚠️ **Important — Trakt now requires VIP**: Creating or registering a new Trakt OAuth application on Trakt previously worked for free, but it now requires a paid **Trakt VIP** subscription (the applications page shows *"Crear nuevas aplicaciones requiere Trakt VIP"*). If you already have a registered Trakt app, the flow below still works. Otherwise, a free Trakt account can no longer create new API apps, so we are looking for an alternative for movie & TV tracking.
 
 1. Visit <https://trakt.tv/oauth/applications>
 2. Click "New Application"

@@ -31,11 +31,9 @@ function ProfileSidebar({ stats, onSyncComplete }: ProfileSidebarProps) {
       );
 
       if (response.ok) {
-        // Show success message
         alert(
           "Movie sync started in the background. The dashboard will refresh shortly.",
         );
-        // Wait a bit for background sync to start, then refresh dashboard
         setTimeout(() => {
           if (onSyncComplete) {
             onSyncComplete();
@@ -62,11 +60,9 @@ function ProfileSidebar({ stats, onSyncComplete }: ProfileSidebarProps) {
       );
 
       if (response.ok) {
-        // Show success message
         alert(
           "Show sync started in the background. This may take a few minutes. The dashboard will refresh shortly.",
         );
-        // Wait a bit for background sync to start, then refresh dashboard
         setTimeout(() => {
           if (onSyncComplete) {
             onSyncComplete();

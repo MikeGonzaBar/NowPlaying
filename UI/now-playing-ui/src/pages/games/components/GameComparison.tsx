@@ -3,20 +3,11 @@ import { Box, Typography, Divider } from "@mui/material";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import EventIcon from "@mui/icons-material/Event";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
-import { formatMinutesCompact, parsePlaytimeMinutes } from "../utils/utils";
+import { formatMinutesCompact } from "../utils/utils";
+import { getCombinedDetailMetrics, getDetailMetrics } from "../utils/gameDetail";
+import type { GameDetailResponse, PlatformGameData } from "../utils/gameDetail";
 import { formatShortDate } from "../../../utils/dates";
 import { zincColors } from "../../../theme";
-
-export interface PlatformData {
-    platform: string;
-    data: Record<string, unknown>;
-}
-
-export interface GameDetailResponse {
-    title: string;
-    platforms: PlatformData[];
-    platform_count: number;
-}
 
 interface GameComparisonProps {
     game: GameDetailResponse;
@@ -25,34 +16,10 @@ interface GameComparisonProps {
 const GameComparison: React.FC<GameComparisonProps> = ({ game }) => {
     if (!game || game.platforms.length < 2) return null;
 
-    let totalPlaytime = 0;
-    let totalUnlocked = 0;
-    let totalAchievements = 0;
-    const knownPlaytimePlatforms: string[] = [];
-    const unavailablePlaytimePlatforms: string[] = [];
-
-    game.platforms.forEach((platform) => {
-        const data = platform.data;
-        const playtime = parsePlaytimeMinutes(
-            data.playtime_forever ?? data.total_playtime,
-        );
-
-        if (playtime.available && playtime.minutes !== null) {
-            totalPlaytime += playtime.minutes;
-            knownPlaytimePlatforms.push(getPlatformName(platform.platform));
-        } else {
-            unavailablePlaytimePlatforms.push(getPlatformName(platform.platform));
-        }
-
-        const achievements = Array.isArray(data.achievements)
-            ? data.achievements
-            : [];
-        totalAchievements += achievements.length;
-        totalUnlocked += achievements.filter((achievement) => {
-            const item = achievement as Record<string, unknown>;
-            return item.achieved === true || item.unlocked === true;
-        }).length;
-    });
+    const metrics = getCombinedDetailMetrics(game.platforms);
+    const { playtimeMinutes: totalPlaytime, unlocked: totalUnlocked, total: totalAchievements } = metrics;
+    const knownPlaytimePlatforms = metrics.knownPlaytimePlatforms.map(getPlatformName);
+    const unavailablePlaytimePlatforms = metrics.unavailablePlaytimePlatforms.map(getPlatformName);
 
     const completionRate = totalAchievements > 0
         ? ((totalUnlocked / totalAchievements) * 100).toFixed(1)
@@ -94,17 +61,12 @@ const GameComparison: React.FC<GameComparisonProps> = ({ game }) => {
 };
 
 interface SourceCardProps {
-    platform: PlatformData;
+    platform: PlatformGameData;
 }
 
 const SourceCard: React.FC<SourceCardProps> = ({ platform }) => {
     const data = platform.data;
-    const achievements = Array.isArray(data.achievements) ? data.achievements : [];
-    const unlockedAchievements = achievements.filter((achievement) => {
-        const item = achievement as Record<string, unknown>;
-        return item.achieved === true || item.unlocked === true;
-    }).length;
-    const playtime = parsePlaytimeMinutes(data.playtime_forever ?? data.total_playtime);
+    const { total, unlocked: unlockedAchievements, playtime } = getDetailMetrics(data);
     const lastPlayed = data.last_played ? new Date(String(data.last_played)) : null;
     const platformName = getPlatformName(platform.platform);
     const platformColor = platform.platform === "steam"
@@ -114,8 +76,8 @@ const SourceCard: React.FC<SourceCardProps> = ({ platform }) => {
             : platform.platform === "xbox"
                 ? "#107c10"
                 : "#cc9900";
-    const completionRate = achievements.length > 0
-        ? ((unlockedAchievements / achievements.length) * 100).toFixed(1)
+    const completionRate = total > 0
+        ? ((unlockedAchievements / total) * 100).toFixed(1)
         : "0.0";
 
     return (
@@ -132,7 +94,7 @@ const SourceCard: React.FC<SourceCardProps> = ({ platform }) => {
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
                 <EmojiEventsIcon sx={{ fontSize: 14, color: zincColors.muted }} />
                 <Typography sx={{ fontFamily: "Inter, sans-serif", fontSize: "13px", color: zincColors.white }}>
-                    {unlockedAchievements}/{achievements.length}
+                    {unlockedAchievements}/{total}
                 </Typography>
                 <Typography sx={{ fontFamily: "Inter, sans-serif", fontSize: "11px", color: zincColors.muted }}>
                     ({completionRate}%)

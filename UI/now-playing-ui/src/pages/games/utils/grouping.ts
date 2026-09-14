@@ -53,10 +53,8 @@ export function mergeGameGroup(games: Game[]): Game {
     return { ...games[0], isCrossPlatform: false };
   }
 
-  // Collect all sources from all games in the group
   const allSources: GameSource[] = games.flatMap((g) => g.sources);
 
-  // Deduplicate sources by platform (keep the one with more achievements)
   const sourceByPlatform = new Map<string, GameSource>();
   for (const source of allSources) {
     const existing = sourceByPlatform.get(source.platform);
@@ -66,7 +64,6 @@ export function mergeGameGroup(games: Game[]): Game {
   }
   const dedupedSources = Array.from(sourceByPlatform.values());
 
-  // Aggregate stats
   const totalPlaytimeMinutes = dedupedSources.reduce(
     (sum, s) => sum + (s.hasPlaytime ? s.playtimeMinutes : 0),
     0,
@@ -80,13 +77,11 @@ export function mergeGameGroup(games: Game[]): Game {
     0,
   );
 
-  // Collect unique platforms
   const platformKeys = [...new Set(dedupedSources.map((s) => s.platform))];
   const platforms = platformKeys
     .map((key) => PLATFORM_METADATA[key])
     .filter(Boolean);
 
-  // Find most recent lastPlayed and earliest firstPlayed
   const lastPlayed = dedupedSources.reduce<Date | null>((latest, s) => {
     if (!s.lastPlayed) return latest;
     if (!latest) return s.lastPlayed;
@@ -99,11 +94,9 @@ export function mergeGameGroup(games: Game[]): Game {
     return s.firstPlayed < earliest ? s.firstPlayed : earliest;
   }, null);
 
-  // Use the best image (prefer non-empty)
   const imageUrl =
     dedupedSources.find((s) => s.imageUrl)?.imageUrl || games[0].imageUrl || "";
 
-  // Use the longest title as display title (most descriptive)
   const title = dedupedSources.reduce((best, s) => {
     const sTitle = (s.raw as { name: string }).name || "";
     return sTitle.length > best.length ? sTitle : best;

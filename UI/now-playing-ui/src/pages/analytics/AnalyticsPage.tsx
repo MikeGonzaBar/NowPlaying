@@ -41,7 +41,6 @@ import MusicStats from './components/MusicStats';
 import MediaStats from './components/MediaStats';
 
 
-// Analytics data availability states
 interface AnalyticsTotals {
     total_games_played: number | 'unavailable';
     total_achievements_earned: number | 'unavailable';
@@ -149,7 +148,6 @@ interface AnalyticsData {
     media_insights?: { binge_streak: string | null; favorite_director: string | null; top_studio: string | null };
 }
 
-// Normalizes analytics payload — partial sections become "unavailable" (never zero)
 const normalizeAnalyticsData = (raw: AnalyticsData | null): AnalyticsData => {
     const src = (raw && typeof raw === "object" ? raw : {}) as Record<string, any>;
     const rawStats = src.comprehensive_stats;
@@ -166,8 +164,6 @@ const normalizeAnalyticsData = (raw: AnalyticsData | null): AnalyticsData => {
         ...(hasRealStats && rawStats.period),
     };
     const unavailable = 'unavailable' as const;
-    // Audit #2: when any backend section failed (partial_failures present), the
-    // Export must be disabled/annotated instead of producing an ambiguous file.
     const hasPartialFailures =
         !!src.partial_failures &&
         typeof src.partial_failures === 'object' &&
@@ -183,12 +179,6 @@ const normalizeAnalyticsData = (raw: AnalyticsData | null): AnalyticsData => {
         total_watch_time: hasRealStats && rawStats.totals?.total_watch_time ? rawStats.totals.total_watch_time : unavailable,
         total_engagement_time: hasRealStats && rawStats.totals?.total_engagement_time ? rawStats.totals.total_engagement_time : unavailable,
     };
-    // Section payloads live at the TOP level of the response; only
-    // period/totals/averages/daily_stats are nested inside
-    // comprehensive_stats. Read the top level first and keep the legacy
-    // nested location as a fallback for older payloads — reading only the
-    // nested location silently wiped every section to its default and made
-    // GamingStats dereference `platform_distribution.steam` as undefined.
     const section = (key: string): any => src[key] ?? rawStats?.[key];
 
     return {
@@ -311,13 +301,11 @@ const AnalyticsPage: React.FC = () => {
         return formatDateRange(start_date, end_date);
     };
 
-    // Render unavailable sentinel as em-dash (audit: never show false zero)
     const renderUnavailable = (value: number | string | 'unavailable', fallback: string = '—') => {
         if (value === 'unavailable') return fallback;
         return value;
     };
 
-    // Prevent duplicate section rendering (audit P0: Time Dedicated Trend + Recurring Genres duplicated)
     const renderedSections = new Set<string>();
     const renderOnce = (id: string, content: React.ReactNode) => {
         if (renderedSections.has(id)) return null;

@@ -25,6 +25,7 @@ import { zincColors } from '../../../theme';
 import { API_CONFIG } from '../../../config/api';
 import { formatMinutesCompact } from '../utils/utils';
 import { GameImage } from '../components/GameImage';
+import { sortByLatestAchievement } from '../utils/achievementDates';
 
 const PAGE_SIZE = 24;
 
@@ -74,20 +75,6 @@ const countGame = (game: Game): CountedGame => {
     };
 };
 
-const getLatestAchievementDate = (game: Game): Date => {
-    let latest: Date | null = null;
-    game.sources.forEach((source) => {
-        const raw = source.raw as unknown as { achievements?: Array<{ unlock_time?: string; unlockDate?: string; unlocked_at?: string }> };
-        (raw.achievements || []).forEach((achievement) => {
-            const value = achievement.unlock_time || achievement.unlockDate || achievement.unlocked_at;
-            if (!value) return;
-            const parsed = new Date(value);
-            if (!isNaN(parsed.getTime()) && (!latest || parsed > latest)) latest = parsed;
-        });
-    });
-    return latest || new Date(1970, 0, 1);
-};
-
 const AllGames: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -117,8 +104,6 @@ const AllGames: React.FC = () => {
         return () => window.clearTimeout(timer);
     }, [searchQuery]);
 
-    // Persist the exact view state in the URL so filters, sort, and page are
-    // shareable and recoverable on refresh (audit #1, item 6).
     useEffect(() => {
         const next = new URLSearchParams();
         if (selectedPlatform) next.set('provider', selectedPlatform);
@@ -158,7 +143,6 @@ const getPlatformIcon = (platformKey: string): string => {
         library.forEach((game) => {
             game.platforms.forEach((platform) => platforms.add(platform.key));
         });
-        // Keep the canonical hub ordering.
         const order = ['steam', 'psn', 'xbox', 'retroachievements'];
         return order.filter((key) => platforms.has(key));
     }, [library]);
@@ -194,6 +178,10 @@ const getPlatformIcon = (platformKey: string): string => {
             return playedFilter === 'played' ? hasPlayed : !hasPlayed;
         });
 
+        if (sortKey === 'recently_earned_achievement') {
+            return sortByLatestAchievement(filtered);
+        }
+
         const sorted = [...filtered].sort((a, b) => {
             if (sortKey === 'title') return a.game.title.localeCompare(b.game.title);
             if (sortKey === 'most_played') return b.playtimeMinutes - a.playtimeMinutes;
@@ -201,10 +189,6 @@ const getPlatformIcon = (platformKey: string): string => {
                 const byPct = b.completionPct - a.completionPct;
                 return byPct !== 0 ? byPct : b.unlockedAchievements - a.unlockedAchievements;
             }
-            if (sortKey === 'recently_earned_achievement') {
-                return getLatestAchievementDate(b.game).getTime() - getLatestAchievementDate(a.game).getTime();
-            }
-            // recently_played: titles without a timestamp sort last.
             const aTime = a.lastPlayed ? a.lastPlayed.getTime() : 0;
             const bTime = b.lastPlayed ? b.lastPlayed.getTime() : 0;
             return bTime - aTime;
@@ -451,7 +435,6 @@ return (
                     </Typography>
                 </Box>
             ) : isCompact ? (
-/* Compact list rows below the card breakpoint (audit #10). */
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     {pageGames.map((item) => (
                         <Box key={item.game.id} component='a' href={gameLink(item.game)} onClick={(e) => handleGameClick(item.game, e as any)} aria-label={`Open ${item.game.title}`} sx={{

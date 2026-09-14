@@ -51,8 +51,6 @@ interface GameImageProps extends ImgHTMLAttributes<HTMLImageElement> {
  * forwarded to the underlying img element.
  */
 export const GameImage: React.FC<GameImageProps> = ({ src, alt, sx, ...rest }) => {
-  // Derived state: restart the fallback chain whenever the requested URL
-  // changes (React's sanctioned "adjust state during render" pattern).
   const [state, setState] = useState({ requested: src, current: src });
   if (state.requested !== src) {
     setState({ requested: src, current: src });

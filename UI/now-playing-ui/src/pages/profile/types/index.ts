@@ -27,6 +27,7 @@ export interface ServiceConfig {
   placeholder: string;
   imagePath: string;
   requiresOAuth?: boolean;
+  notice?: string;
   userIdLabel?: string;
   apiKeyLabel?: string;
   apiKeyPlaceholder?: string;
@@ -43,10 +44,4 @@ export interface TraktAuthStatus {
 export interface NewApiKey {
   userId: string;
   apiKey: string;
-}
-
-export interface PSNEditState {
-  isEditing: boolean;
-  npssoToken: string;
-  isUpdating: boolean;
 }

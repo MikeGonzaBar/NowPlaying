@@ -54,7 +54,6 @@ export function useApi<T>() {
       try {
         const response = await authenticatedFetch(url, options);
 
-        // Try to parse JSON, even on non-OK responses
         let data: unknown = null;
         try {
           data = await response.json();

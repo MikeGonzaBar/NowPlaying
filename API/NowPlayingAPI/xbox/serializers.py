@@ -7,7 +7,6 @@ class XboxAchievementSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = XboxAchievement
-        # Explicitly list fields or use '__all__'
         fields = [
             'id',
             'name',
@@ -56,6 +55,9 @@ class XboxGameSerializer(serializers.ModelSerializer):
         """
         Return the count of achievements that have been unlocked.
         """
+        prefetched = getattr(obj, "_prefetched_objects_cache", {})
+        if "achievements" in prefetched:
+            return sum(achievement.unlocked for achievement in prefetched["achievements"])
         return obj.achievements.filter(unlocked=True).count()
 
     def get_locked_achievements(self, obj: XboxGame) -> int:

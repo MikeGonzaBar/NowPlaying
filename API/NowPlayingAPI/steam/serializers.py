@@ -19,7 +19,6 @@ class SteamSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Game
-        # Include all the game fields; adjust this list as needed.
         fields = [
             "appid", "name", "playtime_forever", "playtime_formatted",
             "img_icon_url", "has_community_visible_stats", "last_played",
@@ -34,6 +33,9 @@ class SteamSerializer(serializers.ModelSerializer):
 
     def get_unlocked_achievements_count(self, obj: Game) -> int:
         """Return unlocked related achievements."""
+        prefetched = getattr(obj, "_prefetched_objects_cache", {})
+        if "achievements" in prefetched:
+            return sum(achievement.unlocked for achievement in prefetched["achievements"])
         return obj.achievements.filter(unlocked=True).count()
 
     def get_locked_achievements_count(self, obj: Game) -> int:

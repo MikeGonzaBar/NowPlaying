@@ -12,9 +12,7 @@
 		"format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,scss,md}\"",
 		"test": "vitest run",
 		"test:watch": "vitest",
-		"preview": "vite preview",
-		"optimize-images": "node optimize-images.js",
-		"replace-optimized": "node replace-optimized.js"
+		"preview": "vite preview"
 	},
 	"dependencies": {
 		"@emotion/react": "^11.14.0",
@@ -47,7 +45,6 @@
 		"jsdom": "^30.0.1",
 		"prettier": "^3.9.6",
 		"rollup-plugin-visualizer": "^6.0.3",
-		"sharp": "^0.34.5",
 		"typescript": "~5.7.2",
 		"typescript-eslint": "^8.24.1",
 		"vite": "^6.3.5",

@@ -29,8 +29,6 @@ function TrendingSection({ trending }: TrendingSectionProps) {
   ].slice(0, 4);
 
   const getPosterUrl = (_item: any) => {
-    // Note: TMDB poster URLs require fetching from API first
-    // For now, return null and show placeholder
     return null;
   };
 

@@ -34,7 +34,6 @@ class Command(BaseCommand):
                 self.style.WARNING('DRY RUN MODE - No changes will be made. Use --fix to apply changes.')
             )
 
-        # Define models and their datetime fields
         model_fields = [
             (Song, ['played_at']),
             (Game, ['last_played']),
@@ -56,7 +55,6 @@ class Command(BaseCommand):
 
             for field_name in fields:
                 try:
-                    # Get all objects with non-null datetime values
                     filter_kwargs = {f'{field_name}__isnull': False}
                     objects = model.objects.filter(**filter_kwargs)
 
@@ -69,7 +67,6 @@ class Command(BaseCommand):
                             naive_count += 1
 
                             if fix_mode:
-                                # Make the datetime timezone-aware
                                 aware_datetime = timezone.make_aware(field_value)
                                 setattr(obj, field_name, aware_datetime)
                                 obj.save(update_fields=[field_name])

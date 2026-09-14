@@ -123,7 +123,6 @@ function MusicDashboard() {
   };
 
   const fetchAllData = async () => {
-    // Prevent multiple simultaneous fetches
     if (fetching || pollingIntervalRef.current) {
       alert(
         "Data fetch is already in progress. Please wait for it to complete.",
@@ -134,7 +133,6 @@ function MusicDashboard() {
     try {
       setFetching(true);
 
-      // Store current stats to detect changes
       const initialStats = stats;
       const initialScrobbles = initialStats?.total_scrobbles || 0;
 
@@ -151,14 +149,12 @@ function MusicDashboard() {
           "Data fetch started in background. This may take several minutes. The dashboard will auto-refresh when complete.",
         );
 
-        // Start polling to check for updates
         let pollCount = 0;
         const maxPolls = 120; // Poll for up to 10 minutes (120 * 5 seconds)
 
         const pollForUpdates = async () => {
           pollCount++;
 
-          // Stop polling after max attempts
           if (pollCount > maxPolls) {
             if (pollingIntervalRef.current) {
               clearInterval(pollingIntervalRef.current);
@@ -173,9 +169,7 @@ function MusicDashboard() {
 
           const newStats = await fetchDashboardData(false); // Don't show loading spinner during polling
 
-          // Check if scrobbles count has increased (indicating new data)
           if (newStats && newStats.total_scrobbles > initialScrobbles) {
-            // Data has been updated, stop polling
             if (pollingIntervalRef.current) {
               clearInterval(pollingIntervalRef.current);
               pollingIntervalRef.current = null;
@@ -187,11 +181,9 @@ function MusicDashboard() {
           }
         };
 
-        // Start polling every 5 seconds
         const interval = setInterval(pollForUpdates, 5000);
         pollingIntervalRef.current = interval;
 
-        // Also do an initial check after 10 seconds
         setTimeout(pollForUpdates, 10000);
       } else {
         const error = await response.json();
@@ -209,7 +201,6 @@ function MusicDashboard() {
     fetchDashboardData();
   }, [timeRange]);
 
-  // Cleanup polling interval on unmount
   useEffect(() => {
     return () => {
       if (pollingIntervalRef.current) {
@@ -246,7 +237,6 @@ function MusicDashboard() {
     return `${months[date.getMonth()]} ${date.getDate()}`;
   };
 
-  // Reliable per-day average: prefer the API value, fall back to daily_data
   const dailyData = stats?.listening_trends?.daily_data ?? [];
   const avgPerDay =
     stats?.listening_trends.average_per_day &&
@@ -256,7 +246,6 @@ function MusicDashboard() {
         ? dailyData.reduce((sum, d) => sum + d.count, 0) / dailyData.length
         : 0;
 
-  // Generate trend line data
   const generateTrendPath = () => {
     if (!stats?.listening_trends?.daily_data?.length) {
       return {
@@ -275,7 +264,6 @@ function MusicDashboard() {
       points.push(x, y);
     });
 
-    // Create smooth curve using quadratic bezier
     let path = `M${points[0]},${points[1]}`;
     let areaPath = `M${points[0]},${points[1]}`;
 

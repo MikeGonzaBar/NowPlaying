@@ -4,7 +4,7 @@ import { getApiUrl, API_CONFIG } from "../../../config/api";
 
 interface UseMusicFetchOptions {
   endpoint: string;
-  dataKey: string; // e.g., "artists", "albums", "tracks"
+  dataKey: string;
 }
 
 export function useMusicFetch<T>({ endpoint, dataKey }: UseMusicFetchOptions) {

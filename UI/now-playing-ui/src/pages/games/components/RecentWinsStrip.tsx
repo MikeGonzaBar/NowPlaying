@@ -20,7 +20,6 @@ const RecentWinsStrip: React.FC<RecentWinsStripProps> = ({ game }) => {
       return [];
     }
 
-    // Get only unlocked achievements with unlock times
     const unlocked = game.achievements
       .filter((ach: any) => ach.unlocked && ach.unlock_time)
       .map((ach: any) => ({
@@ -28,7 +27,7 @@ const RecentWinsStrip: React.FC<RecentWinsStripProps> = ({ game }) => {
         unlockDate: parseDate(ach.unlock_time),
       }))
       .sort((a: any, b: any) => b.unlockDate.getTime() - a.unlockDate.getTime())
-      .slice(0, 10); // Last 10
+      .slice(0, 10);
 
     return unlocked;
   }, [game.achievements]);
@@ -143,7 +142,7 @@ const RecentWinsStrip: React.FC<RecentWinsStripProps> = ({ game }) => {
                   },
                 }}
               >
-                {/* Achievement Icon */}
+
                 <Box
                   sx={{
                     width: "100%",
@@ -188,7 +187,7 @@ const RecentWinsStrip: React.FC<RecentWinsStripProps> = ({ game }) => {
                   )}
                 </Box>
 
-                {/* Achievement Name */}
+
                 <Typography
                   variant="caption"
                   sx={{
@@ -207,7 +206,7 @@ const RecentWinsStrip: React.FC<RecentWinsStripProps> = ({ game }) => {
                   {achievement.name}
                 </Typography>
 
-                {/* Date Earned */}
+
                 <Typography
                   variant="caption"
                   sx={{

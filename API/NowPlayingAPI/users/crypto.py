@@ -13,15 +13,12 @@ def get_encryption_key() -> str | bytes:
     In production, this should come from a secure environment variable
     or a secure key management service, not settings.
     """
-    # Try to get key from settings
     key = getattr(settings, 'API_KEY_ENCRYPTION_KEY', None)
     
     if not key:
         raise ImproperlyConfigured("API_KEY_ENCRYPTION_KEY is required.")
     
-    # Check if the key is already properly formatted
     try:
-        # If the key is a string representation of bytes, it may need to be encoded
         if isinstance(key, str):
             Fernet(key.encode())
         else:
@@ -43,14 +40,11 @@ def encrypt_api_key(raw_key: str | None) -> str | None:
     if not raw_key:
         return None
         
-    # Get encryption key
     key = get_encryption_key()
     
-    # Make sure we have a properly formatted key
     try:
         f = Fernet(key.encode() if isinstance(key, str) else key)
         
-        # Encrypt the API key
         encrypted_key = f.encrypt(raw_key.encode())
         return encrypted_key.decode()
     except Exception as e:
@@ -71,13 +65,10 @@ def decrypt_api_key(encrypted_key: str | None) -> str | None:
         return None
     
     try:
-        # Get encryption key
         key = get_encryption_key()
         
-        # Make sure we have a properly formatted key
         f = Fernet(key.encode() if isinstance(key, str) else key)
         
-        # Decrypt the API key
         decrypted_key = f.decrypt(encrypted_key.encode())
         return decrypted_key.decode()
     except Exception as e:

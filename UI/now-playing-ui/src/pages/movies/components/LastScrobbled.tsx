@@ -32,7 +32,6 @@ function LastScrobbled({ movies, shows }: LastScrobbledProps) {
   const navigate = useNavigate();
   const [showProgress, setShowProgress] = useState<ShowProgress>({});
 
-  // Combine and sort by last_watched_at
   const allMedia = [
     ...movies.map((m) => ({ ...m, type: "movie" as const })),
     ...shows.map((s) => ({ ...s, type: "show" as const })),
@@ -71,12 +70,9 @@ function LastScrobbled({ movies, shows }: LastScrobbledProps) {
 
   const getPosterUrl = (media: any) => {
     if (media.type === "movie") {
-      // Use image_url if available (from Trakt), otherwise try TMDB
       if (media.movie?.image_url) {
         return media.movie.image_url;
       }
-      // Note: Direct TMDB poster URLs require the poster_path from API, not just the ID
-      // For now, return null and show placeholder
       return null;
     } else {
       const url = media.show?.image_url || null;
@@ -97,7 +93,6 @@ function LastScrobbled({ movies, shows }: LastScrobbledProps) {
     }
   };
 
-  // Fetch progress for shows
   useEffect(() => {
     const fetchShowProgress = async () => {
       const progressMap: ShowProgress = {};
@@ -115,14 +110,12 @@ function LastScrobbled({ movies, shows }: LastScrobbledProps) {
               const data = await response.json();
               const episodes = data.episodes || [];
               if (episodes.length > 0) {
-                // Find the last watched episode
                 const lastEpisode = episodes.sort(
                   (a: any, b: any) =>
                     new Date(b.last_watched_at || 0).getTime() -
                     new Date(a.last_watched_at || 0).getTime(),
                 )[0];
 
-                // Calculate progress (simplified - would need total episodes for accurate percentage)
                 progressMap[traktId] = {
                   progress: 100, // Simplified - would need total episodes
                   lastEpisode: `S${lastEpisode.season__season_number}E${lastEpisode.episode_number}`,

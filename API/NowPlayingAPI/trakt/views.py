@@ -23,8 +23,6 @@ import http_client
 from urllib.parse import urlencode
 from query_params import pagination_params
 
-# Django model attribute access (ForeignKey reverse relations, dynamic attributes)
-# is not fully modeled in typeshed stubs.
 # pyright: reportAttributeAccessIssue=false
 from .models import (
     Episode,
@@ -74,7 +72,7 @@ def invalidate_trakt_caches(user_id: int) -> None:
     logger.info("Invalidated Trakt-dependent caches for user %s (%s analytics keys)", user_id, deleted_keys)
 
 
-TMDB_PROXY_CACHE_TTL = 600  # 10 minutes
+TMDB_PROXY_CACHE_TTL = 600
 
 
 def _tmdb_proxy_get(path: str, params: dict | None = None) -> Response:
@@ -240,7 +238,6 @@ class TraktViewSet(viewsets.ViewSet):
         offset = (page - 1) * page_size
         limit = offset + page_size
         
-        # Query movies for the authenticated user and order by last_watched_at in descending order
         movies_qs = Movie.objects.filter(user=request.user).order_by("-last_watched_at")
         total = movies_qs.count()
 
@@ -257,7 +254,6 @@ class TraktViewSet(viewsets.ViewSet):
             "image_url",
         )
 
-        # Format the response to match the desired structure
         formatted_movies = [
             {
                 "plays": movie["plays"],
@@ -395,14 +391,12 @@ class TraktViewSet(viewsets.ViewSet):
         """
         trakt_id = request.query_params.get("trakt_id")
 
-        # Validate that trakt_id is provided
         if not trakt_id:
             raise ValidationError({"detail": "The 'trakt_id' parameter is required."})
 
         trakt_id = cast(str, trakt_id)
 
         try:
-            # Get the show from database to check if user has access
             show_obj = Show.objects.filter(trakt_id=trakt_id, user=request.user).first()
             if not show_obj:
                 return Response(
@@ -410,20 +404,17 @@ class TraktViewSet(viewsets.ViewSet):
                     status=status.HTTP_404_NOT_FOUND
                 )
 
-            # Fetch all seasons and episodes from Trakt API
             headers = get_trakt_headers(request.user)
             
-            # Fetch full show details from Trakt API for metadata
             show_url = f"https://api.trakt.tv/shows/{trakt_id}?extended=full"
             show_response = http_client.get(show_url, headers=headers, logger_name="trakt")
             show_metadata = {}
             
             if show_response.status_code == 200:
                 show_data = show_response.json()
-                # Extract show metadata
                 show_metadata = {
                     "genres": show_data.get("genres", []),
-                    "status": show_data.get("status", ""),  # "returning series", "ended", "canceled", "in production"
+                    "status": show_data.get("status", ""),
                     "network": show_data.get("network", ""),
                     "certification": show_data.get("certification", ""),
                     "country": show_data.get("country", ""),
@@ -431,12 +422,11 @@ class TraktViewSet(viewsets.ViewSet):
                     "rating": show_data.get("rating"),
                     "runtime": show_data.get("runtime"),
                     "first_aired": show_data.get("first_aired"),
-                    "air_day": show_data.get("airs", {}).get("day", ""),  # Day of the week
+                    "air_day": show_data.get("airs", {}).get("day", ""),
                     "air_time": show_data.get("airs", {}).get("time", ""),
                     "air_timezone": show_data.get("airs", {}).get("timezone", ""),
                 }
             
-            # Fetch all seasons for the show (this includes all episodes)
             seasons_url = f"https://api.trakt.tv/shows/{trakt_id}/seasons?extended=episodes"
             seasons_response = http_client.get(seasons_url, headers=headers, logger_name="trakt")
             
@@ -446,12 +436,10 @@ class TraktViewSet(viewsets.ViewSet):
 
             trakt_seasons_data = seasons_response.json()
             
-            # Handle case where response might be empty or not a list
             if not isinstance(trakt_seasons_data, list):
                 logger.warning(f"Unexpected seasons response format: {type(trakt_seasons_data)}")
                 return self._get_database_only_episodes(trakt_id, request.user, show_metadata)
 
-            # Get watched episodes from database
             watched_episodes_qs = (
                 Episode.objects.filter(
                     show__trakt_id=trakt_id,
@@ -464,7 +452,6 @@ class TraktViewSet(viewsets.ViewSet):
                 )
             )
 
-            # Create a map of watched episodes: (season_number, episode_number) -> episode_data
             watched_episodes_map = {}
             for ep in watched_episodes_qs:
                 key = (ep.season.season_number, ep.episode_number)
@@ -476,18 +463,13 @@ class TraktViewSet(viewsets.ViewSet):
                     "watched_at": ep.watched_at.isoformat() if ep.watched_at else None,
                 }
 
-            # Build seasons and episodes list from Trakt data, merging with watched data
             seasons_list = []
             episodes_list = []
 
             for season_data in trakt_seasons_data:
                 season_number = season_data.get("number", 0)
                 
-                # Skip specials (season 0) if you want, or include them
-                # if season_number == 0:
-                #     continue
 
-                # Get or create season in database
                 season_obj, _ = Season.objects.get_or_create(
                     show=show_obj,
                     season_number=season_number
@@ -502,19 +484,14 @@ class TraktViewSet(viewsets.ViewSet):
                     "episode_count": len(season_data.get("episodes", [])),
                 })
 
-                # Process each episode in the season, deferring any TMDB still fallback so
-                # missing posters are batched into one concurrent fan-out instead of a
-                # blocking HTTP round trip per episode.
-                missing_indexes = []  # (list index, episode_number)
+                missing_indexes = []
                 season_episodes = []
                 
                 for ep_data in season_data.get("episodes", []):
                     episode_number = ep_data.get("number", 0)
                     key = (season_number, episode_number)
-                    # Get watched data if exists
                     watched_data = watched_episodes_map.get(key, {})
                 
-                    # Preferred poster: Trakt screenshot, then stored DB image.
                     poster = None
                     images = ep_data.get("images", {})
                     if images and isinstance(images, dict):
@@ -527,7 +504,6 @@ class TraktViewSet(viewsets.ViewSet):
                     if not poster and show_obj.tmdb_id and episode_number:
                         missing_indexes.append((len(season_episodes), episode_number))
                 
-                    # Format air_date if present
                     air_date = ep_data.get("first_aired")
                     if air_date:
                         try:
@@ -544,7 +520,6 @@ class TraktViewSet(viewsets.ViewSet):
                         "air_date": air_date,
                     })
                 
-                # Batch-fetch TMDB stills for episodes that still have no poster.
                 if missing_indexes:
                     from concurrent.futures import ThreadPoolExecutor
                 
@@ -643,7 +618,6 @@ class TraktViewSet(viewsets.ViewSet):
         Returns immediately while processing continues in the background.
         """
         try:
-            # Check if user has a Trakt token
             if not TraktToken.objects.filter(user=request.user).exists():
                 error_msg = "No Trakt token found. Please authenticate with Trakt first."
                 logger.warning(f"Bad Request: /trakt/fetch-latest-movies/ - {error_msg} for user {request.user.id}")
@@ -657,7 +631,6 @@ class TraktViewSet(viewsets.ViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Run the sync in a background thread to avoid timeout
             user = request.user
             user_id = request.user.id
 
@@ -673,7 +646,6 @@ class TraktViewSet(viewsets.ViewSet):
             thread = threading.Thread(target=sync_movies, daemon=True)
             thread.start()
             
-            # Return immediately with a success message
             return Response({
                 "message": "Movie sync started in background",
                 "status": "processing"
@@ -695,7 +667,6 @@ class TraktViewSet(viewsets.ViewSet):
         Returns immediately while processing continues in the background.
         """
         try:
-            # Check if user has a Trakt token
             if not TraktToken.objects.filter(user=request.user).exists():
                 error_msg = "No Trakt token found. Please authenticate with Trakt first."
                 logger.warning(f"Bad Request: /trakt/fetch-latest-shows/ - {error_msg} for user {request.user.id}")
@@ -709,7 +680,6 @@ class TraktViewSet(viewsets.ViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Run the sync in a background thread to avoid timeout
             user = request.user
             user_id = request.user.id
 
@@ -725,7 +695,6 @@ class TraktViewSet(viewsets.ViewSet):
             thread = threading.Thread(target=sync_shows, daemon=True)
             thread.start()
             
-            # Return immediately with a success message
             return Response({
                 "message": "Show sync started in background",
                 "status": "processing"
@@ -756,7 +725,6 @@ class TraktViewSet(viewsets.ViewSet):
         trakt_id = cast(str, trakt_id)
         
         try:
-            # Check if user has a Trakt token
             if not TraktToken.objects.filter(user=request.user).exists():
                 error_msg = "No Trakt token found. Please authenticate with Trakt first."
                 logger.warning(f"Bad Request: /trakt/update-show/ - {error_msg} for user {request.user.id}")
@@ -770,8 +738,6 @@ class TraktViewSet(viewsets.ViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Run the sync in a background thread to avoid timeout
-            # Note: fetch_single_show will create the show if it doesn't exist in the database
             user = request.user
             user_id = request.user.id
 
@@ -787,7 +753,6 @@ class TraktViewSet(viewsets.ViewSet):
             thread = threading.Thread(target=sync_show, daemon=True)
             thread.start()
             
-            # Return immediately with a success message
             return Response({
                 "message": f"Show sync started in background for trakt_id: {trakt_id}",
                 "status": "processing"
@@ -812,7 +777,7 @@ class TraktViewSet(viewsets.ViewSet):
         from datetime import timedelta
         
         page, page_size = pagination_params(request.query_params, default_page_size=20, max_page_size=100)
-        media_type = request.query_params.get("type", "all")  # all, movies, shows, episodes
+        media_type = request.query_params.get("type", "all")
         if media_type not in ["all", "movies", "shows", "episodes"]:
             raise ValidationError({"type": "Must be one of: all, movies, shows, episodes."})
         days_param = request.query_params.get("days", "all")
@@ -836,7 +801,6 @@ class TraktViewSet(viewsets.ViewSet):
         
         history_items = []
         
-        # Fetch movie watches
         if media_type in ["all", "movies"]:
             movie_watches = MovieWatch.objects.filter(
                 movie__user=request.user
@@ -848,7 +812,6 @@ class TraktViewSet(viewsets.ViewSet):
             
             for watch in movie_watches:
                 movie = watch.movie
-                # Get runtime and rating from Movie model if available
                 runtime = getattr(movie, 'runtime', None)
                 rating = getattr(movie, 'rating', None)
                 
@@ -860,14 +823,13 @@ class TraktViewSet(viewsets.ViewSet):
                     "image_url": movie.image_url,
                     "year": movie.year,
                     "runtime": runtime,
-                    "rating": rating,  # Movie rating from Trakt/TMDB (not user's personal rating)
+                    "rating": rating,
                     "trakt_id": movie.trakt_id,
                     "tmdb_id": movie.tmdb_id,
-                    "genres": getattr(movie, 'genres', []) if hasattr(movie, 'genres') else [],  # Genres if stored
+                    "genres": getattr(movie, 'genres', []) if hasattr(movie, 'genres') else [],
                     "episode_info": None,
                 })
         
-        # Fetch episode watches
         if media_type in ["all", "shows", "episodes"]:
             episode_watches = EpisodeWatch.objects.filter(
                 episode__show__user=request.user
@@ -890,7 +852,7 @@ class TraktViewSet(viewsets.ViewSet):
                     "image_url": episode.image_url or show.image_url,
                     "year": show.year,
                     "runtime": episode.runtime,
-                    "rating": episode.rating,  # Episode rating from Trakt/TMDB
+                    "rating": episode.rating,
                     "trakt_id": show.trakt_id,
                     "tmdb_id": show.tmdb_id,
                     "episode_info": {
@@ -902,31 +864,25 @@ class TraktViewSet(viewsets.ViewSet):
                 })
             
         
-        # Sort all items by watched_at after combining media types.
         history_items.sort(key=lambda x: x["watched_at"] or "", reverse=sort_descending)
         
-        # Deduplicate items - if same type, same trakt_id, and same watched_at (within 1 minute), keep only the most recent watch ID
         seen = {}
         duplicates_found = []
         
         for item in history_items:
-            # Create a unique key based on type, trakt_id, and watched_at (rounded to nearest minute)
             watched_at_str = item["watched_at"]
             if watched_at_str:
                 try:
                     from dateutil.parser import isoparse
                     watched_at_dt = isoparse(watched_at_str)
-                    # Round to nearest minute to group watches that happened at roughly the same time
                     watched_at_key = watched_at_dt.replace(second=0, microsecond=0).isoformat()
                 except:
                     watched_at_key = watched_at_str
             else:
                 watched_at_key = "unknown"
             
-            # Create key without watch ID - this groups watches of the same content at the same time
             content_key = f"{item['type']}-{item['trakt_id']}-{watched_at_key}"
             
-            # For episodes, also include season/episode number to avoid grouping different episodes
             if item['type'] == 'episode' and item.get('episode_info'):
                 episode_key = f"{item['type']}-{item['trakt_id']}-S{item['episode_info']['season_number']}E{item['episode_info']['episode_number']}-{watched_at_key}"
                 content_key = episode_key
@@ -934,10 +890,8 @@ class TraktViewSet(viewsets.ViewSet):
             if content_key not in seen:
                 seen[content_key] = item
             else:
-                # Keep the one with the higher watch ID (more recent)
                 existing_item = seen[content_key]
                 if item['id'] > existing_item['id']:
-                    # Replace with newer watch
                     duplicates_found.append({
                         "key": content_key,
                         "removed": existing_item,
@@ -955,7 +909,6 @@ class TraktViewSet(viewsets.ViewSet):
                         "watched_at": watched_at_str,
                     })
         
-        # Build deduplicated list from seen dictionary
         deduplicated_items = list(seen.values())
         
         if duplicates_found:
@@ -965,7 +918,6 @@ class TraktViewSet(viewsets.ViewSet):
         
         total_items = len(history_items)
         
-        # Apply pagination
         paginated_items = history_items[offset:limit]
         
         
@@ -986,22 +938,18 @@ class TraktViewSet(viewsets.ViewSet):
         from datetime import timedelta
         from collections import defaultdict
         
-        # Get date 6 months ago
         six_months_ago = timezone.now() - timedelta(days=180)
         
-        # Get all movie watches in the last 6 months
         movie_watches = MovieWatch.objects.filter(
             movie__user=request.user,
             watched_at__gte=six_months_ago
         ).values_list('watched_at', flat=True)
         
-        # Get all episode watches in the last 6 months
         episode_watches = EpisodeWatch.objects.filter(
             episode__show__user=request.user,
             watched_at__gte=six_months_ago
         ).values_list('watched_at', flat=True)
         
-        # Count watches per day
         daily_counts = defaultdict(int)
         
         for watched_at in movie_watches:
@@ -1014,7 +962,6 @@ class TraktViewSet(viewsets.ViewSet):
                 date_key = watched_at.date().isoformat()
                 daily_counts[date_key] += 1
         
-        # Convert to list format for frontend
         activity_data = [{"date": date, "count": count} for date, count in daily_counts.items()]
         
         return Response({
@@ -1056,19 +1003,16 @@ class TraktViewSet(viewsets.ViewSet):
         try:
             headers = get_trakt_headers(request.user)
             
-            # Fetch movie stats from Trakt API
             stats_url = f"https://api.trakt.tv/movies/{trakt_id}/stats"
             stats_response = http_client.get(stats_url, headers=headers, logger_name="trakt")
             
             if stats_response.status_code == 404:
-                # Confirmed absence: the movie genuinely has no Trakt stats.
                 return Response(
                     {"error": "Movie not found on Trakt."},
                     status=status.HTTP_404_NOT_FOUND,
                 )
             
             if stats_response.status_code != 200:
-                # Upstream outage or rate limit — temporary by definition.
                 logger.warning(
                     "Failed to fetch movie stats from Trakt: %s",
                     stats_response.status_code,
@@ -1085,7 +1029,6 @@ class TraktViewSet(viewsets.ViewSet):
             
             stats_data = stats_response.json()
             
-            # Format the response
             return Response({
                 "watchers": stats_data.get("watchers", 0),
                 "plays": stats_data.get("plays", 0),
@@ -1096,14 +1039,11 @@ class TraktViewSet(viewsets.ViewSet):
             })
             
         except Exception as e:
-            # Missing Trakt token is a stable, per-user condition — the stats
-            # are genuinely inaccessible, not temporarily broken.
             if "Trakt token not found" in str(e):
                 return Response(
                     {"error": "Trakt account not connected."},
                     status=status.HTTP_404_NOT_FOUND,
                 )
-            # Network-level failures raised by http_client are transient.
             if isinstance(e, http_client.ExternalRequestError):
                 logger.warning("Movie stats request failed upstream: %s", e)
                 return Response(
@@ -1133,7 +1073,6 @@ class TraktViewSet(viewsets.ViewSet):
         trakt_id = cast(str, trakt_id)
         
         try:
-            # Check if user has a Trakt token
             if not TraktToken.objects.filter(user=request.user).exists():
                 error_msg = "No Trakt token found. Please authenticate with Trakt first."
                 logger.warning(f"Bad Request: /trakt/update-movie/ - {error_msg} for user {request.user.id}")
@@ -1147,7 +1086,6 @@ class TraktViewSet(viewsets.ViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Check if user has access to this movie
             movie_obj = Movie.objects.filter(trakt_id=trakt_id, user=request.user).first()
             if not movie_obj:
                 return Response(
@@ -1155,7 +1093,6 @@ class TraktViewSet(viewsets.ViewSet):
                     status=status.HTTP_404_NOT_FOUND
                 )
             
-            # Run the sync in a background thread to avoid timeout
             user = request.user
             user_id = request.user.id
 
@@ -1171,7 +1108,6 @@ class TraktViewSet(viewsets.ViewSet):
             thread = threading.Thread(target=sync_movie, daemon=True)
             thread.start()
             
-            # Return immediately with a success message
             return Response({
                 "message": f"Movie sync started in background for trakt_id: {trakt_id}",
                 "status": "processing"
@@ -1246,7 +1182,7 @@ class TraktViewSet(viewsets.ViewSet):
             "response_type": "code",
             "client_id": client_id,
             "redirect_uri": redirect_uri,
-            "state": request.user.id,  # Use user ID as state for security
+            "state": request.user.id,
         })
         auth_url = f"https://api.trakt.tv/oauth/authorize?{auth_params}"
         
@@ -1264,7 +1200,6 @@ class TraktViewSet(viewsets.ViewSet):
         POST: Processes the authorization code (requires authentication)
         """
         if request.method == "GET":
-            # Handle the redirect from Trakt (no authentication required)
             return self._handle_oauth_redirect(request)
         else:
             if not request.user.is_authenticated:
@@ -1272,7 +1207,6 @@ class TraktViewSet(viewsets.ViewSet):
                     {"error": "Authentication is required to complete Trakt OAuth."},
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
-            # Handle the POST request with authorization code (requires authentication)
             return self._handle_oauth_token_exchange(request)
 
     def _handle_oauth_redirect(self, request: Request) -> HttpResponse:
@@ -1328,7 +1262,6 @@ class TraktViewSet(viewsets.ViewSet):
             """
             return HttpResponse(html_content, content_type='text/html')  # pyright: ignore[reportArgumentType]
         
-        # Display success page with instructions
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -1431,7 +1364,6 @@ curl -X POST \\<br>
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Verify state matches user ID for security
         if state and str(request.user.id) != str(state):
             return Response(
                 {"error": "Invalid state parameter"},
@@ -1446,7 +1378,6 @@ curl -X POST \\<br>
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Exchange code for access token
         token_url = "https://api.trakt.tv/oauth/token"
         token_data = {
             "code": code,
@@ -1461,7 +1392,6 @@ curl -X POST \\<br>
             response.raise_for_status()
             token_info = response.json()
             
-            # Store the token
             expires_at = timezone.now() + timedelta(seconds=token_info.get('expires_in', 0))
             
             token_obj, created = TraktToken.objects.update_or_create(
@@ -1502,7 +1432,6 @@ curl -X POST \\<br>
         
         results = []
         
-        # Search in movies that the user has watched
         try:
             from django.db.models import Q
             movies = Movie.objects.filter(
@@ -1513,7 +1442,6 @@ curl -X POST \\<br>
             logger.info("Found %s movies matching '%s' for user %s", movies.count(), query, request.user.id)
             
             for movie in movies:
-                # Get movie poster from TMDB if available
                 cover_image = ''
                 if movie.tmdb_id:
                     try:
@@ -1543,7 +1471,6 @@ curl -X POST \\<br>
         except Exception as e:
             logger.warning("Movie search error: %s", e)
         
-        # Search in shows that the user has watched
         try:
             shows = Show.objects.filter(
                 Q(user=request.user) &  # pyright: ignore[reportPossiblyUnboundVariable]
@@ -1553,7 +1480,6 @@ curl -X POST \\<br>
             logger.info("Found %s shows matching '%s' for user %s", shows.count(), query, request.user.id)
             
             for show in shows:
-                # Use existing image_url or fetch from TMDB
                 cover_image = show.image_url or ''
                 if not cover_image and show.tmdb_id:
                     try:
@@ -1583,7 +1509,6 @@ curl -X POST \\<br>
         except Exception as e:
             logger.warning("Show search error: %s", e)
         
-        # Search in episodes that the user has watched
         try:
             episodes = Episode.objects.filter(
                 Q(show__user=request.user) &  # pyright: ignore[reportPossiblyUnboundVariable]
@@ -1593,7 +1518,6 @@ curl -X POST \\<br>
             logger.info("Found %s episodes matching '%s' for user %s", episodes.count(), query, request.user.id)
             
             for episode in episodes:
-                # Use episode image or show image
                 cover_image = episode.image_url or episode.show.image_url or ''
                 if not cover_image and episode.show.tmdb_id:
                     try:
@@ -1627,10 +1551,9 @@ curl -X POST \\<br>
         except Exception as e:
             logger.warning("Episode search error: %s", e)
         
-        # Sort results by type (movies, shows, episodes) then by title
         type_order = {'movie': 0, 'show': 1, 'episode': 2}
         results.sort(key=lambda x: (type_order.get(x['type'], 99), x['title'].lower()))
-        results = results[:50]  # Increased limit to accommodate episodes
+        results = results[:50]
         
         logger.info("Trakt search results for '%s': %s items found", query, len(results))
         return Response({'results': results})
@@ -1646,7 +1569,6 @@ curl -X POST \\<br>
         
         activities = []
         
-        # Get recent movie watches (last 7 days)
         recent_movies = Movie.objects.filter(
             user=request.user,
             last_watched_at__gte=timezone.now() - timedelta(days=7)
@@ -1662,7 +1584,6 @@ curl -X POST \\<br>
                 'description': f'Check-in: "{movie.title}"',
             })
         
-        # Get recent episode watches
         recent_episode_watches = EpisodeWatch.objects.filter(
             episode__show__user=request.user,
             watched_at__gte=timezone.now() - timedelta(days=7)
@@ -1681,7 +1602,6 @@ curl -X POST \\<br>
                 'description': f'Check-in: "{episode.title or episode.show.title}"',
             })
         
-        # Sort by timestamp and return top 10
         activities.sort(key=lambda x: x['timestamp'] if x['timestamp'] else timezone.now() - timedelta(days=365), reverse=True)
         
         return Response({'activities': activities[:10]})
@@ -1695,7 +1615,6 @@ curl -X POST \\<br>
         """
         from django.core.cache import cache
         
-        # Check cache first (cache for 5 minutes)
         cache_key = f"completed_media_{request.user.id}"
         cached_result = cache.get(cache_key)
         if cached_result:
@@ -1719,7 +1638,6 @@ curl -X POST \\<br>
         trakt_auth_required = False
         auth_error = None
         try:
-            # Get Trakt headers for API calls
             headers = get_trakt_headers(request.user)
         except Exception as e:
             trakt_auth_required = True
@@ -1731,56 +1649,43 @@ curl -X POST \\<br>
             )
             headers = None
         
-        # Limit to recently watched shows (last 100 shows) to avoid checking all shows
         shows = Show.objects.filter(user=request.user).order_by('-last_watched_at')[:100] if headers else []
         
-        # First pass: identify shows that might be complete (all DB episodes are watched)
-        # Database only contains watched episodes, so if all DB episodes have watches, it's a candidate
         potential_complete_shows = []
         for show in shows:
-            # Count episodes in database (only watched ones are stored)
             db_episodes = Episode.objects.filter(show=show).count()
             if db_episodes == 0:
                 continue
             
-            # Count episodes with watch records
             watched_episodes = Episode.objects.filter(
                 show=show,
                 watches__isnull=False
             ).distinct().count()
             
-            # If all DB episodes are watched, check Trakt for actual total
             if watched_episodes == db_episodes:
                 potential_complete_shows.append((show, db_episodes))
         
-        # Limit Trakt API calls to top 20 candidates to avoid timeout
         potential_complete_shows = potential_complete_shows[:20]
         
-        # Second pass: verify completion by fetching total from Trakt (only for candidates)
         for show, db_episode_count in potential_complete_shows:
             try:
-                # Fetch total episodes from Trakt API to verify completion
                 seasons_url = f"https://api.trakt.tv/shows/{show.trakt_id}/seasons?extended=episodes"
                 seasons_response = http_client.get(seasons_url, headers=headers, logger_name="trakt")
                 
                 if seasons_response.status_code == 200:
                     trakt_seasons_data = seasons_response.json()
                     if isinstance(trakt_seasons_data, list):
-                        # Count all episodes across all seasons
                         total_episodes = 0
                         for season_data in trakt_seasons_data:
                             episodes = season_data.get("episodes", [])
                             total_episodes += len(episodes)
                         
-                        # Get unique watched episodes count
                         watched_episodes = Episode.objects.filter(
                             show=show,
                             watches__isnull=False
                         ).distinct().count()
                         
-                        # A show is 100% completed if all episodes are watched
                         if total_episodes > 0 and watched_episodes == total_episodes:
-                            # Get the most recent watch date for this show
                             last_episode_watch = EpisodeWatch.objects.filter(
                                 episode__show=show
                             ).order_by('-watched_at').first()
@@ -1801,12 +1706,9 @@ curl -X POST \\<br>
                                 'last_watched_at': last_watched_at,
                             })
             except Exception as e:
-                # Skip shows that fail to fetch from Trakt API
                 logger.warning(f"Error checking completion for show {show.title} (ID: {show.trakt_id}): {str(e)}")
                 continue
         
-        # Sort by most recently watched (most recent first)
-        # Filter out shows with no last_watched_at and sort properly
         completed_shows = [
             show for show in completed_shows 
             if show.get('last_watched_at')
@@ -1814,14 +1716,13 @@ curl -X POST \\<br>
         completed_shows.sort(key=lambda x: x['last_watched_at'] or '', reverse=True)
         
         result = {
-            'completed_shows': completed_shows,  # Already sorted by most recent first
+            'completed_shows': completed_shows,
             'completed_movies': completed_movies_list,
             'trakt_auth_required': trakt_auth_required,
         }
         if auth_error:
             result['message'] = auth_error
         
-        # Cache for 5 minutes only when OAuth-dependent show completion was evaluated.
         if not trakt_auth_required:
             cache.set(cache_key, result, 300)
         
@@ -1840,7 +1741,6 @@ curl -X POST \\<br>
             total=Sum('plays')
         )['total'] or 0
         
-        # Count total episodes watched
         total_episodes = Episode.objects.filter(
             show__user=request.user,
             watches__isnull=False
@@ -1864,7 +1764,6 @@ curl -X POST \\<br>
         try:
             headers = get_trakt_headers(request.user)
             
-            # Fetch trending movies
             movies_url = "https://api.trakt.tv/movies/trending?limit=10"
             movies_response = http_client.get(movies_url, headers=headers, logger_name="trakt")
             trending_movies = []
@@ -1882,11 +1781,10 @@ curl -X POST \\<br>
                         'slug': movie.get('ids', {}).get('slug'),
                     })
             
-            # Fetch trending shows
             shows_url = "https://api.trakt.tv/shows/trending?limit=10"
             shows_response = http_client.get(shows_url, headers=headers, logger_name="trakt")
             trending_shows = []
-            
+
             if shows_response.status_code == 200:
                 shows_data = shows_response.json()
                 for item in shows_data[:5]:

@@ -14,6 +14,13 @@ The application includes user authentication, profile management, integrated API
 
 ## Recent Updates & Fixes
 
+### Trakt API Now Behind a Paywall (VIP)
+
+- **Trakt API usage was previously free**, but creating/registering OAuth applications on Trakt now requires a paid **Trakt VIP** subscription.
+- Reviewing an error surfaced the message *"Crear nuevas aplicaciones requiere Trakt VIP"* on the Trakt OAuth applications page — registering API apps is no longer possible on the free tier.
+- Trakt's **native tracking extension** (and **Younify**) only allow **1 streaming service for free**; the rest are locked behind Trakt VIP.
+- **Decision**: We will look for an **alternative for movie & TV tracking**. Existing Trakt integration and endpoints remain for users who already have registered credentials/apps.
+
 ### Analytics Genre & Metadata Refresh (Latest)
 
 - **Music genres now work**: Last.fm sync enriches songs with normalized artist top-tags and stores them in `Song.genre_tags`.

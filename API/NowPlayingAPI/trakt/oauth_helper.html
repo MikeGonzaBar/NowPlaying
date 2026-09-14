@@ -77,12 +77,10 @@
 				setStatus("Authorization code received! Sending to backend...", "info");
 
 				try {
-					// You'll need to update this URL to match your backend
 					const response = await fetch("/trakt/oauth-callback/", {
 						method: "POST",
 						headers: {
 							"Content-Type": "application/json",
-							// Add your authentication token here
 							Authorization: "Bearer YOUR_JWT_TOKEN_HERE",
 						},
 						body: JSON.stringify({
@@ -129,7 +127,6 @@
 				}
 			}
 
-			// Check if we have URL parameters indicating an OAuth callback
 			if (window.location.search) {
 				handleOAuthCallback();
 			} else {

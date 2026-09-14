@@ -21,9 +21,6 @@ function MilestonesSidebar({
     loading: traktLoading,
   } = useTraktConnection();
 
-  // Only render milestones that can be verified from actual viewing data.
-  // Rules we cannot verify (premiere-day viewing, binge timing, rewatch
-  // counts) are hidden rather than shown as aspirational placeholders.
   const seriesComplete =
     totalEpisodes > 0 && watchedCount >= totalEpisodes;
   const achievements =
@@ -34,8 +31,6 @@ function MilestonesSidebar({
             id: "series_finale",
             icon: LockIcon,
             title: "Series Finale",
-            // State-dependent copy: a fully watched show must never be told
-            // to "watch the final episode" (audit finding on 14-of-14 shows).
             description: seriesComplete
               ? "Final episode watched — series complete."
               : `Watch the final episode to unlock this badge. (${watchedCount}/${totalEpisodes} episodes watched)`,

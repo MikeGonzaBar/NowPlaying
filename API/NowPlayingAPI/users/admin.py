@@ -3,15 +3,12 @@ from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from .models import UserApiKey
 
-# Unregister the provided model
 admin.site.unregister(User)
 
-# Register your own with another Admin
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
     """Admin view for Django auth users."""
 
-    # Add any customizations here
     list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff')
     search_fields = ('username', 'email')
 

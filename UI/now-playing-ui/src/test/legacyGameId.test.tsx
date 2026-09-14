@@ -7,7 +7,6 @@ import { theme } from "../theme";
 import LegacyGameIdRedirect from "../pages/games/pages/LegacyGameIdRedirect";
 import { mockAuthenticatedFetch } from "./setup";
 
-// Captures the canonical route the redirect navigates to.
 const TitleProbe = () => {
   const { title } = useParams<{ title: string }>();
   return <div data-testid="canonical">{decodeURIComponent(title || "")}</div>;
@@ -38,7 +37,6 @@ describe("LegacyGameIdRedirect (audit #4)", () => {
 
     renderLegacy("1145360");
 
-    // The router must land on /games/title/Hades (the target route renders it).
     const canonical = await screen.findByTestId("canonical");
     expect(canonical).toHaveTextContent("Hades");
   });

@@ -9,6 +9,5 @@ class AnalyticsConfig(AppConfig):
     verbose_name = 'Analytics & Statistics'
 
     def ready(self):
-        # Register pre_save handlers that coerce naive datetimes to aware.
         from analytics import signals  # noqa: F401
         signals._make_signals_ready()

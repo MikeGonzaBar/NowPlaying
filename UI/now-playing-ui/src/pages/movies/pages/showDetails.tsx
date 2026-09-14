@@ -125,14 +125,11 @@ function ShowDetails() {
 
         const traktId = show?.ids?.trakt || show?.show?.ids?.trakt || id;
         if (!traktId) {
-          // Without a parent-show Trakt id we cannot load real data;
-          // redirect rather than render a corrupted zero-data record.
           console.error("No trakt_id found for show");
           navigate("/movies");
           return;
         }
 
-        // Fetch seasons and episodes
         const seasonsRes = await authenticatedFetch(
           getApiUrl(
             `${API_CONFIG.TRAKT_ENDPOINT}/get-watched-seasons-episodes/?trakt_id=${traktId}`,
@@ -143,8 +140,6 @@ function ShowDetails() {
           const data = await seasonsRes.json();
           setSeasonsData(data);
 
-          // Backfill the show identity for cold (direct URL) visits from the
-          // episode payload, so a shared link renders a titled show page.
           if (
             !show?.title &&
             data?.seasons?.length > 0 &&
@@ -162,12 +157,10 @@ function ShowDetails() {
             }));
           }
 
-          // Extract and store show metadata
           if (data.show_metadata) {
             setShowMetadata(data.show_metadata);
           }
 
-          // Calculate stats from episodes
           const episodes = data.episodes || [];
           const watchedEpisodes = episodes.filter(
             (ep: Episode) => ep.last_watched_at,
@@ -179,7 +172,6 @@ function ShowDetails() {
               ? Math.round((watchedCount / totalEpisodes) * 100)
               : 0;
 
-          // Group episodes by season
           const episodesBySeason: Record<number, Episode[]> = {};
           episodes.forEach((ep: Episode) => {
             if (!episodesBySeason[ep.season__season_number]) {
@@ -188,16 +180,13 @@ function ShowDetails() {
             episodesBySeason[ep.season__season_number].push(ep);
           });
 
-          // Calculate total runtime (assuming 45 min per episode average)
           const totalRuntimeMinutes = watchedEpisodes.length * 45;
           const days = Math.floor(totalRuntimeMinutes / (24 * 60));
           const hours = Math.floor((totalRuntimeMinutes % (24 * 60)) / 60);
           const minutes = totalRuntimeMinutes % 60;
 
-          // Calculate remaining episodes
           const remainingEpisodes = totalEpisodes - watchedCount;
 
-          // Calculate average rating
           const ratings = watchedEpisodes
             .map((ep: Episode) => ep.rating)
             .filter((r: number | null) => r !== null) as number[];
@@ -268,7 +257,6 @@ function ShowDetails() {
         alert(
           "Show sync started in the background. The page will refresh shortly...",
         );
-        // Wait a bit for the sync to process, then reload
         setTimeout(() => {
           window.location.reload();
         }, 3000);
@@ -322,8 +310,6 @@ function ShowDetails() {
   const avgRating = showDetails?.avgRating || "N/A";
   const episodesBySeason = showDetails?.episodesBySeason || {};
 
-  // Derive viewing status from actual watch progress instead of a
-  // hard-coded "Currently Watching" label that contradicts 100% completion.
   const showStatusLabel =
     totalEpisodes === 0 || watchedCount === 0
       ? "Not started"
@@ -331,15 +317,11 @@ function ShowDetails() {
         ? "Up to date"
         : "In progress";
 
-  // Get seasons sorted by season number
   const seasons = seasonsData?.seasons || [];
   const sortedSeasons = [...seasons].sort(
     (a, b) => a.season_number - b.season_number,
   );
 
-  // Audit #7: a deep link that names a specific episode must resolve to an
-  // episode state — a detail panel with focused metadata and prev/next
-  // navigation into adjacent episodes.
   const selectedSeasonEpisodes =
     selectedSeason !== null ? episodesBySeason[selectedSeason] || [] : [];
   const sortedSeasonEpisodes = [...selectedSeasonEpisodes].sort(

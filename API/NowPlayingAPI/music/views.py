@@ -5,8 +5,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from .models import Song, recording_identity_key
-from .serializers import StreamedSongSerializer  # Import the serializer
-from users.models import UserApiKey  # Import UserApiKey from the correct location
+from .serializers import StreamedSongSerializer
+from users.models import UserApiKey
 from users.credentials import get_service_credentials
 from query_params import bounded_int, pagination_params
 from django.core.cache import cache
@@ -19,8 +19,6 @@ import logging
 import threading
 
 
-# Django model attribute access (ForeignKey reverse relations, dynamic attributes)
-# is not fully modeled in typeshed stubs.
 # pyright: reportAttributeAccessIssue=false
 
 
@@ -245,11 +243,9 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            # Check if async mode is requested
             async_mode = request.query_params.get('async', 'false').lower() == 'true'
             
             if async_mode:
-                # Run in background thread to avoid timeout
                 user = request.user
                 user_id = request.user.id
 
@@ -269,7 +265,6 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                     "status": "processing"
                 })
             else:
-                # Fetch ALL tracks (no limit) - synchronous mode
                 result = Song.fetch_lastfm_recent_tracks(request.user, lastfm_api_key, lastfm_username, limit=None)
                 invalidate_music_caches(request.user.id)
                 return Response(
@@ -293,13 +288,11 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
         Retrieves stored songs from the database for the authenticated user,
         sorted by played_at in descending order with pagination support.
         """
-        # Optional filter by source (spotify, lastfm, or all)
         source = request.query_params.get('source')
         page, page_size = pagination_params(request.query_params, default_page_size=50, max_page_size=100)
         if source and source not in ['spotify', 'lastfm']:
             raise ValidationError({'source': "Must be 'spotify' or 'lastfm'."})
         
-        # Check cache first - SAFE OPTIMIZATION
         cache_key = f"stored_songs_{request.user.id}_{source}_{page}_{page_size}"
         cached_result = cache.get(cache_key)
         if cached_result:
@@ -312,14 +305,11 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
             
         songs = songs.order_by("-played_at")
         
-        # Calculate offset and limit
         offset = (page - 1) * page_size
         limit = offset + page_size
         
-        # Get total count for pagination info
         total_count = songs.count()
         
-        # Apply pagination
         paginated_songs = songs[offset:limit]
         
         serializer = StreamedSongSerializer(paginated_songs, many=True)
@@ -334,7 +324,6 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
             "has_previous": page > 1
         }
         
-        # Cache for 15 minutes - SAFE OPTIMIZATION
         cache.set(cache_key, result, getattr(settings, 'CACHE_TIMEOUTS', {}).get('MUSIC_TRACKS', 900))
         
         return Response(result)
@@ -356,29 +345,23 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
         try:
             user = request.user
             
-            # Check cache
             cache_key = versioned_cache_key("music", user.id, str(days))
             cached_result = cache.get(cache_key)
             if cached_result:
                 return Response(cached_result)
             
-            # Date range
             end_date = timezone.now()
             start_date = end_date - timedelta(days=days)
             
-            # Base queryset
             songs = Song.objects.filter(user=user)
             songs_in_range = songs.filter(played_at__gte=start_date, played_at__lte=end_date)
             
-            # Use the selected dashboard period consistently for rankings and totals.
             scoped_songs = songs_in_range if days != 9999 else songs
 
             total_scrobbles = scoped_songs.count()
             
-            # Artist count (all time, unique)
             artist_count = scoped_songs.values('artist').distinct().count()
             
-            # Top Artists (all time, limit 10)
             top_artists = scoped_songs.values('artist').annotate(
                 count=Count('id')
             ).order_by('-count')[:10]
@@ -386,7 +369,6 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
             max_count = top_artists[0]['count'] if top_artists else 1
             for artist_data in top_artists:
                 artist_songs = scoped_songs.filter(artist=artist_data['artist'])
-                # Get most recent album thumbnail for this artist
                 latest_song = artist_songs.order_by('-played_at').first()
                 top_artists_list.append({
                     'name': artist_data['artist'],
@@ -396,7 +378,6 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                     'artist_lastfm_url': latest_song.artist_lastfm_url if latest_song else None
                 })
             
-            # Top Albums (all time, limit 10)
             top_albums = scoped_songs.exclude(album__isnull=True).exclude(album='').values(
                 'album', 'artist'
             ).annotate(
@@ -415,7 +396,6 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                     'artist_lastfm_url': latest_song.artist_lastfm_url if latest_song else None
                 })
             
-            # Top Tracks (all time, limit 10)
             grouped_tracks = self._grouped_track_counts(scoped_songs)
             top_tracks = sorted(
                 grouped_tracks.values(),
@@ -434,8 +414,6 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                     'artist_lastfm_url': latest_song.artist_lastfm_url if latest_song else None
                 })
             
-            # Listening trends (daily scrobbles for the period)
-            # Group by date
             from django.db.models.functions import TruncDate
             daily_trends = songs_in_range.annotate(
                 date=TruncDate('played_at')
@@ -443,10 +421,8 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                 count=Count('id')
             ).order_by('date')
             
-            # Calculate average per day
             avg_per_day = songs_in_range.count() / days if days > 0 else 0
             
-            # Recent activity (last 10 tracks)
             recent_songs = list(songs.order_by('-played_at')[:10])
             recent_activity_list = []
             for song in recent_songs:
@@ -463,13 +439,10 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                     'minutes_ago': minutes_ago
                 })
             
-            # Milestones
             milestones = []
-            # Check for scrobble milestones
             milestone_thresholds = [100000, 150000, 200000]
             for threshold in milestone_thresholds:
                 if total_scrobbles >= threshold:
-                    # Find when milestone was reached (approximate)
                     try:
                         milestone_index = min(threshold - 1, total_scrobbles - 1)
                         milestone_song = songs.order_by('-played_at')[milestone_index]
@@ -486,7 +459,6 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                             'completed': True
                         })
             
-            # Artist century milestone (100 plays for 50 artists)
             artists_with_100_plus = songs.values('artist').annotate(
                 count=Count('id')
             ).filter(count__gte=100).count()
@@ -498,7 +470,6 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                 'completed': artists_with_100_plus >= 50
             })
             
-            # Loved highlights (loved tracks)
             loved_tracks = scoped_songs.filter(loved=True).order_by('-played_at')[:1]
             loved_highlight = None
             if loved_tracks.exists():
@@ -510,15 +481,13 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                         'thumbnail': track.album_thumbnail
                     }
             
-            # User info (from Last.fm if available)
             user_info = {
                 'username': user.username,
-                'avatar': None,  # Could be enhanced with user profile
-                'location': None,  # Could be enhanced with user profile
-                'member_since': None  # Could be enhanced with user profile
+                'avatar': None,
+                'location': None,
+                'member_since': None
             }
             
-            # Try to get Last.fm username for display
             try:
                 api_key_obj = UserApiKey.objects.get(user=user, service_name='lastfm')
                 if api_key_obj.service_user_id:
@@ -546,7 +515,6 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                 'loved_highlight': loved_highlight
             }
             
-            # Cache for 5 minutes
             cache.set(cache_key, result, 300)
             
             return Response(result)
@@ -709,7 +677,6 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
             latest_song = songs.order_by("-played_at").first()
             earliest_song = songs.order_by("played_at").first()
 
-            # Get top tracks for this artist
             top_tracks_qs = (
                 songs.values("title")
                 .annotate(count=Count("id"))
@@ -720,7 +687,6 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
                 for t in top_tracks_qs
             ]
 
-            # Get unique albums count
             albums_count = songs.exclude(album__isnull=True).exclude(album="").values("album").distinct().count()
 
             return Response({
@@ -763,7 +729,6 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
             earliest_song = songs.order_by("played_at").first()
             actual_artist = latest_song.artist if latest_song else artist
 
-            # Get top tracks for this album
             top_tracks_qs = (
                 songs.values("title")
                 .annotate(count=Count("id"))

@@ -132,7 +132,7 @@ function ArtistDetail() {
           <Typography sx={{ color: zincColors.muted }}>Artist not found</Typography>
         )}
 
-        {/* Top tracks */}
+
         {artist?.top_tracks && artist.top_tracks.length > 0 && (
           <Box sx={{ mb: 6 }}>
             <Typography
@@ -173,7 +173,7 @@ function ArtistDetail() {
           </Box>
         )}
 
-        {/* Play history (audit #5: sampled-vs-complete disclosure + load more) */}
+
         <PlayHistorySection
           type="artist"
           name={decodedName}

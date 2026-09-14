@@ -15,7 +15,6 @@ interface GameContextMetadataProps {
 const GameContextMetadata: React.FC<GameContextMetadataProps> = ({ game }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Check if game has description (may not exist in current types)
   const description = (game as any).description || null;
   const maxLines = 4;
 
@@ -23,7 +22,7 @@ const GameContextMetadata: React.FC<GameContextMetadataProps> = ({ game }) => {
     return null;
   }
 
-  const shouldShowReadMore = description.length > 200; // Rough estimate for 4 lines
+  const shouldShowReadMore = description.length > 200;
 
   return (
     <Box

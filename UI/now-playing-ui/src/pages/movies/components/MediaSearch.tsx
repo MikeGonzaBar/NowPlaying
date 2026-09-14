@@ -75,12 +75,10 @@ function MediaSearch() {
   };
 
   useEffect(() => {
-    // Clear previous timeout
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    // Set new timeout for debounced search
     if (searchQuery.trim()) {
       searchTimeoutRef.current = setTimeout(() => {
         searchMedia(searchQuery);
@@ -99,10 +97,6 @@ function MediaSearch() {
 
   const handleResultClick = async (result: SearchResult) => {
     if (result.type === "episode") {
-      // An episode result must resolve to its PARENT SHOW. Never seed the
-      // show-detail state with an episode-shaped object or the episode's
-      // own ids (an episode's tmdb id is not the show's), otherwise the
-      // detail page renders a corrupted zero-data record.
       const showTraktId =
         result.show_trakt_id ??
         (result.show_id != null ? String(result.show_id) : undefined);

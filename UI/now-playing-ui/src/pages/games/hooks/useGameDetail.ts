@@ -1,16 +1,6 @@
 import { useState, useEffect } from "react";
 import { useApi } from "../../../hooks/useApi";
-
-export interface PlatformGameData {
-  platform: string;
-  data: Record<string, unknown>;
-}
-
-export interface GameDetailResponse {
-  title: string;
-  platforms: PlatformGameData[];
-  platform_count: number;
-}
+import type { GameDetailResponse } from "../utils/gameDetail";
 
 interface UseGameDetailResult {
   game: GameDetailResponse | null;
@@ -27,9 +17,6 @@ export const useGameDetail = (beBaseUrl: string, title: string | undefined): Use
   const [game, setGame] = useState<GameDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Destructure `request` (a stable useCallback) — depending on the whole
-  // useApi() object would re-arm effects on every render because useApi
-  // returns a fresh object each time.
   const { request } = useApi();
 
   const fetchGame = async () => {
@@ -76,9 +63,6 @@ export const useGameDetailById = (
   const [game, setGame] = useState<GameDetailResponse | null>(null);
   const [loading, setLoading] = useState(Boolean(appid));
   const [error, setError] = useState<string | null>(null);
-  // Stable request fn only — `api` identity changes every render and used to
-  // re-arm this effect forever, leaving legacy deep links stuck on
-  // "Loading game details..." (audit finding #4).
   const { request } = useApi();
 
   useEffect(() => {
@@ -94,8 +78,6 @@ export const useGameDetailById = (
     setError(null);
     setGame(null);
 
-    // Bounded failure: unknown/obsolete provider ids must fail explicitly
-    // within a few seconds instead of loading forever.
     const timeoutId = setTimeout(() => {
       if (cancelled) return;
       cancelled = true;

@@ -127,9 +127,6 @@ function MovieDetails() {
     null,
   );
   const [traktStats, setTraktStats] = useState<TraktStats | null>(null);
-  // Audit #6: stats are their own async section. 'unavailable' (404) renders
-  // N/A; 'error' (503/500/network) renders a retryable message. One failed
-  // section never blanks dependent content.
   type StatsState = "idle" | "loading" | "success" | "unavailable" | "error";
   const [statsState, setStatsState] = useState<StatsState>("idle");
   const [watchProviders, setWatchProviders] = useState<WatchProviders | null>(
@@ -145,8 +142,6 @@ function MovieDetails() {
 
   const [castOpen, setCastOpen] = useState(false);
 
-  // A related-movie navigation reuses this component instance. Clear the
-  // previous entity before the new route's request can render stale content.
   useEffect(() => {
     if (!id) return;
     const loadedId = movieData?.ids?.tmdb;
@@ -173,8 +168,6 @@ function MovieDetails() {
         setLoading(true);
 
         const routeTmdbId = id ? String(id) : undefined;
-        // Only trust state that belongs to the movie this route points at, so
-        // a related-movie navigation can never reuse the previous movie's ids.
         const matchesRoute = (candidate: any) =>
           !!candidate &&
           !!routeTmdbId &&
@@ -191,15 +184,8 @@ function MovieDetails() {
                 : null;
         const traktId = currentMovie?.ids?.trakt;
         const tmdbId = routeTmdbId || currentMovie?.ids?.tmdb || id;
-        // Resolved before the detail fetch. On a cold load (no navigation
-        // state) the detail response below may upgrade this with the trakt id
-        // it returns — audit #6.
         let resolvedTraktId = currentMovie?.ids?.trakt || traktId;
 
-        // The effect below only depends on the canonical route id. It used to
-        // list every piece of state it writes (movieData, tmdbDetails,
-        // movieDetails) as dependencies, which re-armed the effect on every
-        // write and caused an unbounded TMDB request loop.
         if (tmdbId) {
           const detailRes = await authenticatedFetch(
             getApiUrl(
@@ -216,9 +202,6 @@ function MovieDetails() {
               last_watched_at: result?.last_watched_at || null,
               last_updated_at: result?.last_updated_at || null,
             });
-            // Audit #6: on a cold load (no navigation state) the trakt id is
-            // only knowable from this response — capture it so the stats
-            // section can still run instead of silently showing N/A.
             const detailTraktId = result?.movie?.ids?.trakt;
             if (detailTraktId) {
               resolvedTraktId = String(detailTraktId);
@@ -237,8 +220,6 @@ function MovieDetails() {
 
         const targetTmdbId = routeTmdbId || currentMovie?.ids?.tmdb || tmdbId;
         if (targetTmdbId) {
-          // TMDB is proxied through the backend so the API key never reaches
-          // the browser.
           const tmdbRes = await authenticatedFetch(
             getApiUrl(
               `${API_CONFIG.TRAKT_ENDPOINT}/tmdb-detail/?tmdb_id=${encodeURIComponent(String(targetTmdbId))}&type=movie&append_to_response=credits,similar`,
@@ -249,9 +230,6 @@ function MovieDetails() {
             if (cancelled) return;
             setTmdbDetails(tmdbData);
             if (!currentMovie && tmdbData?.title) {
-              // Audit #6: preserve the trakt id resolved from the detail
-              // response — overwriting it with undefined here would make the
-              // stats Retry path early-return forever on cold loads.
               setMovieData({
                 title: tmdbData.title,
                 year: Number(tmdbData.release_date?.slice(0, 4) || 0),
@@ -289,10 +267,7 @@ function MovieDetails() {
           }
         }
 
-        // resolvedTraktId was initialized before the detail fetch and may have
-        // been upgraded from its response on cold navigation (audit #6).
         if (resolvedTraktId) {
-          // Audit #6: separately modeled async section with its own states.
           setStatsState("loading");
           const statsRes = await authenticatedFetch(
             getApiUrl(
@@ -304,11 +279,9 @@ function MovieDetails() {
             setTraktStats(await statsRes.json());
             setStatsState("success");
           } else if (statsRes.status === 404) {
-            // Confirmed absence → N/A rendering, not an error.
             setTraktStats(null);
             setStatsState("unavailable");
           } else {
-            // 503/500 → temporary failure with retry.
             setTraktStats(null);
             setStatsState("error");
           }
@@ -331,7 +304,6 @@ function MovieDetails() {
     };
   }, [id, navigate]);
 
-  // Audit #6: retry re-runs only the stats request, not the whole page load.
   const fetchStats = async () => {
     const resolvedTraktId =
       movieData?.ids?.trakt || media?.movie?.ids?.trakt || media?.ids?.trakt;
@@ -454,8 +426,6 @@ function MovieDetails() {
     .toLowerCase()
     .trim();
 
-  // Rank similar movies by available franchise/genre/cast hints and then
-  // popularity, so related recommendations stay contextually relevant.
   const similarMovies = (tmdbDetails?.similar?.results || [])
     .filter((movie) =>
       movie.id &&
@@ -516,9 +486,7 @@ function MovieDetails() {
     const providerName = provider.provider_name.toLowerCase();
     const encodedTitle = encodeURIComponent(movieTitle);
 
-    // Map provider IDs/names to their search/watch URLs
     const providerLinks: Record<string, string> = {
-      // Streaming services
       netflix: `https://www.netflix.com/search?q=${encodedTitle}`,
       "disney plus": `https://www.disneyplus.com/search?q=${encodedTitle}`,
       "disney+": `https://www.disneyplus.com/search?q=${encodedTitle}`,
@@ -539,7 +507,6 @@ function MovieDetails() {
       showtime: `https://www.showtime.com/search?q=${encodedTitle}`,
       "amc+": `https://www.amcplus.com/search?q=${encodedTitle}`,
 
-      // Rental/Purchase services
       "apple itunes": `https://tv.apple.com/search?term=${encodedTitle}`,
       itunes: `https://tv.apple.com/search?term=${encodedTitle}`,
       "google play movies": `https://play.google.com/store/search?q=${encodedTitle}&c=movies`,
@@ -554,24 +521,20 @@ function MovieDetails() {
       fandangonow: `https://www.fandango.com/search?q=${encodedTitle}`,
     };
 
-    // Try exact match first
     if (providerLinks[providerName]) {
       return providerLinks[providerName];
     }
 
-    // Try partial matches
     for (const [key, url] of Object.entries(providerLinks)) {
       if (providerName.includes(key) || key.includes(providerName)) {
         return url;
       }
     }
 
-    // Fallback: Use JustWatch search (they have good platform links)
     if (tmdbId) {
       return `https://www.justwatch.com/us/movie/${encodedTitle.toLowerCase().replace(/\s+/g, "-")}`;
     }
 
-    // Last resort: Google search
     return `https://www.google.com/search?q=${encodedTitle}+watch+online`;
   };
 
@@ -581,7 +544,7 @@ function MovieDetails() {
       backgroundColor="#0f1115"
       mainSx={{ display: "flex", flexDirection: "column" }}
     >
-      {/* Back Button */}
+
       <Box sx={{ p: 3, pb: 0 }}>
         <IconButton
           onClick={() => navigate("/movies")}
@@ -598,7 +561,7 @@ function MovieDetails() {
         </IconButton>
       </Box>
 
-      {/* Hero Section */}
+
       <Box sx={{ mb: 4, position: "relative" }}>
         <Box
           sx={{
@@ -1046,7 +1009,7 @@ function MovieDetails() {
                 </Box>
               )}
 
-              {/* Personal Progress */}
+
               <Card
                 sx={{
                   backgroundColor: "#15181e",
@@ -1191,7 +1154,7 @@ function MovieDetails() {
                 </Box>
               </Card>
 
-              {/* Where to Watch */}
+
               {watchProviders &&
                 (watchProviders.flatrate?.length ||
                   watchProviders.rent?.length ||
@@ -1688,10 +1651,10 @@ function MovieDetails() {
             </Box>
           </Grid>
 
-          {/* Right Sidebar */}
+
           <Grid size={{ xs: 12, lg: 3 }}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {/* Trakt Stats */}
+
               <Card
                 sx={{
                   backgroundColor: "#15181e",
@@ -1858,7 +1821,7 @@ function MovieDetails() {
                 </Box>
               </Card>
 
-              {/* Sync Card */}
+
               <Card
                 sx={{
                   borderRadius: 2,

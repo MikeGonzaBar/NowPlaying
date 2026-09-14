@@ -84,18 +84,16 @@ class ApiKeySerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         service_name = validated_data['service_name']
         
-        # Try to get existing API key or create a new one
         api_key, created = UserApiKey.objects.get_or_create(
             user=user,
             service_name=service_name,
             defaults={}
         )
         
-        # Update the key and service_user_id regardless of whether it's new or existing
         api_key.set_key(raw_key, service_user_id=service_user_id)
         api_key.save()
         return api_key
-    
+
     def update(self, instance: UserApiKey, validated_data: dict[str, object]) -> UserApiKey:
         """Update the encrypted key and optional service user id."""
         service_user_id = validated_data.pop('service_user_id', None)

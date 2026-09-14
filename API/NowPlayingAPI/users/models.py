@@ -35,13 +35,13 @@ class UserApiKey(models.Model):
     Keys are encrypted before storage and can be decrypted when needed.
     """
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='api_keys')
-    service_name = models.CharField(max_length=100)  # e.g., 'steam', 'playstation', 'trakt'
-    service_user_id = models.CharField(max_length=255, null=True, blank=True)  # Optional service-specific user ID
-    key_hash = models.TextField()  # Field renamed from key_hash, now stores encrypted key
+    service_name = models.CharField(max_length=100)
+    service_user_id = models.CharField(max_length=255, null=True, blank=True)
+    key_hash = models.TextField()
     last_used = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         unique_together = ('user', 'service_name')
         indexes = [

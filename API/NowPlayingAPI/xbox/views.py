@@ -29,7 +29,6 @@ class XBOXViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self) -> QuerySet[XboxGame]:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return only Xbox games owned by the authenticated user."""
-        # Filter games by the authenticated user
         return XboxGame.objects.filter(user=self.request.user)
     
     @action(detail=False, methods=["get"], url_path="get-game-list")
@@ -38,13 +37,9 @@ class XBOXViewSet(viewsets.ModelViewSet):
         api_key = get_service_credentials(request.user, "xbox", require_user_id=True)
 
         try:
-            # Call the API method to fetch/update games and achievements
             result = XboxAPI.fetch_games(
                 user=request.user,
                 xbox_api_key=api_key.api_key,
-                # require_user_id=True above guarantees a non-empty
-                # service_user_id (MissingServiceCredentials is raised
-                # otherwise); cast only informs the type checker.
                 xuid=cast(str, api_key.service_user_id),
             )
             
@@ -72,7 +67,7 @@ class XBOXViewSet(viewsets.ModelViewSet):
     def getGameListPlaytime(self, request: Request) -> Response:
         """Return stored Xbox games ordered by total playtime."""
         try:
-            qs = self.get_queryset().annotate(
+            qs = self.get_queryset().prefetch_related("achievements").annotate(
                 total_playtime_int=Cast("total_playtime", IntegerField())
             ).order_by("-total_playtime_int")
 
@@ -88,10 +83,9 @@ class XBOXViewSet(viewsets.ModelViewSet):
     def getGameListMostAchieved(self, request: Request) -> Response:
         """Return stored Xbox games ordered by unlocked gamerscore."""
         try:
-            # Sum unlocked achievement values in a single grouped query instead of
-            # per-game Python iteration (N+1). achievement_value is a VARCHAR.
             games = (
                 self.get_queryset()
+                .prefetch_related("achievements")
                 .annotate(
                     unlocked_score=Sum(
                         Cast("achievements__achievement_value", output_field=IntegerField()),

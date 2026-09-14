@@ -63,16 +63,13 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 return fallback
 
         try:
-            # Check cache first - SAFE OPTIMIZATION
             cache_key = versioned_cache_key("analytics", request.user.id, str(days))
             cached_result = cache.get(cache_key)
             
-            # Allow cache bypass with ?nocache=1 query parameter
             if request.query_params.get('nocache') == '1':
                 cache.delete(cache_key)
                 cached_result = None
             
-            # Only use cache if it has all required fields (including new ones)
             if cached_result and all(key in cached_result for key in [
                 'comprehensive_stats', 'platform_distribution', 'achievement_efficiency',
                 'gaming_streaks', 'weekly_trend', 'monthly_comparison', 
@@ -85,35 +82,30 @@ class AnalyticsViewSet(viewsets.ViewSet):
             ]):
                 return Response(cached_result)
             
-            # Get comprehensive statistics with caching
             comprehensive_stats = load_section(
                 "comprehensive_stats",
                 lambda: AnalyticsService.get_comprehensive_statistics(request.user, days=days),
                 {},
             )
             
-            # Get platform distribution with caching
             platform_distribution = load_section(
                 "platform_distribution",
                 lambda: AnalyticsService.get_platform_distribution(request.user, days=days),
                 {},
             )
             
-            # Get achievement efficiency
             achievement_efficiency = load_section(
                 "achievement_efficiency",
                 lambda: AnalyticsService.get_achievement_efficiency(request.user, days=days),
                 {},
             )
             
-            # Get gaming streaks
             gaming_streaks = load_section(
                 "gaming_streaks",
                 lambda: AnalyticsService.get_gaming_streaks(request.user),
                 {},
             )
             
-            # Get additional dashboard data with error handling
             try:
                 last_played_time = AnalyticsService.get_last_played_time(request.user)
             except Exception as e:
@@ -156,7 +148,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 logger.error(f"Error getting hardest_achievement: {str(e)}")
                 hardest_achievement = None
             
-            # Music tab analytics
             try:
                 top_artist = AnalyticsService.get_top_artist(request.user, days=days)
             except Exception as e:
@@ -193,7 +184,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 logger.error(f"Error getting genre_of_the_week: {str(e)}")
                 genre_of_the_week = None
 
-            # Movies & TV (Trakt) tab analytics
             try:
                 media_movies_change = AnalyticsService.get_media_movies_change(request.user, days=days)
             except Exception as e:
@@ -260,9 +250,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 'request_id': request_id,
             }
             
-            # Cache for 1 hour - SAFE OPTIMIZATION.
-            # Only cache fully successful dashboards so partial failures
-            # recover on the next request instead of persisting for an hour.
             if not partial_failures:
                 cache.set(cache_key, result, getattr(settings, 'CACHE_TIMEOUTS', {}).get('ANALYTICS', 3600))
             
@@ -288,7 +275,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
     def calculate_today_stats(self, request: Request) -> Response:
         """Calculate and store statistics for today (for potential future use)"""
         try:
-            # For now, just return success - the live calculation handles this
             return Response({
                 'message': 'Statistics calculated successfully using live data',
                 'date': timezone.now().date().isoformat(),
