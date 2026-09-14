@@ -13,9 +13,9 @@ import {
   calculateAchievementPercentage,
   formatMinutesCompact,
   getPlaytime,
-  parsePlaytimeMinutes,
 } from "../utils/utils";
 import { getPlatformMatch } from "../utils/platformHelper";
+import { getCombinedDetailMetrics } from "../utils/gameDetail";
 import {
   isPsnGame,
   isXboxGame,
@@ -121,26 +121,9 @@ const GameDetails: React.FC = () => {
 
   const combinedMetrics = useMemo(() => {
     if (!isCrossPlatform || !resolvedCrossPlatformGame) return null;
-    let playtimeMinutes = 0;
-    let unlocked = 0;
-    let total = 0;
-    resolvedCrossPlatformGame.platforms.forEach((entry) => {
-      const data = entry.data;
-      const minutes = parsePlaytimeMinutes(
-        data.playtime_forever ?? data.total_playtime,
-      );
-      if (minutes.available && minutes.minutes !== null) {
-        playtimeMinutes += minutes.minutes;
-      }
-      const achievements = Array.isArray(data.achievements)
-        ? data.achievements
-        : [];
-      total += achievements.length;
-      unlocked += achievements.filter((achievement) => {
-        const item = achievement as Record<string, unknown>;
-        return item.achieved === true || item.unlocked === true;
-      }).length;
-    });
+    const { playtimeMinutes, unlocked, total } = getCombinedDetailMetrics(
+      resolvedCrossPlatformGame.platforms,
+    );
     return {
       playtime: formatMinutesCompact(playtimeMinutes),
       completionPercentage:

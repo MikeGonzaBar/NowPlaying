@@ -1,16 +1,6 @@
 import { useState, useEffect } from "react";
 import { useApi } from "../../../hooks/useApi";
-
-export interface PlatformGameData {
-  platform: string;
-  data: Record<string, unknown>;
-}
-
-export interface GameDetailResponse {
-  title: string;
-  platforms: PlatformGameData[];
-  platform_count: number;
-}
+import type { GameDetailResponse } from "../utils/gameDetail";
 
 interface UseGameDetailResult {
   game: GameDetailResponse | null;
