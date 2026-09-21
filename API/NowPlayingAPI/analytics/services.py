@@ -2,6 +2,7 @@ from typing import Any
 
 from django.contrib.auth.models import User
 from django.db.models import Sum, Count, Q
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 from django.core.cache import cache
 from datetime import datetime, timedelta, date
@@ -246,38 +247,91 @@ class AnalyticsService:
         return result
     
     @staticmethod
+    def _by_day(qs, field: str, start_dt: datetime, end_dt: datetime, **aggs) -> dict[date, dict]:
+        """Aggregate rows into per-day buckets with a single grouped query.
+
+        Filters `qs` to [start_dt, end_dt] on `field`, buckets by TruncDate
+        and applies the given annotation expressions. Returns
+        {date: {'day': date, <agg keys>: value}}. Replaces the O(days) loop of
+        one-query-per-day with one query for the whole window.
+        """
+        rows = (
+            qs.filter(**{f"{field}__gte": start_dt, f"{field}__lte": end_dt})
+            .annotate(day=TruncDate(field))
+            .values("day")
+            .annotate(**aggs)
+        )
+        return {r["day"]: r for r in rows if r["day"] is not None}
+
+    @staticmethod
+    def _titles_by_day(
+        model, title_field: str, user: User, start_dt: datetime, end_dt: datetime
+    ) -> dict[date, set[str]]:
+        """Normalized per-day title sets for one game platform (single query)."""
+        qs = model.objects.filter(
+            user=user, last_played__gte=start_dt, last_played__lte=end_dt
+        ).annotate(day=TruncDate("last_played"))
+        buckets: dict[date, set[str]] = {}
+        for day, title in qs.values_list("day", title_field):
+            buckets.setdefault(day, set()).add(AnalyticsService._game_identity(title))
+        return buckets
+
+    @staticmethod
     def _get_daily_breakdown(user: User, start_date: date, end_date: date) -> StatsList:
-        """Get optimized daily breakdown of activity"""
+        """Get optimized daily breakdown of activity.
+
+        All per-day metrics are computed with a constant number of grouped
+        queries (independent of the window length) instead of one query per
+        metric per day.
+        """
+        start_dt = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
+        end_dt = timezone.make_aware(datetime.combine(end_date, datetime.max.time()))
+
+        movies = AnalyticsService._by_day(
+            MovieWatch.objects.filter(movie__user=user), "watched_at", start_dt, end_dt, c=Count("id")
+        )
+        episodes = AnalyticsService._by_day(
+            EpisodeWatch.objects.filter(episode__show__user=user), "watched_at", start_dt, end_dt, c=Count("id")
+        )
+        songs = AnalyticsService._by_day(
+            Song.objects.filter(user=user), "played_at", start_dt, end_dt, c=Count("id")
+        )
+
+        achievements: dict[date, int] = {}
+        for model, field, extra in (
+            (SteamAchievement, "unlock_time", {"unlocked": True}),
+            (PSNAchievement, "unlock_time", {"unlocked": True}),
+            (XboxAchievement, "unlock_time", {"unlocked": True}),
+            (GameAchievement, "date_earned", {}),
+        ):
+            for day, row in AnalyticsService._by_day(
+                model.objects.filter(game__user=user, **extra), field, start_dt, end_dt, c=Count("id")
+            ).items():
+                achievements[day] = achievements.get(day, 0) + row["c"]
+
+        # Cross-platform unique game titles per day (same normalization and
+        # dedup semantics as _unique_game_count, bucketed per day).
+        titles_per_day: dict[date, set[str]] = {}
+        for model, title_field in (
+            (SteamGame, "name"),
+            (PSNGame, "name"),
+            (XboxGame, "name"),
+            (RetroAchievementsGame, "title"),
+        ):
+            for day, titles in AnalyticsService._titles_by_day(
+                model, title_field, user, start_dt, end_dt
+            ).items():
+                titles_per_day.setdefault(day, set()).update(titles)
+
         daily_stats = []
         current_date = start_date
-        
         while current_date <= end_date:
-            daily_movies = MovieWatch.objects.filter(
-                movie__user=user,
-                watched_at__date=current_date
-            ).count()
-            
-            daily_episodes = EpisodeWatch.objects.filter(
-                episode__show__user=user,
-                watched_at__date=current_date
-            ).count()
-            
-            day_start = timezone.make_aware(datetime.combine(current_date, datetime.min.time()))
-            day_end = timezone.make_aware(datetime.combine(current_date, datetime.max.time()))
-            daily_games = AnalyticsService._unique_game_count(user, day_start, day_end)
-            
-            daily_achievements = (
-                SteamAchievement.objects.filter(game__user=user, unlock_time__date=current_date, unlocked=True).count() +
-                PSNAchievement.objects.filter(game__user=user, unlock_time__date=current_date, unlocked=True).count() +
-                XboxAchievement.objects.filter(game__user=user, unlock_time__date=current_date, unlocked=True).count() +
-                GameAchievement.objects.filter(game__user=user, date_earned__date=current_date).count()
-            )
-            
-            daily_songs = Song.objects.filter(
-                user=user,
-                played_at__date=current_date
-            ).count()
-            
+            daily_movies = movies.get(current_date, {}).get("c", 0)
+            daily_episodes = episodes.get(current_date, {}).get("c", 0)
+            daily_songs = songs.get(current_date, {}).get("c", 0)
+            daily_achievements = achievements.get(current_date, 0)
+            daily_games = len({t for t in titles_per_day.get(current_date, set()) if t})
+
             if daily_movies > 0 or daily_episodes > 0 or daily_games > 0 or daily_songs > 0:
                 daily_stats.append({
                     'date': current_date.isoformat(),
@@ -291,9 +345,9 @@ class AnalyticsService:
                         minutes=45 * daily_episodes
                     )),
                 })
-            
+
             current_date += timedelta(days=1)
-        
+
         return daily_stats
     
     @staticmethod
@@ -484,52 +538,49 @@ class AnalyticsService:
         
         max_total_time = 0
         
+        # Grouped queries: one per metric for the whole 7-day window, instead
+        # of ~11 queries per day.
+        start_dt = timezone.make_aware(datetime.combine(chart_start_date, datetime.min.time()))
+        end_dt = timezone.make_aware(datetime.combine(end_date, datetime.max.time()))
+
+        achievements_by_day: dict[date, int] = {}
+        for model, field, extra in (
+            (SteamAchievement, "unlock_time", {"unlocked": True}),
+            (PSNAchievement, "unlock_time", {"unlocked": True}),
+            (XboxAchievement, "unlock_time", {"unlocked": True}),
+            (GameAchievement, "date_earned", {}),
+        ):
+            for day, row in AnalyticsService._by_day(
+                model.objects.filter(game__user=user, **extra), field, start_dt, end_dt, c=Count("id")
+            ).items():
+                achievements_by_day[day] = achievements_by_day.get(day, 0) + row["c"]
+
+        games_by_day: dict[date, int] = {}
+        for model in (SteamGame, PSNGame, XboxGame, RetroAchievementsGame):
+            for day, row in AnalyticsService._by_day(
+                model.objects.filter(user=user), "last_played", start_dt, end_dt, c=Count("id")
+            ).items():
+                games_by_day[day] = games_by_day.get(day, 0) + row["c"]
+
+        songs_by_day = AnalyticsService._by_day(
+            Song.objects.filter(user=user), "played_at", start_dt, end_dt,
+            total_duration=Sum("duration_ms"), count=Count("id"),
+        )
+        movies_by_day = AnalyticsService._by_day(
+            MovieWatch.objects.filter(movie__user=user), "watched_at", start_dt, end_dt, c=Count("id")
+        )
+        episodes_by_day = AnalyticsService._by_day(
+            EpisodeWatch.objects.filter(episode__show__user=user), "watched_at", start_dt, end_dt, c=Count("id")
+        )
+
         daily_data = []
         for i in range(7):
             day_date = chart_start_date + timedelta(days=i)
             if day_date > end_date:
                 break
-            
-            daily_achievements = (
-                SteamAchievement.objects.filter(
-                    game__user=user, 
-                    unlock_time__date=day_date,
-                    unlocked=True
-                ).count() +
-                PSNAchievement.objects.filter(
-                    game__user=user, 
-                    unlock_time__date=day_date,
-                    unlocked=True
-                ).count() +
-                XboxAchievement.objects.filter(
-                    game__user=user, 
-                    unlock_time__date=day_date,
-                    unlocked=True
-                ).count() +
-                GameAchievement.objects.filter(
-                    game__user=user, 
-                    date_earned__date=day_date
-                ).count()
-            )
-            
-            daily_games_played = (
-                SteamGame.objects.filter(
-                    user=user, 
-                    last_played__date=day_date
-                ).count() +
-                PSNGame.objects.filter(
-                    user=user, 
-                    last_played__date=day_date
-                ).count() +
-                XboxGame.objects.filter(
-                    user=user, 
-                    last_played__date=day_date
-                ).count() +
-                RetroAchievementsGame.objects.filter(
-                    user=user, 
-                    last_played__date=day_date
-                ).count()
-            )
+
+            daily_achievements = achievements_by_day.get(day_date, 0)
+            daily_games_played = games_by_day.get(day_date, 0)
             
             raw_gaming_minutes = (daily_achievements * 30) + (daily_games_played * 60)
             estimated_gaming_minutes = min(raw_gaming_minutes, 24 * 60)
@@ -545,29 +596,17 @@ class AnalyticsService:
                 day_gaming_time.total_seconds() / 3600
             )
             
-            day_songs_data = Song.objects.filter(
-                user=user,
-                played_at__date=day_date
-            ).aggregate(
-                total_duration=Sum('duration_ms'),
-                count=Count('id')
-            )
-            total_ms = day_songs_data['total_duration'] or 0
-            song_count = day_songs_data['count'] or 0
+            song_row = songs_by_day.get(day_date, {})
+            total_ms = song_row.get("total_duration") or 0
+            song_count = song_row.get("count") or 0
             if total_ms > 0:
                 day_music_time = timedelta(milliseconds=total_ms)
             else:
                 day_music_time = timedelta(minutes=3.5 * song_count)
             
-            day_movie_watches = MovieWatch.objects.filter(
-                movie__user=user,
-                watched_at__date=day_date
-            ).count()
+            day_movie_watches = movies_by_day.get(day_date, {}).get("c", 0)
             
-            day_episode_watches = EpisodeWatch.objects.filter(
-                episode__show__user=user,
-                watched_at__date=day_date
-            ).count()
+            day_episode_watches = episodes_by_day.get(day_date, {}).get("c", 0)
             
             day_tv_time = timedelta(
                 hours=2 * day_movie_watches,
