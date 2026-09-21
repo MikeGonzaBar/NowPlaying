@@ -50,6 +50,7 @@ IS_PRODUCTION = ENVIRONMENT in {"prod", "production"}
 DEBUG = env_bool("DEBUG", default=not IS_PRODUCTION)
 ENABLE_ADMIN_SITE = env_bool("ENABLE_ADMIN_SITE", default=DEBUG)
 ENABLE_API_DOCS = env_bool("ENABLE_API_DOCS", default=DEBUG)
+USE_LOCAL_SUPABASE = env_bool("USE_LOCAL_SUPABASE", default=False)
 
 SECRET_KEY = (
     require_env("SECRET_KEY")
@@ -134,16 +135,39 @@ WSGI_APPLICATION = "NowPlayingAPI.wsgi.application"
 
 
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('POSTGRES_DB', 'nowplaying'),
-        'USER': os.environ.get('POSTGRES_USER', 'nowplaying_user'),
-        'PASSWORD': require_env('POSTGRES_PASSWORD') if IS_PRODUCTION else os.environ.get('POSTGRES_PASSWORD', 'nowplaying_password'),
-        'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
-        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+if USE_LOCAL_SUPABASE:
+    # Local Supabase Postgres (supabase start) per the migration plan.
+    # Local dev listens on 127.0.0.1:54322 with the default postgres/postgres role.
+    SUPABASE_DB_HOST = os.environ.get("SUPABASE_DB_HOST", "127.0.0.1")
+    SUPABASE_DB_PORT = os.environ.get("SUPABASE_DB_PORT", "54322")
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("SUPABASE_DB_NAME", "postgres"),
+            "USER": os.environ.get("SUPABASE_DB_USER", "postgres"),
+            "PASSWORD": os.environ.get("SUPABASE_DB_PASSWORD", "postgres"),
+            "HOST": SUPABASE_DB_HOST,
+            "PORT": SUPABASE_DB_PORT,
+            # SSL for any Supabase host (direct db.<ref>.supabase.co or the
+            # IPv4 pooler aws-0-<region>.pooler.supabase.com).
+            "OPTIONS": {"sslmode": "require"} if "supabase" in SUPABASE_DB_HOST else {},
+        }
     }
-}
+    # Persistent connections (migration plan R7): avoid reconnect churn against
+    # the shared pooler connection budget.
+    DATABASES["default"]["CONN_MAX_AGE"] = int(os.environ.get("DB_CONN_MAX_AGE", "600"))
+    DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('POSTGRES_DB', 'nowplaying'),
+            'USER': os.environ.get('POSTGRES_USER', 'nowplaying_user'),
+            'PASSWORD': require_env('POSTGRES_PASSWORD') if IS_PRODUCTION else os.environ.get('POSTGRES_PASSWORD', 'nowplaying_password'),
+            'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
+            'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+        }
+    }
 
 
 AUTH_PASSWORD_VALIDATORS = [

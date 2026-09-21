@@ -75,6 +75,8 @@ dist-ssr/
 test-artifacts/
 .codex-scan/
 
+# Supabase migration working/backup artifacts (local only)
+API/migration_backup/
 # OS files
 .DS_Store
 Thumbs.db
