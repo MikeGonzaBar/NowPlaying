@@ -1,0 +1,30 @@
+# Virtualenvs / dependencies
+venv/
+.venv/
+nowPlayingVenv/
+
+# Secrets - never bake into the image layers
+.env
+
+# Version control
+.git/
+.gitignore
+
+# Python caches & tooling
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Docs & local tooling not needed at runtime
+*.md
+pyrightconfig.json
+
+# Test / scanning artifacts
+test-artifacts/
+.codex-test-artifacts/
+.codex-scan/

@@ -3,6 +3,7 @@ services:
     build:
       context: ./API
       dockerfile: ./Dockerfile
+    restart: unless-stopped
     ports:
       - "${API_PORT:-8001}:8080"
     volumes:
@@ -28,6 +29,11 @@ services:
     build:
       context: ./API
       dockerfile: ./Dockerfile
+    # api-admin shares the api_static volume with the api service, so it must not
+    # run collectstatic itself (running two collectors concurrently on the same
+    # volume races and can crash startup - FileNotFoundError). The api service
+    # collects first; api-admin waits for it.
+    restart: unless-stopped
     ports:
       - "127.0.0.1:${ADMIN_API_PORT:-8011}:8080"
     volumes:
@@ -38,6 +44,7 @@ services:
     environment:
       - PORT=8080
       - RUN_MIGRATIONS=false
+      - RUN_COLLECTSTATIC=false
       - ENABLE_ADMIN_SITE=true
       - ENABLE_API_DOCS=true
       - POSTGRES_HOST=db
@@ -48,6 +55,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      api:
+        condition: service_started
 
   ui:
     build:
