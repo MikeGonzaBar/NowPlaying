@@ -186,28 +186,40 @@ class RetroAchievementsAPI:
             game_progress = get_json_response(progress_url)
 
             if game_progress and 'Achievements' in game_progress:
+                achievement_objs = []
                 for achievement_id, achievement_data in game_progress['Achievements'].items():
-                    date_created = parse_datetime(achievement_data['DateCreated'])
-                    date_modified = parse_datetime(achievement_data['DateModified'])
-                    date_earned = parse_datetime(achievement_data.get('DateEarned'))
+                    try:
+                        achievement_objs.append(GameAchievement(
+                            game=game,
+                            achievement_id=achievement_data['ID'],
+                            title=achievement_data['Title'],
+                            description=achievement_data['Description'],
+                            points=achievement_data['Points'],
+                            true_ratio=achievement_data['TrueRatio'],
+                            author=achievement_data['Author'],
+                            date_created=parse_datetime(achievement_data['DateCreated']),
+                            date_modified=parse_datetime(achievement_data['DateModified']),
+                            badge_name=achievement_data.get('BadgeName'),
+                            display_order=achievement_data['DisplayOrder'],
+                            type=achievement_data.get('type'),
+                            date_earned=parse_datetime(achievement_data.get('DateEarned')),
+                        ))
+                    except Exception as e:
+                        logger.error("Error preparing achievement %s for game %s: %s", achievement_id, game.game_id, str(e))
+                        continue
 
-                    GameAchievement.objects.update_or_create(
-                        game=game,
-                        achievement_id=achievement_data['ID'],
-                        defaults={
-                            'title': achievement_data['Title'],
-                            'description': achievement_data['Description'],
-                            'points': achievement_data['Points'],
-                            'true_ratio': achievement_data['TrueRatio'],
-                            'author': achievement_data['Author'],
-                            'date_created': date_created,
-                            'date_modified': date_modified,
-                            'badge_name': achievement_data.get('BadgeName'),
-                            'display_order': achievement_data['DisplayOrder'],
-                            'type': achievement_data.get('type'),
-                            'date_earned': date_earned,
-                        }
-                    )
+                # Single bulk upsert (unique constraint: game + achievement_id).
+                GameAchievement.objects.bulk_create(
+                    achievement_objs,
+                    update_conflicts=True,
+                    unique_fields=["game", "achievement_id"],
+                    update_fields=[
+                        'title', 'description', 'points', 'true_ratio', 'author',
+                        'date_created', 'date_modified', 'badge_name',
+                        'display_order', 'type', 'date_earned',
+                    ],
+                    batch_size=500,
+                )
         except Exception as e:
             logger.error("Error populating achievements for game %s: %s", game.game_id, str(e))
 

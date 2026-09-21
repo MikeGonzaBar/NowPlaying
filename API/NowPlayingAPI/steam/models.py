@@ -205,6 +205,7 @@ class SteamAPI:
 
         return {
             "message": "Game and achievements updated successfully.",
+            "game": game_instance,
             "total_achievements": len(global_achievements),
             "unlocked_achievements": unlocked_count,
         }
@@ -243,7 +244,11 @@ class SteamAPI:
         formatted_games = []
         for game in games:
             update_result = cls.update_game_and_achievements(game, steam_id, steam_api_key, user)
-            game_instance = Game.objects.get(appid=game["appid"], user=user)
+            # Reuse the instance returned by the upsert (falls back to a read
+            # only for games whose achievement fetch failed).
+            game_instance = update_result.get("game")
+            if game_instance is None:
+                game_instance = Game.objects.get(appid=game["appid"], user=user)
             achievements = list(game_instance.achievements.all().values(
                 "name", "description", "image", "unlocked", "unlock_time"
             ))

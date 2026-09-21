@@ -41,6 +41,13 @@ class PSNAchievement(models.Model):
     unlock_time = models.DateTimeField(null=True, blank=True)
     trophy_type = models.CharField(max_length=50, blank=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["game", "name"], name="unique_psn_game_achievement"
+            )
+        ]
+
     def __str__(self) -> str:
         """Return the trophy name and lock state."""
         return f"{self.name} ({'Unlocked' if self.unlocked else 'Locked'})"
@@ -145,32 +152,41 @@ class PSN:
                 )
                 
                 unlocked_count = 0
+                achievement_objs = []
                 for ach in achievements_data["achievements"]:
                     if ach["unlocked"]:
                         unlocked_count += 1
                         
                     try:
-                        PSNAchievement.objects.update_or_create(
+                        achievement_objs.append(PSNAchievement(
                             game=game,
                             name=ach["name"],
-                            defaults={
-                                "description": ach["description"],
-                                "image": ach["image"],
-                                "unlocked": ach["unlocked"],
-                                "unlock_time": (
-                                    make_timezone_aware(datetime.fromisoformat(ach["unlock_time"])) if ach["unlock_time"] else None
-                                ),
-                                "trophy_type": ach["type"],
-                            },
-                        )
+                            description=ach["description"],
+                            image=ach["image"],
+                            unlocked=ach["unlocked"],
+                            unlock_time=(
+                                make_timezone_aware(datetime.fromisoformat(ach["unlock_time"])) if ach["unlock_time"] else None
+                            ),
+                            trophy_type=ach["type"],
+                        ))
                     except Exception as e:
-                        logger.error(f"Error updating PSN achievement {ach.get('name', 'Unknown')}: {str(e)}")
+                        logger.error(f"Error preparing PSN achievement {ach.get('name', 'Unknown')}: {str(e)}")
                         continue
-                
-                achievements_qs = game.achievements.all()
-                achievements_list = list(
-                    achievements_qs.values("name", "description", "image", "unlocked", "unlock_time", "trophy_type")
+
+                # Single bulk upsert instead of one update_or_create per trophy.
+                PSNAchievement.objects.bulk_create(
+                    achievement_objs,
+                    update_conflicts=True,
+                    unique_fields=["game", "name"],
+                    update_fields=["description", "image", "unlocked", "unlock_time", "trophy_type"],
+                    batch_size=500,
                 )
+                
+                achievements_list = list(
+                    game.achievements.all().values("name", "description", "image", "unlocked", "unlock_time", "trophy_type")
+                )
+                total_achievements = len(achievements_list)
+                unlocked_achievements = sum(1 for a in achievements_list if a["unlocked"])
                 
                 games_info.append({
                     "appid": game.appid,
@@ -180,9 +196,9 @@ class PSN:
                     "first_played": cls.datetime_to_str(game.first_played) if game.first_played else None,
                     "last_played": cls.datetime_to_str(game.last_played) if game.last_played else None,
                     "img_icon_url": game.img_icon_url,
-                    "total_achievements": achievements_qs.count(),
-                    "unlocked_achievements": achievements_qs.filter(unlocked=True).count(),
-                    "locked_achievements": achievements_qs.count() - achievements_qs.filter(unlocked=True).count(),
+                    "total_achievements": total_achievements,
+                    "unlocked_achievements": unlocked_achievements,
+                    "locked_achievements": total_achievements - unlocked_achievements,
                     "achievements": achievements_list,
                 })
             
