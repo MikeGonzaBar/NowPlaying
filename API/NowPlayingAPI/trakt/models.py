@@ -686,12 +686,34 @@ def _process_single_show(
     latest_watched_at = api_last if api_last else None
 
     seasons = item.get("seasons", [])
+
+    # --- Seasons: one read + one bulk insert instead of get_or_create per season.
+    season_numbers = [s.get("number") for s in seasons if s.get("number") is not None]
+    season_by_number = {
+        s.season_number: s
+        for s in Season.objects.filter(show=show_obj, season_number__in=season_numbers)
+    }
+    missing_seasons = [
+        Season(show=show_obj, season_number=n)
+        for n in season_numbers
+        if n not in season_by_number
+    ]
+    if missing_seasons:
+        Season.objects.bulk_create(missing_seasons, ignore_conflicts=True, batch_size=200)
+        for s in Season.objects.filter(show=show_obj, season_number__in=season_numbers):
+            season_by_number[s.season_number] = s
+
+    # --- Episodes: HTTP detail fetch per episode (unchanged, network-bound),
+    # then ONE bulk upsert instead of update_or_create per episode.
+    episode_objs: list[Episode] = []
+    episode_keys: list[tuple] = []
+    watch_timestamps: list = []
+
     for season in seasons:
         season_number = season.get("number")
-        season_obj, _ = Season.objects.get_or_create(
-            show=show_obj, season_number=season_number
-        )
-
+        season_obj = season_by_number.get(season_number)
+        if season_obj is None:
+            continue
         episodes = season.get("episodes", [])
         for episode in episodes:
             episode_number = episode.get("number")
@@ -701,79 +723,106 @@ def _process_single_show(
 
             ep_url = f"https://api.trakt.tv/shows/{trakt_id}/seasons/{season_number}/episodes/{episode_number}?extended=full"
             ep_response = http_client.get(ep_url, headers=headers, logger_name="trakt")
-            if ep_response.status_code == 200:
-                ep_details = ep_response.json()
-                episode_title = ep_details.get("title")
-                overview = ep_details.get("overview")
-                rating = ep_details.get("rating")
-                runtime = ep_details.get("runtime")
-                episode_type = ep_details.get("episode_type")
-                trakt_ids = ep_details.get("ids", {})
-                air_date = ep_details.get("first_aired")
-                updated_at = ep_details.get("updated_at")
-                available_translations = ep_details.get(
-                    "available_translations", []
+            if ep_response.status_code != 200:
+                continue
+            ep_details = ep_response.json()
+            episode_title = ep_details.get("title")
+            overview = ep_details.get("overview")
+            rating = ep_details.get("rating")
+            runtime = ep_details.get("runtime")
+            episode_type = ep_details.get("episode_type")
+            trakt_ids = ep_details.get("ids", {})
+            air_date = ep_details.get("first_aired")
+            updated_at = ep_details.get("updated_at")
+            available_translations = ep_details.get(
+                "available_translations", []
+            )
+            if air_date:
+                air_date = datetime.fromisoformat(
+                    air_date.replace("Z", "+00:00")
+                ).date()
+
+            episode_image_url = None
+
+            if tmdb_id:
+                tmdb_api_key = (
+                    settings.TMDB_API_KEY
                 )
-                if air_date:
-                    air_date = datetime.fromisoformat(
-                        air_date.replace("Z", "+00:00")
-                    ).date()
-
-                episode_image_url = None
-
-                if tmdb_id:
-                    tmdb_api_key = (
-                        settings.TMDB_API_KEY
-                    )
-                    tmdb_url = f"https://api.themoviedb.org/3/tv/{tmdb_id}/season/{season_number}/episode/{episode_number}?api_key={tmdb_api_key}&language=en-US"
-                    tmdb_response = http_client.get(tmdb_url, logger_name="trakt")
-                    if tmdb_response.status_code == 200:
-                        tmdb_data = tmdb_response.json()
-                        still_path = tmdb_data.get("still_path")
-                        if still_path:
-                            episode_image_url = (
-                                f"https://image.tmdb.org/t/p/w780{still_path}"
-                            )
-
-                episode_obj, _ = Episode.objects.update_or_create(
-                    show=show_obj,
-                    season=season_obj,
-                    episode_number=episode_number,
-                    defaults={
-                        "title": episode_title,
-                        "overview": overview,
-                        "rating": rating,
-                        "runtime": runtime,
-                        "episode_type": episode_type,
-                        "air_date": air_date,
-                        "plays": plays,
-                        "watched_at": watched_at,
-                        "ids": trakt_ids,
-                        "available_translations": available_translations,
-                        "last_updated_at": updated_at,
-                        "image_url": episode_image_url,
-                    },
-                )
-
-                if watched_at:
-                    try:
-                        watched_at_dt = timezone.datetime.fromisoformat(
-                            watched_at.replace("Z", "+00:00")
+                tmdb_url = f"https://api.themoviedb.org/3/tv/{tmdb_id}/season/{season_number}/episode/{episode_number}?api_key={tmdb_api_key}&language=en-US"
+                tmdb_response = http_client.get(tmdb_url, logger_name="trakt")
+                if tmdb_response.status_code == 200:
+                    tmdb_data = tmdb_response.json()
+                    still_path = tmdb_data.get("still_path")
+                    if still_path:
+                        episode_image_url = (
+                            f"https://image.tmdb.org/t/p/w780{still_path}"
                         )
-                        if not latest_watched_at or watched_at_dt > latest_watched_at:
-                            latest_watched_at = watched_at_dt
-                    except (ValueError, TypeError, AttributeError) as e:
-                        logger.warning(f"Error parsing watched_at for episode: {e}")
 
-                progress = 100.0
+            episode_objs.append(Episode(
+                show=show_obj,
+                season=season_obj,
+                episode_number=episode_number,
+                title=episode_title,
+                overview=overview,
+                rating=rating,
+                runtime=runtime,
+                episode_type=episode_type,
+                air_date=air_date,
+                plays=plays,
+                watched_at=make_timezone_aware(_parse_trakt_datetime(watched_at)) if watched_at else None,
+                ids=trakt_ids,
+                available_translations=available_translations,
+                last_updated_at=updated_at,
+                image_url=episode_image_url,
+            ))
+            episode_keys.append((season_number, episode_number))
+            watch_timestamps.append(watched_at)
+
+            if watched_at:
                 try:
-                    EpisodeWatch.objects.create(
-                        episode=episode_obj,
-                        watched_at=make_timezone_aware(_parse_trakt_datetime(watched_at)) if watched_at else None,
-                        progress=progress,
+                    watched_at_dt = timezone.datetime.fromisoformat(
+                        watched_at.replace("Z", "+00:00")
                     )
-                except Exception as e:
-                    logger.warning(f"Error creating EpisodeWatch: {e}")
+                    if not latest_watched_at or watched_at_dt > latest_watched_at:
+                        latest_watched_at = watched_at_dt
+                except (ValueError, TypeError, AttributeError) as e:
+                    logger.warning(f"Error parsing watched_at for episode: {e}")
+
+    if episode_objs:
+        # Bulk upsert keyed on the (show, season, episode_number) unique_together.
+        Episode.objects.bulk_create(
+            episode_objs,
+            update_conflicts=True,
+            unique_fields=["show", "season", "episode_number"],
+            update_fields=[
+                "title", "overview", "rating", "runtime", "episode_type",
+                "air_date", "plays", "watched_at", "ids",
+                "available_translations", "last_updated_at", "image_url",
+            ],
+            batch_size=500,
+        )
+
+        # Re-fetch persisted episodes once to obtain PKs, then bulk-insert
+        # all watch events (preserves the old create-per-watch semantics).
+        stored = {
+            (ep.season.season_number, ep.episode_number): ep
+            for ep in Episode.objects.filter(show=show_obj).select_related("season")
+        }
+        watch_objs = []
+        for key, watched_at in zip(episode_keys, watch_timestamps):
+            episode_obj = stored.get(key)
+            if episode_obj is None:
+                continue
+            try:
+                watch_objs.append(EpisodeWatch(
+                    episode=episode_obj,
+                    watched_at=make_timezone_aware(_parse_trakt_datetime(watched_at)) if watched_at else None,
+                    progress=100.0,
+                ))
+            except Exception as e:
+                logger.warning(f"Error preparing EpisodeWatch: {e}")
+        if watch_objs:
+            EpisodeWatch.objects.bulk_create(watch_objs, batch_size=500)
 
     if latest_watched_at:
         show_obj.last_watched_at = latest_watched_at

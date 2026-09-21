@@ -55,6 +55,13 @@ class Achievement(models.Model):
     unlocked = models.BooleanField(default=False)
     unlock_time = models.DateTimeField(null=True, blank=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["game", "name"], name="unique_steam_game_achievement"
+            )
+        ]
+
     def __str__(self) -> str:
         """Return the achievement name and lock state."""
         return f"{self.name} ({'Unlocked' if self.unlocked else 'Locked'})"
@@ -158,6 +165,7 @@ class SteamAPI:
         
         try:
             with transaction.atomic():
+                achievement_objs = []
                 for achievement in global_achievements:
                     try:
                         apiname = achievement["name"]
@@ -170,19 +178,27 @@ class SteamAPI:
                                        if unlocked and player_ach.get("unlocktime")
                                        else None)
                         
-                        Achievement.objects.update_or_create(
+                        achievement_objs.append(Achievement(
                             game=game_instance,
                             name=achievement.get("displayName"),
-                            defaults={
-                                "description": achievement.get("description", ""),
-                                "image": achievement["icon"] if unlocked else achievement.get("icongray", ""),
-                                "unlocked": unlocked,
-                                "unlock_time": unlock_time,
-                            }
-                        )
+                            description=achievement.get("description", ""),
+                            image=achievement["icon"] if unlocked else achievement.get("icongray", ""),
+                            unlocked=unlocked,
+                            unlock_time=unlock_time,
+                        ))
                     except Exception as e:
-                        logger.error(f"Error updating achievement {achievement.get('displayName', 'Unknown')}: {str(e)}")
+                        logger.error(f"Error preparing achievement {achievement.get('displayName', 'Unknown')}: {str(e)}")
                         continue
+
+                # Single bulk upsert instead of one update_or_create per
+                # achievement (requires the (game, name) unique constraint).
+                Achievement.objects.bulk_create(
+                    achievement_objs,
+                    update_conflicts=True,
+                    unique_fields=["game", "name"],
+                    update_fields=["description", "image", "unlocked", "unlock_time"],
+                    batch_size=500,
+                )
         except Exception as e:
             logger.error(f"Critical database error during achievement update: {str(e)}")
             return {"message": f"Database error: {str(e)}"}
