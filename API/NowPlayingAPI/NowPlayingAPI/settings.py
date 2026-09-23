@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv, find_dotenv
 from datetime import timedelta
@@ -176,6 +177,22 @@ DATABASES = {
 # the shared pooler connection budget.
 DATABASES["default"]["CONN_MAX_AGE"] = int(os.environ.get("DB_CONN_MAX_AGE", "600"))
 DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
+
+# --- Test-suite safety -----------------------------------------------------
+# There is no separate test settings module, so `manage.py test` builds its
+# throwaway database on whatever SUPABASE_DB_HOST points at -- which would be
+# the *hosted* Supabase project once this branch is deployed. Refuse that so a
+# local test run can never create/drop a database on production infrastructure.
+# Point SUPABASE_DB_HOST at the local stack (127.0.0.1, `supabase start`) or set
+# ALLOW_REMOTE_TESTS=1 to intentionally target a scratch Supabase project.
+TESTING = "test" in sys.argv
+if TESTING and "supabase" in SUPABASE_DB_HOST and not env_bool("ALLOW_REMOTE_TESTS"):
+    raise ImproperlyConfigured(
+        "Refusing to run the test suite against the hosted Supabase host "
+        f"'{SUPABASE_DB_HOST}'. Run tests against the local stack "
+        "(SUPABASE_DB_HOST=127.0.0.1, started with `supabase start`), or set "
+        "ALLOW_REMOTE_TESTS=1 if this is a scratch project."
+    )
 
 
 AUTH_PASSWORD_VALIDATORS = [
