@@ -11,7 +11,7 @@ This folder contains the backend API for the **NowPlaying** project. The API is 
 - Python 3.10 or higher
 - pip (Python package manager)
 - A virtual environment tool (e.g., `venv` or `virtualenv`)
-- PostgreSQL and Redis for the Docker Compose stack
+- Supabase Postgres (hosted project or the local `supabase start` stack) and Redis for the Docker Compose stack
 
 ### Installation
 
@@ -315,7 +315,7 @@ The API can be deployed using Docker:
    - Admin/API docs service: `127.0.0.1:8011` by default, configurable with `ADMIN_API_PORT`
    - UI: <http://localhost:3200>
    - UI API proxy: `/api` on the UI host, for example <http://localhost:3200/api>
-   - PostgreSQL: `localhost:5433`
+   - Supabase Postgres: configured through `SUPABASE_DB_*` in `API/.env`
    - Redis: `localhost:6380`
 
    The production UI defaults to `VITE_API_BASE_URL=/api`, and Nginx proxies
@@ -338,7 +338,7 @@ The API can be deployed using Docker:
    ```
 
    The public API container runs database migrations before starting Gunicorn
-   after PostgreSQL and Redis are healthy. The local-only admin service does not
+   after Supabase Postgres and Redis are reachable. The local-only admin service does not
    run migrations. If you need to apply migrations to an already-running
    deployment, run:
 
@@ -359,7 +359,7 @@ The API can be deployed using Docker:
 
 - **Django 5.1**: Web framework for building the API
 - **Django REST Framework 3.15**: For creating RESTful API endpoints
-- **PostgreSQL/SQLite**: Database options
+- **Supabase Postgres**: The only supported database backend
 - **Gunicorn**: WSGI HTTP server for production
 - **Django CORS Headers**: For handling Cross-Origin Resource Sharing
 - **Python-dotenv**: For managing environment variables
