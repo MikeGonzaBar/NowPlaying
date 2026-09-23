@@ -10,9 +10,21 @@ class TraktTokenAdmin(admin.ModelAdmin):
     list_display = ("id", "user_username", "token_preview", "expires_at", "updated_at", "is_expired_display")
     list_filter = ("user", "expires_at", "updated_at")
     search_fields = ("user__username",)
-    readonly_fields = ("user", "access_token", "refresh_token", "expires_at", "updated_at")
-    fields = ("user", "access_token", "refresh_token", "expires_at", "updated_at")
-    
+    readonly_fields = ("user", "access_token_masked", "refresh_token_masked", "expires_at", "updated_at")
+    fields = ("user", "access_token_masked", "refresh_token_masked", "expires_at", "updated_at")
+
+    def access_token_masked(self, obj: TraktToken) -> str:
+        """Return a masked preview; tokens are encrypted at rest."""
+        token = obj.access_token
+        return f"{token[:10]}..." if token else ""
+    access_token_masked.short_description = "Access Token (encrypted)"
+
+    def refresh_token_masked(self, obj: TraktToken) -> str:
+        """Return a masked preview; tokens are encrypted at rest."""
+        token = obj.refresh_token
+        return f"{token[:10]}..." if token else ""
+    refresh_token_masked.short_description = "Refresh Token (encrypted)"
+
     def user_username(self, obj: TraktToken) -> str:
         """Return the owning username for list display."""
         return obj.user.username if obj.user else "No User"

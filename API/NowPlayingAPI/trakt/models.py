@@ -7,6 +7,7 @@ from utils import make_timezone_aware
 from dateutil.parser import isoparse
 from django.contrib.auth.models import User
 import http_client
+from users.crypto import encrypt_api_key, decrypt_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -30,15 +31,40 @@ def _parse_trakt_datetime(value):
 class TraktToken(models.Model):
     """
     Stores your Trakt access token and refresh token along with the expiry date.
+
+    Both tokens are encrypted at rest with ``API_KEY_ENCRYPTION_KEY`` via
+    ``users.crypto`` (the same Fernet helper that protects ``UserApiKey``).
+    Read and write them through the ``access_token`` / ``refresh_token``
+    properties -- the ``*_encrypted`` columns hold ciphertext only.
     """
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trakt_tokens')
-    access_token = models.CharField(max_length=255)
-    refresh_token = models.CharField(max_length=255)
+    access_token_encrypted = models.TextField()
+    refresh_token_encrypted = models.TextField()
     expires_at = models.DateTimeField()
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ('user',)
+
+    @property
+    def access_token(self) -> str | None:
+        """Return the decrypted Trakt access token."""
+        return decrypt_api_key(self.access_token_encrypted)
+
+    @access_token.setter
+    def access_token(self, value: str | None) -> None:
+        """Encrypt and store the Trakt access token."""
+        self.access_token_encrypted = encrypt_api_key(value)
+
+    @property
+    def refresh_token(self) -> str | None:
+        """Return the decrypted Trakt refresh token."""
+        return decrypt_api_key(self.refresh_token_encrypted)
+
+    @refresh_token.setter
+    def refresh_token(self, value: str | None) -> None:
+        """Encrypt and store the Trakt refresh token."""
+        self.refresh_token_encrypted = encrypt_api_key(value)
 
     def is_expired(self) -> bool:
         """Return whether the token has expired."""
@@ -222,9 +248,12 @@ def refresh_trakt_token(token_instance: TraktToken) -> TraktToken:
         "refresh_token": token_instance.refresh_token,
         "client_id": client_id,
         "client_secret": client_secret,
-        "redirect_uri": settings.TRAKT_REDIRECT_URI,
         "grant_type": "refresh_token",
     }
+    # Trakt rejects an empty redirect_uri with "redirect_uri: Invalid URL" and it
+    # is not required for a refresh_token grant, so only send it when configured.
+    if settings.TRAKT_REDIRECT_URI:
+        data["redirect_uri"] = settings.TRAKT_REDIRECT_URI
     response = http_client.post(url, json=data, logger_name="trakt")
     token_data = response.json()
     if "access_token" in token_data:
