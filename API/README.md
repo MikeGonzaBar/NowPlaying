@@ -258,12 +258,20 @@ ENABLE_API_DOCS=true
 RUN_MIGRATIONS=true
 STATIC_ROOT=
 
-# Database Configuration (Optional - PostgreSQL)
-POSTGRES_DB=<your_psql_db>
-POSTGRES_USER=<your_psql_user>
-POSTGRES_PASSWORD=<your_psql_pwd>
-POSTGRES_HOST=<your_psql_host>
-POSTGRES_PORT=<your_psql_port>
+# Database (Supabase Postgres - the only supported backend)
+# Hosted project pooler example: aws-0-<region>.pooler.supabase.com / 5432
+# Local CLI stack example:       127.0.0.1 / 54322 (after `supabase start`)
+SUPABASE_DB_HOST=<your_supabase_db_host>
+SUPABASE_DB_PORT=<your_supabase_db_port>
+SUPABASE_DB_NAME=postgres
+SUPABASE_DB_USER=<your_supabase_db_user>
+SUPABASE_DB_PASSWORD=<your_supabase_db_password>
+
+# Supabase platform keys (PostgREST / Auth / Edge Functions surface)
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_PUBLISHABLE_KEY=<your_publishable_key>
+SUPABASE_SECRET_KEY=<your_secret_key>
+SUPABASE_JWKS_URL=https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json
 
 # TMDB API (for Trakt movie/show metadata)
 TMDB_API_KEY=<your_tmdb_api_key>

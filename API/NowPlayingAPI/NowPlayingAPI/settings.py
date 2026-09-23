@@ -44,13 +44,22 @@ def require_env(name: str) -> str:
     return value
 
 
+def require_supabase_env(name: str) -> str:
+    """Return a required Supabase DB variable or fail fast at startup."""
+    value = os.environ.get(name)
+    if not value:
+        raise ImproperlyConfigured(
+            f"{name} must be set: Supabase Postgres is the only supported database."
+        )
+    return value
+
+
 ENVIRONMENT = os.environ.get("DJANGO_ENV", "development").strip().lower()
 IS_PRODUCTION = ENVIRONMENT in {"prod", "production"}
 
 DEBUG = env_bool("DEBUG", default=not IS_PRODUCTION)
 ENABLE_ADMIN_SITE = env_bool("ENABLE_ADMIN_SITE", default=DEBUG)
 ENABLE_API_DOCS = env_bool("ENABLE_API_DOCS", default=DEBUG)
-USE_LOCAL_SUPABASE = env_bool("USE_LOCAL_SUPABASE", default=False)
 
 SECRET_KEY = (
     require_env("SECRET_KEY")
@@ -135,39 +144,38 @@ WSGI_APPLICATION = "NowPlayingAPI.wsgi.application"
 
 
 
-if USE_LOCAL_SUPABASE:
-    # Local Supabase Postgres (supabase start) per the migration plan.
-    # Local dev listens on 127.0.0.1:54322 with the default postgres/postgres role.
-    SUPABASE_DB_HOST = os.environ.get("SUPABASE_DB_HOST", "127.0.0.1")
-    SUPABASE_DB_PORT = os.environ.get("SUPABASE_DB_PORT", "54322")
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.environ.get("SUPABASE_DB_NAME", "postgres"),
-            "USER": os.environ.get("SUPABASE_DB_USER", "postgres"),
-            "PASSWORD": os.environ.get("SUPABASE_DB_PASSWORD", "postgres"),
-            "HOST": SUPABASE_DB_HOST,
-            "PORT": SUPABASE_DB_PORT,
-            # SSL for any Supabase host (direct db.<ref>.supabase.co or the
-            # IPv4 pooler aws-0-<region>.pooler.supabase.com).
-            "OPTIONS": {"sslmode": "require"} if "supabase" in SUPABASE_DB_HOST else {},
-        }
+# ---------------------------------------------------------------------------
+# Database - Supabase Postgres is the ONLY supported backend.
+#
+# Migration plan Phase 7: the legacy local-Postgres branch, the POSTGRES_*
+# variables and the USE_LOCAL_SUPABASE toggle were removed. There is no
+# non-Supabase fallback - the API fails fast at startup when the Supabase
+# connection variables are missing.
+#
+# SUPABASE_DB_HOST selects which Supabase Postgres is used:
+#   * hosted project   -> aws-0-<region>.pooler.supabase.com  (TLS required)
+#   * local CLI stack  -> 127.0.0.1 via `supabase start`      (port 54322, no TLS)
+# ---------------------------------------------------------------------------
+SUPABASE_DB_HOST = require_supabase_env("SUPABASE_DB_HOST")
+SUPABASE_DB_PORT = os.environ.get("SUPABASE_DB_PORT", "5432")
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("SUPABASE_DB_NAME", "postgres"),
+        "USER": os.environ.get("SUPABASE_DB_USER", "postgres"),
+        "PASSWORD": require_supabase_env("SUPABASE_DB_PASSWORD"),
+        "HOST": SUPABASE_DB_HOST,
+        "PORT": SUPABASE_DB_PORT,
+        # TLS for any hosted Supabase host (db.<ref>.supabase.co or the IPv4
+        # pooler aws-0-<region>.pooler.supabase.com). The local CLI stack on
+        # 127.0.0.1 has no TLS, so SSL is skipped for it.
+        "OPTIONS": {"sslmode": "require"} if "supabase" in SUPABASE_DB_HOST else {},
     }
-    # Persistent connections (migration plan R7): avoid reconnect churn against
-    # the shared pooler connection budget.
-    DATABASES["default"]["CONN_MAX_AGE"] = int(os.environ.get("DB_CONN_MAX_AGE", "600"))
-    DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('POSTGRES_DB', 'nowplaying'),
-            'USER': os.environ.get('POSTGRES_USER', 'nowplaying_user'),
-            'PASSWORD': require_env('POSTGRES_PASSWORD') if IS_PRODUCTION else os.environ.get('POSTGRES_PASSWORD', 'nowplaying_password'),
-            'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
-            'PORT': os.environ.get('POSTGRES_PORT', '5432'),
-        }
-    }
+}
+# Persistent connections (migration plan R7): avoid reconnect churn against
+# the shared pooler connection budget.
+DATABASES["default"]["CONN_MAX_AGE"] = int(os.environ.get("DB_CONN_MAX_AGE", "600"))
+DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 
 
 AUTH_PASSWORD_VALIDATORS = [

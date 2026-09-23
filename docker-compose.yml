@@ -66,10 +66,10 @@ services:
       - api
 
   # The local Postgres service (db) was retired as part of the Supabase
-  # migration (plan Phase 7). The app now uses Supabase Postgres via
-  # USE_LOCAL_SUPABASE=1 in API/.env. Restore the db service from git
-  # history (tag pre-supabase-2026-09-21) if a rollback is ever needed;
-  # the postgres_data volume was kept on the host.
+  # migration (plan Phase 7). Supabase Postgres is now the ONLY database:
+  # the API reads SUPABASE_DB_* from API/.env and fails fast without them.
+  # Restore the db service from git history (tag pre-supabase-2026-09-21)
+  # only for a rollback; the postgres_data volume was kept on the host.
   redis:
     image: redis:7-alpine
     restart: always
