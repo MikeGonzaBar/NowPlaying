@@ -217,11 +217,13 @@ Objective: retire Django in favor of Postgres + RLS + Supabase Auth + Edge Funct
 4. Update `docker-compose.yml`, `API/Dockerfile`, CI to build against Supabase (no local Postgres/Redis assumptions unless Mode A keeps Redis).
 5. Update docs (`API/README.md`, `API/CACHING.md`, `API/README_PLAYSTATION.md` refresh flows) for the new architecture/runbook.
 6. Final regression: full `manage.py test` (Mode A) or Mode B equivalence suite; tag `post-supabase`.
+7. **Lock down the Supabase `public` schema (Mode A security — do not skip).** Supabase exposes PostgREST over `public` and grants `anon`/`authenticated` full table privileges there, so Django's tables are world-readable *and world-writable* with the publishable key alone unless RLS is enabled. Migration `analytics/0004_lock_down_public_schema` enables RLS on every `public` table, revokes those grants, and removes the default privileges so new tables are not re-exposed automatically. Django is unaffected because it connects as `postgres`, which has `BYPASSRLS`. This is required even on a **No-Go for Mode B** — RLS is a Mode A requirement, not merely a Mode B prerequisite.
 
 **GATE 7 (close-out)**
 - [ ] No dashboard/throughput regression vs. the Phase 4 baseline.
 - [ ] Old hosts/containers gone; secrets rotated; backups verified restorable off-box.
 - [ ] Repo clean of committed local DBs and stale config.
+- [ ] `anon`/`authenticated` cannot read any `public` table — verified with the publishable key against `/rest/v1/<table>` (expect `401`, not `200`).
 
 ---
 
@@ -233,3 +235,4 @@ Objective: retire Django in favor of Postgres + RLS + Supabase Auth + Edge Funct
 - **Redis is not provided by Supabase.** Mode A keeps it; Mode B replaces it with materialized views (Phase 5). Don't plan on Supabase caching.
 - **Django must not use the transaction pooler.** Use direct/session pooler + `CONN_MAX_AGE` (Phase 1).
 - **API keys are Fernet-encrypted app-side** (`users/crypto.py`) — no PG encryption extension needed; keep decryption server-side in every mode.
+- **RLS is a Mode A requirement, not a Mode B one.** PostgREST is enabled by default on every Supabase project and `anon`/`authenticated` receive grants on *all* `public` tables. With RLS off, `auth_user` (password hashes), `django_session` (live session keys), `users_userapikey` and `trakt_trakttoken` (plaintext OAuth tokens) are readable — and writable — using only the publishable key. Lock it down at Phase 7 step 7.
