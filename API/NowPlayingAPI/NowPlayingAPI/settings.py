@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv, find_dotenv
 from datetime import timedelta
@@ -41,6 +42,16 @@ def require_env(name: str) -> str:
     value = os.environ.get(name)
     if not value:
         raise ImproperlyConfigured(f"{name} must be set in production.")
+    return value
+
+
+def require_supabase_env(name: str) -> str:
+    """Return a required Supabase DB variable or fail fast at startup."""
+    value = os.environ.get(name)
+    if not value:
+        raise ImproperlyConfigured(
+            f"{name} must be set: Supabase Postgres is the only supported database."
+        )
     return value
 
 
@@ -134,16 +145,54 @@ WSGI_APPLICATION = "NowPlayingAPI.wsgi.application"
 
 
 
+# ---------------------------------------------------------------------------
+# Database - Supabase Postgres is the ONLY supported backend.
+#
+# Migration plan Phase 7: the legacy local-Postgres branch, the POSTGRES_*
+# variables and the USE_LOCAL_SUPABASE toggle were removed. There is no
+# non-Supabase fallback - the API fails fast at startup when the Supabase
+# connection variables are missing.
+#
+# SUPABASE_DB_HOST selects which Supabase Postgres is used:
+#   * hosted project   -> aws-0-<region>.pooler.supabase.com  (TLS required)
+#   * local CLI stack  -> 127.0.0.1 via `supabase start`      (port 54322, no TLS)
+# ---------------------------------------------------------------------------
+SUPABASE_DB_HOST = require_supabase_env("SUPABASE_DB_HOST")
+SUPABASE_DB_PORT = os.environ.get("SUPABASE_DB_PORT", "5432")
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('POSTGRES_DB', 'nowplaying'),
-        'USER': os.environ.get('POSTGRES_USER', 'nowplaying_user'),
-        'PASSWORD': require_env('POSTGRES_PASSWORD') if IS_PRODUCTION else os.environ.get('POSTGRES_PASSWORD', 'nowplaying_password'),
-        'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
-        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("SUPABASE_DB_NAME", "postgres"),
+        "USER": os.environ.get("SUPABASE_DB_USER", "postgres"),
+        "PASSWORD": require_supabase_env("SUPABASE_DB_PASSWORD"),
+        "HOST": SUPABASE_DB_HOST,
+        "PORT": SUPABASE_DB_PORT,
+        # TLS for any hosted Supabase host (db.<ref>.supabase.co or the IPv4
+        # pooler aws-0-<region>.pooler.supabase.com). The local CLI stack on
+        # 127.0.0.1 has no TLS, so SSL is skipped for it.
+        "OPTIONS": {"sslmode": "require"} if "supabase" in SUPABASE_DB_HOST else {},
     }
 }
+# Persistent connections (migration plan R7): avoid reconnect churn against
+# the shared pooler connection budget.
+DATABASES["default"]["CONN_MAX_AGE"] = int(os.environ.get("DB_CONN_MAX_AGE", "600"))
+DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
+
+# --- Test-suite safety -----------------------------------------------------
+# There is no separate test settings module, so `manage.py test` builds its
+# throwaway database on whatever SUPABASE_DB_HOST points at -- which would be
+# the *hosted* Supabase project once this branch is deployed. Refuse that so a
+# local test run can never create/drop a database on production infrastructure.
+# Point SUPABASE_DB_HOST at the local stack (127.0.0.1, `supabase start`) or set
+# ALLOW_REMOTE_TESTS=1 to intentionally target a scratch Supabase project.
+TESTING = "test" in sys.argv
+if TESTING and "supabase" in SUPABASE_DB_HOST and not env_bool("ALLOW_REMOTE_TESTS"):
+    raise ImproperlyConfigured(
+        "Refusing to run the test suite against the hosted Supabase host "
+        f"'{SUPABASE_DB_HOST}'. Run tests against the local stack "
+        "(SUPABASE_DB_HOST=127.0.0.1, started with `supabase start`), or set "
+        "ALLOW_REMOTE_TESTS=1 if this is a scratch project."
+    )
 
 
 AUTH_PASSWORD_VALIDATORS = [

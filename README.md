@@ -30,7 +30,7 @@ The application includes user authentication, profile management, integrated API
   - Music tab shows genre distribution and genre of the week.
   - Movies & TV tab shows recurring genres, binge streak, favorite director, and top studio/network.
   - Overview recurring genres combines content type, music tags, and media genres.
-- **Current Docker stack updated**: API defaults to `http://localhost:8001`, UI defaults to `http://localhost:3200` with a same-origin `/api` proxy, PostgreSQL to `5433`, Redis to `6380`, and local-only admin/docs to `127.0.0.1:8011`.
+- **Current Docker stack updated**: API defaults to `http://localhost:8001`, UI defaults to `http://localhost:3200` with a same-origin `/api` proxy, Supabase Postgres as the only database, Redis to `6380`, and local-only admin/docs to `127.0.0.1:8011`.
 
 ### PlayStation Achievement Display Fix
 
@@ -364,8 +364,9 @@ To set up the UI for this project, refer to the [UI Configuration Guide](./UI/RE
 
 The project includes Docker configuration for easy deployment using Docker Compose with both development and production configurations.
 
-Default Compose ports are UI `3200`, public API `8001`, PostgreSQL `5433`, and
-Redis `6380`. Django admin and Swagger/ReDoc are served by a separate local-only
+Default Compose ports are UI `3200`, public API `8001`, and Redis `6380`.
+The database is Supabase Postgres (hosted project or the local `supabase start`
+stack), configured through `SUPABASE_DB_*` in `API/.env`. Django admin and Swagger/ReDoc are served by a separate local-only
 API service on `127.0.0.1:${ADMIN_API_PORT:-8011}`; use an SSH tunnel such as
 `ssh -L 8011:127.0.0.1:8011 <user>@<vm-host>` before opening
 `http://127.0.0.1:8011/admin/` or `http://127.0.0.1:8011/docs/`.

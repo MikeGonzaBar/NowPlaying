@@ -35,7 +35,14 @@ class XboxAchievement(models.Model):
     unlocked = models.BooleanField(default=False)
     unlock_time = models.DateTimeField(null=True, blank=True)
     achievement_value = models.CharField(max_length=255, blank=True)
-    
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["game", "name"], name="unique_xbox_game_achievement"
+            )
+        ]
+
     def __str__(self) -> str:
         """Return the achievement name and lock state."""
         return f"{self.name} ({'Unlocked' if self.unlocked else 'Locked'})"
@@ -217,6 +224,7 @@ class XboxAPI:
                         logger.info(f"Achievements found: {len(achievement_list)}")
                         
                         unlocked_count = 0
+                        achievement_objs = []
                         for ach in achievement_list:
                             icon_asset = next(
                                 (asset.get("url") for asset in ach.get("mediaAssets", []) if asset.get("type") == "Icon"),
@@ -232,22 +240,34 @@ class XboxAPI:
                                 unlocked_count += 1
                                 
                             try:
-                                XboxAchievement.objects.update_or_create(
+                                achievement_objs.append(XboxAchievement(
                                     game=game_instance,
                                     name=ach["name"],
-                                    defaults={
-                                        "description": ach.get("lockedDescription", "") + ". " + ach.get("description", ""),
-                                        "image": icon_asset,
-                                        "unlocked": is_unlocked,
-                                        "unlock_time": None if time_unlocked == "0001-01-01T00:00:00.0000000Z" else datetime.fromisoformat(time_unlocked.replace("Z", "+00:00")),
-                                        "achievement_value": achievement_value
-                                    }
-                                )
+                                    description=ach.get("lockedDescription", "") + ". " + ach.get("description", ""),
+                                    image=icon_asset,
+                                    unlocked=is_unlocked,
+                                    unlock_time=None if time_unlocked == "0001-01-01T00:00:00.0000000Z" else datetime.fromisoformat(time_unlocked.replace("Z", "+00:00")),
+                                    achievement_value=achievement_value
+                                ))
                             except Exception as e:
-                                logger.error(f"Error updating Xbox achievement {ach.get('name', 'Unknown')}: {str(e)}")
+                                logger.error(f"Error preparing Xbox achievement {ach.get('name', 'Unknown')}: {str(e)}")
                                 continue
+
+                        # Single bulk upsert instead of one update_or_create per
+                        # achievement (requires the (game, name) unique constraint).
+                        XboxAchievement.objects.bulk_create(
+                            achievement_objs,
+                            update_conflicts=True,
+                            unique_fields=["game", "name"],
+                            update_fields=["description", "image", "unlocked", "unlock_time", "achievement_value"],
+                            batch_size=500,
+                        )
                         
                         achievements = game_instance.achievements.all()
+                        achievements_list = list(
+                            achievements.values("name", "description", "image", "unlocked", "unlock_time", "achievement_value")
+                        )
+                        total_achievements = len(achievements_list)
                         
                         games_info.append({
                             "appid": game_instance.appid,
@@ -257,19 +277,20 @@ class XboxAPI:
                             "first_played": game_instance.first_played,
                             "last_played": game_instance.last_played,
                             "img_icon_url": game_instance.img_icon_url,
-                            "total_achievements": achievements.count(),
+                            "total_achievements": total_achievements,
                             "unlocked_achievements": unlocked_count,
-                            "locked_achievements": achievements.count() - unlocked_count,
-                            "achievements": list(
-                                achievements.values("name", "description", "image", "unlocked", "unlock_time", "achievement_value")
-                            )
+                            "locked_achievements": total_achievements - unlocked_count,
+                            "achievements": achievements_list,
                         })
                     else:
                         logger.info(f"Skipping {game['name']} - No update needed")
-                        
+
                         game_instance = XboxGame.objects.get(appid=game["titleId"], user=user)
-                        achievements = game_instance.achievements.all()
-                        unlocked_count = achievements.filter(unlocked=True).count()
+                        achievements_list = list(
+                            game_instance.achievements.all().values("name", "description", "image", "unlocked", "unlock_time", "achievement_value")
+                        )
+                        total_achievements = len(achievements_list)
+                        unlocked_count = sum(1 for a in achievements_list if a["unlocked"])
 
                         games_info.append({
                             "appid": game_instance.appid,
@@ -279,12 +300,10 @@ class XboxAPI:
                             "first_played": game_instance.first_played,
                             "last_played": game_instance.last_played,
                             "img_icon_url": game_instance.img_icon_url,
-                            "total_achievements": achievements.count(),
+                            "total_achievements": total_achievements,
                             "unlocked_achievements": unlocked_count,
-                            "locked_achievements": achievements.count() - unlocked_count,
-                            "achievements": list(
-                                achievements.values("name", "description", "image", "unlocked", "unlock_time", "achievement_value")
-                            )
+                            "locked_achievements": total_achievements - unlocked_count,
+                            "achievements": achievements_list,
                         })
                 except Exception as e:
                     logger.error(f"Error processing game {game.get('name', 'Unknown')}: {str(e)}")

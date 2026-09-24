@@ -283,6 +283,7 @@ class Song(models.Model):
 
         data = response.json()
         result = []
+        song_objs: dict[tuple, Song] = {}
 
         for item in data.get("items", []):
             track = item.get("track", {})
@@ -300,19 +301,18 @@ class Song(models.Model):
 
             duration_ms = track.get("duration_ms")
 
-            Song.objects.update_or_create(
+            key = (user.id, title, artist, played_at)
+            song_objs[key] = Song(
                 user=user,
                 title=title,
                 artist=artist,
                 played_at=played_at,
-                defaults={
-                    "album": album_name,
-                    "album_thumbnail": album_thumbnail,
-                    "track_url": track_url,
-                    "artists_url": artists_url,
-                    "duration_ms": duration_ms,
-                    "source": "spotify",
-                },
+                album=album_name,
+                album_thumbnail=album_thumbnail,
+                track_url=track_url,
+                artists_url=artists_url,
+                duration_ms=duration_ms,
+                source="spotify",
             )
 
             result.append(
@@ -327,6 +327,20 @@ class Song(models.Model):
                     "played_at": played_at.isoformat() if played_at else None,
                     "source": "spotify",
                 }
+            )
+
+        # Single bulk upsert instead of one update_or_create per scrobble
+        # (unique constraint: user + title + artist + played_at).
+        if song_objs:
+            Song.objects.bulk_create(
+                list(song_objs.values()),
+                update_conflicts=True,
+                unique_fields=["user", "title", "artist", "played_at"],
+                update_fields=[
+                    "album", "album_thumbnail", "track_url", "artists_url",
+                    "duration_ms", "source",
+                ],
+                batch_size=500,
             )
 
         return result
@@ -470,6 +484,7 @@ class Song(models.Model):
             if page > 100:
                 break
 
+        song_objs: dict[tuple, Song] = {}
         result = []
         artist_tag_cache = {}
 
@@ -563,12 +578,13 @@ class Song(models.Model):
             if genre_tags:
                 defaults["genre_tags"] = genre_tags
 
-            Song.objects.update_or_create(
+            key = (user.id, title, artist, played_at)
+            song_objs[key] = Song(
                 user=user,
                 title=title,
                 artist=artist,
                 played_at=played_at,
-                defaults=defaults,
+                **defaults,
             )
 
             result.append(
@@ -596,6 +612,26 @@ class Song(models.Model):
                         "extralarge": album_thumbnail_extralarge,
                     }
                 }
+            )
+
+        # Single bulk upsert instead of one update_or_create per scrobble
+        # (unique constraint: user + title + artist + played_at).
+        if song_objs:
+            Song.objects.bulk_create(
+                list(song_objs.values()),
+                update_conflicts=True,
+                unique_fields=["user", "title", "artist", "played_at"],
+                update_fields=[
+                    "album", "album_thumbnail", "track_url", "artists_url",
+                    "duration_ms", "source", "artist_lastfm_url", "track_mbid",
+                    "artist_mbid", "album_mbid", "loved", "streamable",
+                    "album_thumbnail_small", "album_thumbnail_medium",
+                    "album_thumbnail_large", "album_thumbnail_extralarge",
+                    # genre_tags intentionally excluded: the old update_or_create
+                    # only set it when tags were resolved, and never wiped
+                    # existing tags on resync when the tag cache missed.
+                ],
+                batch_size=500,
             )
 
         return result

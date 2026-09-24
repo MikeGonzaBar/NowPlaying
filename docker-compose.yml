@@ -16,12 +16,9 @@ services:
       - RUN_MIGRATIONS=true
       - ENABLE_ADMIN_SITE=false
       - ENABLE_API_DOCS=false
-      - POSTGRES_HOST=db
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
 
@@ -47,12 +44,9 @@ services:
       - RUN_COLLECTSTATIC=false
       - ENABLE_ADMIN_SITE=true
       - ENABLE_API_DOCS=true
-      - POSTGRES_HOST=db
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
       api:
@@ -71,23 +65,11 @@ services:
     depends_on:
       - api
 
-  db:
-    build:
-      context: ./DB
-      dockerfile: ./Dockerfile
-    restart: always
-    ports:
-      - "${POSTGRES_PORT:-5433}:5432"
-    env_file:
-      - ./DB/.env
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nowplaying_user -d nowplaying -h 127.0.0.1"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-
+  # The local Postgres service (db) was retired as part of the Supabase
+  # migration (plan Phase 7). Supabase Postgres is now the ONLY database:
+  # the API reads SUPABASE_DB_* from API/.env and fails fast without them.
+  # Restore the db service from git history (tag pre-supabase-2026-09-21)
+  # only for a rollback; the postgres_data volume was kept on the host.
   redis:
     image: redis:7-alpine
     restart: always
@@ -104,5 +86,4 @@ services:
 
 volumes:
   api_static:
-  postgres_data:
   redis_data:

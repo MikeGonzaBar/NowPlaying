@@ -11,7 +11,7 @@ This folder contains the backend API for the **NowPlaying** project. The API is 
 - Python 3.10 or higher
 - pip (Python package manager)
 - A virtual environment tool (e.g., `venv` or `virtualenv`)
-- PostgreSQL and Redis for the Docker Compose stack
+- Supabase Postgres (hosted project or the local `supabase start` stack) and Redis for the Docker Compose stack
 
 ### Installation
 
@@ -258,12 +258,20 @@ ENABLE_API_DOCS=true
 RUN_MIGRATIONS=true
 STATIC_ROOT=
 
-# Database Configuration (Optional - PostgreSQL)
-POSTGRES_DB=<your_psql_db>
-POSTGRES_USER=<your_psql_user>
-POSTGRES_PASSWORD=<your_psql_pwd>
-POSTGRES_HOST=<your_psql_host>
-POSTGRES_PORT=<your_psql_port>
+# Database (Supabase Postgres - the only supported backend)
+# Hosted project pooler example: aws-0-<region>.pooler.supabase.com / 5432
+# Local CLI stack example:       127.0.0.1 / 54322 (after `supabase start`)
+SUPABASE_DB_HOST=<your_supabase_db_host>
+SUPABASE_DB_PORT=<your_supabase_db_port>
+SUPABASE_DB_NAME=postgres
+SUPABASE_DB_USER=<your_supabase_db_user>
+SUPABASE_DB_PASSWORD=<your_supabase_db_password>
+
+# Supabase platform keys (PostgREST / Auth / Edge Functions surface)
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_PUBLISHABLE_KEY=<your_publishable_key>
+SUPABASE_SECRET_KEY=<your_secret_key>
+SUPABASE_JWKS_URL=https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json
 
 # TMDB API (for Trakt movie/show metadata)
 TMDB_API_KEY=<your_tmdb_api_key>
@@ -307,7 +315,7 @@ The API can be deployed using Docker:
    - Admin/API docs service: `127.0.0.1:8011` by default, configurable with `ADMIN_API_PORT`
    - UI: <http://localhost:3200>
    - UI API proxy: `/api` on the UI host, for example <http://localhost:3200/api>
-   - PostgreSQL: `localhost:5433`
+   - Supabase Postgres: configured through `SUPABASE_DB_*` in `API/.env`
    - Redis: `localhost:6380`
 
    The production UI defaults to `VITE_API_BASE_URL=/api`, and Nginx proxies
@@ -330,7 +338,7 @@ The API can be deployed using Docker:
    ```
 
    The public API container runs database migrations before starting Gunicorn
-   after PostgreSQL and Redis are healthy. The local-only admin service does not
+   after Supabase Postgres and Redis are reachable. The local-only admin service does not
    run migrations. If you need to apply migrations to an already-running
    deployment, run:
 
@@ -351,7 +359,7 @@ The API can be deployed using Docker:
 
 - **Django 5.1**: Web framework for building the API
 - **Django REST Framework 3.15**: For creating RESTful API endpoints
-- **PostgreSQL/SQLite**: Database options
+- **Supabase Postgres**: The only supported database backend
 - **Gunicorn**: WSGI HTTP server for production
 - **Django CORS Headers**: For handling Cross-Origin Resource Sharing
 - **Python-dotenv**: For managing environment variables
