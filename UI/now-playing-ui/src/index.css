@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
-
 :root {
   font-family:
     "Inter",
@@ -53,9 +51,13 @@ body {
     scroll-behavior: auto !important;
   }
 }
-/* Room for the fixed mobile bottom navigation so content is never hidden behind it */
-@media (max-width: 767px) {
+/* Room for the fixed mobile bottom nav so content is never hidden behind it.
+   The nav only renders below the `sm` breakpoint (sideBar.tsx mobileNav uses
+   display: {xs: "flex", sm: "none"}) and is 60px tall, so this is the single
+   owner of that clearance — AppShell deliberately adds none of its own.
+   Keep the 60px in sync with sideBar.tsx `height: 60`. */
+@media (max-width: 599.95px) {
   body {
-    padding-bottom: 68px;
+    padding-bottom: calc(60px + env(safe-area-inset-bottom));
   }
 }

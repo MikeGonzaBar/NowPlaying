@@ -26,6 +26,34 @@ function AppShell({
         color: "#fff",
       }}
     >
+      <Box
+        component="a"
+        href="#main"
+        sx={{
+          position: "fixed",
+          top: 8,
+          left: 8,
+          zIndex: 1500,
+          px: 2,
+          py: 1,
+          borderRadius: 1,
+          border: `1px solid ${zincColors.border}`,
+          bgcolor: zincColors.card,
+          color: zincColors.white,
+          fontSize: 14,
+          fontWeight: 600,
+          textDecoration: "none",
+          transform: "translateY(-200%)",
+          transition: "transform 0.15s ease",
+          "&:focus": { transform: "translateY(0)" },
+          "&:focus-visible": {
+            outline: "2px solid #00a8cc",
+            outlineOffset: 2,
+          },
+        }}
+      >
+        Skip to main content
+      </Box>
       <SideBar activeItem={activeItem} />
       <Box
         component="main"
@@ -36,7 +64,6 @@ function AppShell({
             flexGrow: 1,
             minWidth: 0,
             bgcolor: backgroundColor,
-            pb: { xs: "calc(60px + env(safe-area-inset-bottom))", sm: 0 },
           },
           ...(Array.isArray(mainSx) ? mainSx : mainSx ? [mainSx] : []),
         ]}

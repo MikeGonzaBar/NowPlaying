@@ -8,7 +8,7 @@ from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema
 from django.utils import timezone
 from django.core.cache import cache
 from django.conf import settings
-from .services import AnalyticsService
+from .services import ANALYTICS_CACHE_NS, AnalyticsService
 from query_params import bounded_int
 from utils import versioned_cache_key
 import logging
@@ -31,6 +31,13 @@ class AnalyticsSchemaSerializer(serializers.Serializer):
         responses={200: OpenApiTypes.OBJECT},
     ),
     calculate_today_stats=extend_schema(summary="Calculate today's analytics snapshot", responses={200: OpenApiTypes.OBJECT}),
+    recent_activity=extend_schema(
+        summary="Get the newest activity across all media pillars",
+        parameters=[
+            OpenApiParameter("limit", OpenApiTypes.INT, OpenApiParameter.QUERY, description="Maximum number of feed items, 1 to 20."),
+        ],
+        responses={200: OpenApiTypes.OBJECT},
+    ),
 )
 class AnalyticsViewSet(viewsets.ViewSet):
     """Optimized ViewSet for comprehensive analytics and statistics"""
@@ -271,6 +278,37 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 headers={'X-Request-ID': request_id},
             )
     
+    @action(detail=False, methods=['get'], url_path='recent-activity')
+    def recent_activity(self, request: Request) -> Response:
+        """Newest activity across every pillar, newest first (dashboard feed).
+
+        Returns ``{'activities': [...]}`` so the dashboard can order games,
+        music, movies and TV by one real timestamp instead of concatenating
+        per-pillar lists.
+        """
+        limit = bounded_int(request.query_params, 'limit', default=6, minimum=1, maximum=20)
+        cache_key = versioned_cache_key(ANALYTICS_CACHE_NS, request.user.id, f"recent-activity:{limit}")
+
+        cached_result = cache.get(cache_key)
+        if cached_result is not None:
+            return Response({'activities': cached_result})
+
+        try:
+            activities = AnalyticsService.get_recent_activity(request.user, limit=limit)
+        except Exception as exc:
+            logger.error(
+                "recent_activity_failed user=%s limit=%s error=%s",
+                getattr(request.user, "id", None), limit, exc,
+                exc_info=True,
+            )
+            return Response(
+                {'error': 'Failed to load recent activity', 'retryable': True},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        cache.set(cache_key, activities, getattr(settings, 'CACHE_TIMEOUTS', {}).get('ANALYTICS', 3600))
+        return Response({'activities': activities})
+
     @action(detail=False, methods=['post'], url_path='calculate-today')
     def calculate_today_stats(self, request: Request) -> Response:
         """Calculate and store statistics for today (for potential future use)"""

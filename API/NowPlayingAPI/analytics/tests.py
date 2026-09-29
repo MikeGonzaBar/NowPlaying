@@ -1,11 +1,13 @@
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.core.cache import cache
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from datetime import timedelta
 from rest_framework.test import APITestCase
 
 from analytics.services import AnalyticsService
 from music.models import Song
+from steam.models import Game
 from trakt.models import Episode, EpisodeWatch, Movie, MovieWatch, Season, Show
 
 
@@ -157,3 +159,96 @@ class AnalyticsApiContractTests(APITestCase):
         """An unknown analytics path must not raise."""
         response = self.client.get("/api/nonexistent/")
         self.assertEqual(response.status_code, 404)
+
+
+class RecentActivityFeedTests(TestCase):
+    """The cross-pillar feed must order every media type by one real timestamp.
+
+    Regression guard for the dashboard audit finding: the page concatenated a
+    music block above a movie block, so a 20-day-old scrobble rendered above a
+    5-month-old film, and games were missing entirely.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="feed-user")
+        self.now = timezone.now()
+
+    def test_feed_merges_every_pillar_newest_first(self):
+        Game.objects.create(user=self.user, appid=440, name="Old Game", last_played=self.now - timedelta(days=160))
+        Game.objects.create(user=self.user, appid=570, name="Newer Game", last_played=self.now - timedelta(days=2))
+        Song.objects.create(user=self.user, title="Fresh Scrobble", artist="Artist", played_at=self.now, source="lastfm")
+        Movie.objects.create(
+            user=self.user,
+            trakt_id="1",
+            title="Stale Movie",
+            tmdb_id="99999",
+            last_watched_at=self.now - timedelta(days=150),
+        )
+        Show.objects.create(user=self.user, trakt_id="2", title="Recent Show", last_watched_at=self.now - timedelta(days=1))
+
+        feed = AnalyticsService.get_recent_activity(self.user, limit=10)
+
+        self.assertEqual(
+            [item["title"] for item in feed],
+            ["Fresh Scrobble", "Recent Show", "Newer Game", "Stale Movie", "Old Game"],
+        )
+        self.assertEqual(
+            [item["type"] for item in feed],
+            ["music", "show", "game", "movie", "game"],
+        )
+
+    def test_feed_respects_limit_and_shapes_items(self):
+        for index in range(5):
+            Song.objects.create(
+                user=self.user,
+                title=f"Song {index}",
+                artist="Artist",
+                played_at=self.now - timedelta(hours=index),
+                source="lastfm",
+            )
+
+        feed = AnalyticsService.get_recent_activity(self.user, limit=3)
+
+        self.assertEqual(len(feed), 3)
+        self.assertEqual([item["title"] for item in feed], ["Song 0", "Song 1", "Song 2"])
+        self.assertEqual(feed[0]["detail"], "Artist")
+        self.assertEqual(feed[0]["type"], "music")
+        self.assertIsNotNone(feed[0]["occurred_at"].tzinfo)
+
+    def test_feed_skips_rows_without_a_timestamp(self):
+        Game.objects.create(user=self.user, appid=1, name="Never Played", last_played=None)
+        Movie.objects.create(user=self.user, trakt_id="9", title="No Date", last_watched_at=None)
+
+        self.assertEqual(AnalyticsService.get_recent_activity(self.user), [])
+
+
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "recent-activity-tests",
+        }
+    }
+)
+class RecentActivityEndpointTests(APITestCase):
+    """Contract tests for /api/analytics/recent-activity/."""
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(username="feed-api-user")
+        self.client.force_authenticate(user=self.user)
+
+    def test_endpoint_returns_ordered_activities(self):
+        Song.objects.create(user=self.user, title="API Song", artist="Artist", played_at=timezone.now(), source="lastfm")
+        Game.objects.create(user=self.user, appid=7, name="API Game", last_played=timezone.now() - timedelta(hours=1))
+
+        response = self.client.get("/analytics/recent-activity/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["title"] for item in response.data["activities"]], ["API Song", "API Game"])
+
+    def test_limit_above_maximum_is_clamped_not_rejected(self):
+        self.assertEqual(self.client.get("/analytics/recent-activity/?limit=999").status_code, 200)
+
+    def test_non_integer_limit_is_rejected(self):
+        self.assertEqual(self.client.get("/analytics/recent-activity/?limit=abc").status_code, 400)

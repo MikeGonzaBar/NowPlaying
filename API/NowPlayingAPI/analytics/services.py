@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Callable, Iterable
 
 from django.contrib.auth.models import User
 from django.db.models import Sum, Count, Q
@@ -14,8 +14,8 @@ from xbox.models import XboxGame, XboxAchievement
 from retroachievements.models import RetroAchievementsGame, GameAchievement
 from music.models import Song
 from users.models import UserApiKey
-from trakt.models import MovieWatch, EpisodeWatch
-from utils import versioned_cache_key, versioned_cache_invalidate
+from trakt.models import Movie, MovieWatch, Show, EpisodeWatch
+from utils import make_timezone_aware, versioned_cache_key, versioned_cache_invalidate
 import logging
 import re
 
@@ -1331,3 +1331,111 @@ class AnalyticsService:
             'favorite_director': director_counts.most_common(1)[0][0] if director_counts else None,
             'top_studio': studio_counts.most_common(1)[0][0] if studio_counts else None,
         }
+
+    # Stored game models that carry a `last_played` timestamp, as
+    # (model, title field, id field, display label).
+    RECENT_GAME_SOURCES: tuple[tuple[Any, str, str, str], ...] = (
+        (SteamGame, "name", "appid", "Steam"),
+        (PSNGame, "name", "appid", "PlayStation"),
+        (XboxGame, "name", "appid", "Xbox"),
+        (RetroAchievementsGame, "title", "game_id", "RetroAchievements"),
+    )
+
+    @staticmethod
+    def get_recent_activity(user: User, limit: int = 6) -> StatsList:
+        """Return the newest activity across every pillar, newest first.
+
+        The dashboard feed needs one ordering over games, music, movies and TV,
+        which no single stored table can produce. Each source is one narrow
+        ``order_by('-<timestamp>')[:limit]`` query (never a full library), and a
+        source that fails is skipped instead of blanking the whole feed.
+        """
+        items: StatsList = []
+
+        def collect(source: str, loader: Callable[[], Iterable[StatsPayload]]) -> None:
+            """Append one source's rows, normalising timestamps for the merge."""
+            try:
+                for row in loader():
+                    occurred_at = make_timezone_aware(row.pop("occurred_at"))
+                    if occurred_at and row.get("title"):
+                        items.append({**row, "occurred_at": occurred_at})
+            except Exception as exc:
+                logger.error(
+                    "recent_activity_source_failed source=%s user=%s error=%s",
+                    source, user.id, exc,
+                )
+
+        def game_rows(model: Any, title_field: str, id_field: str, platform: str) -> Iterable[StatsPayload]:
+            """Newest stored games for one platform, shaped like the feed items."""
+            rows = (
+                model.objects.filter(user=user, last_played__isnull=False)
+                .order_by("-last_played")
+                .values(title_field, id_field, "last_played")[:limit]
+            )
+            for row in rows:
+                yield {
+                    "type": "game",
+                    "title": row[title_field],
+                    "detail": platform,
+                    "occurred_at": row["last_played"],
+                    "platform": platform,
+                    "appid": str(row[id_field]),
+                }
+
+        for model, title_field, id_field, platform in AnalyticsService.RECENT_GAME_SOURCES:
+            collect(
+                f"games:{platform}",
+                lambda model=model, title_field=title_field, id_field=id_field, platform=platform: game_rows(
+                    model, title_field, id_field, platform
+                ),
+            )
+
+        collect(
+            "music",
+            lambda: (
+                {
+                    "type": "music",
+                    "title": song.title,
+                    "detail": song.artist,
+                    "occurred_at": song.played_at,
+                    "track_mbid": song.track_mbid,
+                }
+                for song in Song.objects.filter(user=user).order_by("-played_at")[:limit]
+            ),
+        )
+
+        collect(
+            "movies",
+            lambda: (
+                {
+                    "type": "movie",
+                    "title": movie.title,
+                    "detail": "Movie",
+                    "occurred_at": movie.last_watched_at,
+                    "tmdb_id": movie.tmdb_id,
+                }
+                for movie in Movie.objects.filter(
+                    user=user, last_watched_at__isnull=False
+                ).order_by("-last_watched_at")[:limit]
+            ),
+        )
+
+        collect(
+            "shows",
+            lambda: (
+                {
+                    "type": "show",
+                    "title": show.title,
+                    "detail": "TV",
+                    "occurred_at": show.last_watched_at,
+                    "trakt_id": show.trakt_id,
+                }
+                for show in Show.objects.filter(
+                    user=user, last_watched_at__isnull=False
+                ).order_by("-last_watched_at")[:limit]
+            ),
+        )
+
+        items.sort(key=lambda item: item["occurred_at"], reverse=True)
+        return items[:limit]
+

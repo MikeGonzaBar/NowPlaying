@@ -100,7 +100,9 @@ export const theme = createTheme({
           backgroundColor: zincColors.card,
           border: `1px solid ${zincColors.border}`,
           borderRadius: 12,
-          boxShadow: "none",
+          // Low-severity audit finding: every card was perfectly flat, so
+          // hierarchy rode on borders alone. One subtle lift restores it.
+          boxShadow: "0 1px 2px rgba(0, 0, 0, 0.4)",
         },
       },
     },

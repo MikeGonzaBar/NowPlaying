@@ -118,7 +118,6 @@ function SideBar({ activeItem }: SideBarProps) {
               <ListItemButton
                 component={Link}
                 to={item.route}
-                aria-label={item.text}
                 aria-current={isActive ? "page" : undefined}
                 sx={{
                   ...navButtonStyles,
@@ -244,7 +243,6 @@ function SideBar({ activeItem }: SideBarProps) {
               key={item.text}
               component={Link}
               to={item.route}
-              aria-label={item.text}
               aria-current={isActive ? "page" : undefined}
               sx={{
                 flex: 1,
@@ -270,7 +268,7 @@ function SideBar({ activeItem }: SideBarProps) {
               <Box
                 component="span"
                 sx={{
-                  fontSize: 10,
+                  fontSize: 12,
                   lineHeight: 1.2,
                   fontWeight: isActive ? 700 : 500,
                 }}

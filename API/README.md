@@ -226,6 +226,7 @@ The system uses encrypted storage for all external service credentials. See the 
 | Endpoint | Description |
 |----------|-------------|
 | `GET /analytics/` | **Comprehensive analytics dashboard** with gaming, music, and movie statistics |
+| `GET /analytics/recent-activity/` | Newest activity across all pillars (games, music, movies, TV) in one ordered feed |
 | `GET /analytics/calculate-today/` | Calculate and update today's activity statistics |
 
 ### User Management Endpoints
