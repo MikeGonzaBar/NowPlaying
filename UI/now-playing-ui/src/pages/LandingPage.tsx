@@ -10,7 +10,7 @@ import {
   Typography,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
-import { Activity } from "lucide-react";
+import { Activity, Film, Gamepad2, Music } from "lucide-react";
 import AppShell from "../components/AppShell";
 import { authenticatedFetch } from "../utils/auth";
 import { getApiUrl, API_CONFIG } from "../config/api";
@@ -34,6 +34,31 @@ interface TraktStatus {
   authenticated?: boolean;
   token_expired?: boolean;
 }
+
+/**
+ * Per-category quick looks under the activity feed: one glanceable entry point
+ * per pillar, so the dashboard is not only a recent-activity list.
+ */
+const CATEGORIES = [
+  {
+    title: "Games",
+    desc: "Playtime, achievements and trophies",
+    icon: <Gamepad2 size={22} strokeWidth={1.6} />,
+    route: "/games",
+  },
+  {
+    title: "Movies & TV",
+    desc: "Watch history and progress",
+    icon: <Film size={22} strokeWidth={1.6} />,
+    route: "/movies",
+  },
+  {
+    title: "Music",
+    desc: "Scrobbles, artists and albums",
+    icon: <Music size={22} strokeWidth={1.6} />,
+    route: "/music",
+  },
+];
 
 function LandingPage() {
   const [apiKeys, setApiKeys] = useState<ServiceKey[]>([]);
@@ -302,6 +327,79 @@ function LandingPage() {
               )}
             </CardContent>
           </Card>
+        </Box>
+
+        <Box>
+          <Typography
+            component="h2"
+            variant="h6"
+            sx={{
+              fontSize: 14,
+              fontWeight: 700,
+              color: zincColors.muted,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              mb: 1.5,
+            }}
+          >
+            Explore
+          </Typography>
+
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: {
+                xs: "1fr",
+                sm: "repeat(3, minmax(0, 1fr))",
+              },
+              gap: 2,
+            }}
+          >
+            {CATEGORIES.map((category) => (
+              <Card
+                key={category.route}
+                component={Link}
+                to={category.route}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 2,
+                  p: 2,
+                  minHeight: 88,
+                  textDecoration: "none",
+                  "&:hover": {
+                    borderColor: "#3f3f46",
+                    backgroundColor: "#1f1f23",
+                  },
+                  "&:focus-visible": {
+                    outline: "2px solid #00a8cc",
+                    outlineOffset: 2,
+                  },
+                }}
+              >
+                <Box
+                  sx={{ color: "#00a8cc", display: "flex" }}
+                  aria-hidden="true"
+                >
+                  {category.icon}
+                </Box>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography
+                    sx={{
+                      fontSize: 15,
+                      fontWeight: 600,
+                      color: zincColors.white,
+                    }}
+                  >
+                    {category.title}
+                  </Typography>
+                  <Typography sx={{ fontSize: 12, color: zincColors.muted }}>
+                    {category.desc}
+                  </Typography>
+                </Box>
+              </Card>
+            ))}
+          </Box>
         </Box>
       </Box>
     </AppShell>

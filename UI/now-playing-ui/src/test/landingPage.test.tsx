@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
@@ -96,6 +96,38 @@ describe("dashboard page (audit #1/#3/#6/#7)", () => {
 
     await screen.findByRole("link", { name: /Inception/ });
     expect(rowTitles()).toEqual(["Elden Ring", "Some Track", "Inception"]);
+  });
+
+  it("keeps a per-category quick look for every pillar", async () => {
+    mockAuthenticatedFetch(routes);
+    renderDashboard();
+
+    await screen.findByText(/Everything you have been playing/);
+
+    const explore = screen.getByRole("heading", { level: 2, name: /explore/i });
+    const section = within(explore.parentElement as HTMLElement);
+
+    expect(section.getByRole("link", { name: /Games/ })).toHaveAttribute(
+      "href",
+      "/games",
+    );
+    expect(section.getByRole("link", { name: /Movies & TV/ })).toHaveAttribute(
+      "href",
+      "/movies",
+    );
+    expect(section.getByRole("link", { name: /Music/ })).toHaveAttribute(
+      "href",
+      "/music",
+    );
+    expect(
+      section.getByText(/Playtime, achievements and trophies/),
+    ).toBeInTheDocument();
+    expect(
+      section.getByText(/Watch history and progress/),
+    ).toBeInTheDocument();
+    expect(
+      section.getByText(/Scrobbles, artists and albums/),
+    ).toBeInTheDocument();
   });
 
   it("does not skip heading levels", async () => {
