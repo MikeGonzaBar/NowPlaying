@@ -1,74 +1,55 @@
 import { getApiUrl, API_CONFIG } from "../config/api";
 
-export const getAuthToken = () => {
-  return localStorage.getItem("token") || null;
+const CSRF_COOKIE_NAME = "csrftoken";
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS", "TRACE"]);
+
+const getCookie = (name: string): string | null => {
+  const prefix = `${name}=`;
+  const value = document.cookie
+    .split(";")
+    .map((cookie) => cookie.trim())
+    .find((cookie) => cookie.startsWith(prefix));
+  return value ? decodeURIComponent(value.slice(prefix.length)) : null;
 };
 
-export const getRefreshToken = () => {
-  return localStorage.getItem("refresh_token") || null;
+export const ensureCsrfToken = async (): Promise<string | null> => {
+  const existing = getCookie(CSRF_COOKIE_NAME);
+  if (existing) return existing;
+  const response = await fetch(getApiUrl("/auth/browser/csrf/"), {
+    credentials: "same-origin",
+  });
+  return response.ok ? getCookie(CSRF_COOKIE_NAME) : null;
 };
 
-export const setAuthToken = (token: string) => {
-  localStorage.setItem("token", token);
+const csrfHeaders = async (method: string): Promise<Record<string, string>> => {
+  if (SAFE_METHODS.has(method)) return {};
+  const token = await ensureCsrfToken();
+  return token ? { "X-CSRFToken": token } : {};
 };
 
-export const setRefreshToken = (token: string) => {
-  localStorage.setItem("refresh_token", token);
-};
-
-export const removeAuthToken = () => {
-  localStorage.removeItem("token");
-  localStorage.removeItem("refresh_token");
-};
-
-export const isAuthenticated = () => {
-  const token = getAuthToken();
-  if (!token) return false;
-
-  try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    const currentTime = Date.now() / 1000;
-    return payload.exp > currentTime;
-  } catch {
-    return false;
+export const refreshAuthSession = async (): Promise<boolean> => {
+  const response = await fetch(getApiUrl("/auth/browser/refresh/"), {
+    method: "POST",
+    credentials: "same-origin",
+    headers: await csrfHeaders("POST"),
+  });
+  if (response.ok) {
+    sessionStorage.removeItem("auth_failure");
+    return true;
   }
+  sessionStorage.setItem("auth_failure", "true");
+  return false;
 };
 
-export const refreshAuthToken = async (): Promise<boolean> => {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) {
-    sessionStorage.setItem("auth_failure", "true");
-    return false;
-  }
-
+export const logoutBrowserSession = async (): Promise<void> => {
   try {
-    const response = await fetch(
-      getApiUrl(`${API_CONFIG.USERS_ENDPOINT}/token/refresh/`),
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          refresh: refreshToken,
-        }),
-      },
-    );
-
-    if (response.ok) {
-      const data = await response.json();
-      setAuthToken(data.access);
-      sessionStorage.removeItem("auth_failure");
-      return true;
-    } else {
-      sessionStorage.setItem("auth_failure", "true");
-      removeAuthToken();
-      return false;
-    }
-  } catch {
-    sessionStorage.setItem("auth_failure", "true");
-    removeAuthToken();
-    return false;
+    await fetch(getApiUrl("/auth/browser/logout/"), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: await csrfHeaders("POST"),
+    });
+  } finally {
+    sessionStorage.removeItem("auth_failure");
   }
 };
 
@@ -97,57 +78,40 @@ export const authenticatedFetch = async (
   url: string,
   options: RequestInit = {},
 ) => {
-  trackDuplicateGet(url, options.method || "GET");
+  const method = (options.method || "GET").toUpperCase();
+  trackDuplicateGet(url, method);
 
-  const isOnAuthPage =
-    window.location.pathname === "/auth" ||
-    window.location.pathname.startsWith("/auth");
+  const request = async (): Promise<Response> =>
+    fetch(url, {
+      ...options,
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        ...(await csrfHeaders(method)),
+        ...options.headers,
+      },
+    });
 
-  let token = getAuthToken();
-
-  if (!token || !isAuthenticated()) {
-    const refreshed = await refreshAuthToken();
-    if (!refreshed) {
-      if (!isOnAuthPage) {
-        window.location.href = "/auth";
-      }
-      throw new Error("Your session has expired. Please log in again.");
-    }
-    token = getAuthToken();
-  }
-
-  const headers = {
-    ...options.headers,
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  };
-
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
-
-  if (response.status === 401) {
-    const refreshed = await refreshAuthToken();
-    if (refreshed) {
-      const newToken = getAuthToken();
-      const retryResponse = await fetch(url, {
-        ...options,
-        headers: {
-          ...options.headers,
-          Authorization: `Bearer ${newToken}`,
-          "Content-Type": "application/json",
-        },
-      });
-      return retryResponse;
-    } else {
-      removeAuthToken();
-      if (!isOnAuthPage) {
-        window.location.href = "/auth";
-      }
-      throw new Error("Your session has expired. Please log in again.");
-    }
-  }
-
+  let response = await request();
+  if (response.status !== 401) return response;
+  if (await refreshAuthSession()) response = await request();
   return response;
+};
+
+export const checkAuthSession = async (): Promise<boolean> => {
+  try {
+    const response = await authenticatedFetch(
+      getApiUrl(`${API_CONFIG.USERS_ENDPOINT}/profile/`),
+    );
+    return response.ok;
+  } catch {
+    return false;
+  }
+};
+
+// Do not exchange old JavaScript-readable JWTs for cookies. A fresh login
+// limits the lifetime of credentials that may have been exposed by prior XSS.
+export const removeLegacyBrowserTokens = (): void => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("refresh_token");
 };

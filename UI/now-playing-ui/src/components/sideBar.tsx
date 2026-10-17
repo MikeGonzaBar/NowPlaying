@@ -22,7 +22,7 @@ import {
   UserRound,
   LogOut,
 } from "lucide-react";
-import { removeAuthToken } from "../utils/auth";
+import { logoutBrowserSession } from "../utils/auth";
 import { zincColors } from "../theme";
 
 interface SideBarProps {
@@ -69,9 +69,9 @@ function SideBar({ activeItem }: SideBarProps) {
   const [accountMenuAnchor, setAccountMenuAnchor] =
     useState<HTMLElement | null>(null);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setAccountMenuAnchor(null);
-    removeAuthToken();
+    await logoutBrowserSession();
     navigate("/auth", { replace: true });
   };
 

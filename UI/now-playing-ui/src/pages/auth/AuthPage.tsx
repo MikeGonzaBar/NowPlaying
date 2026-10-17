@@ -10,7 +10,8 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { getApiUrl, API_CONFIG } from "../../config/api";
+import { getApiUrl } from "../../config/api";
+import { ensureCsrfToken } from "../../utils/auth";
 
 interface FieldErrors {
   username?: string;
@@ -117,8 +118,8 @@ const AuthPage: React.FC = () => {
 
     try {
       const endpoint = isLogin
-        ? getApiUrl(`${API_CONFIG.USERS_ENDPOINT}/login/`)
-        : getApiUrl(`${API_CONFIG.USERS_ENDPOINT}/register/`);
+        ? getApiUrl("/auth/browser/login/")
+        : getApiUrl("/auth/browser/register/");
 
       const payload = isLogin
         ? {
@@ -132,11 +133,14 @@ const AuthPage: React.FC = () => {
             password2: formData.password2,
           };
 
+      const csrfToken = await ensureCsrfToken();
       const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
         },
+        credentials: "same-origin",
         body: JSON.stringify(payload),
       });
 
@@ -160,7 +164,7 @@ const AuthPage: React.FC = () => {
         }
       }
 
-      login(data.access, data.refresh);
+      login();
       navigate("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");

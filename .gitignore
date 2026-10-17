@@ -93,3 +93,8 @@ codex_tests/
 # Local build/dev log artifacts and throwaway scripts
 *.log.err
 _update_fields.py
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/

@@ -108,6 +108,7 @@ INSTALLED_APPS = [
     "users",
     "analytics",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
 ]
 
 MIDDLEWARE = [
@@ -227,7 +228,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'users.authentication.CookieJWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -256,8 +257,8 @@ SPECTACULAR_SETTINGS: dict[str, Any] = {
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-    "ROTATE_REFRESH_TOKENS": False,
-    "BLACKLIST_AFTER_ROTATION": False,
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
     "ALGORITHM": "HS256",
     "SIGNING_KEY": SECRET_KEY,
     "VERIFYING_KEY": None,
@@ -267,6 +268,31 @@ SIMPLE_JWT = {
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
     "TOKEN_TYPE_CLAIM": "token_type",
 }
+
+# Browser sessions use JWTs in httpOnly cookies.  Header-based Bearer tokens
+# remain supported for scripts and API consumers by CookieJWTAuthentication.
+AUTH_ACCESS_COOKIE_NAME = os.environ.get("AUTH_ACCESS_COOKIE_NAME", "nowplaying_access")
+AUTH_REFRESH_COOKIE_NAME = os.environ.get("AUTH_REFRESH_COOKIE_NAME", "nowplaying_refresh")
+AUTH_ACCESS_COOKIE_PATH = "/api/"
+AUTH_REFRESH_COOKIE_PATH = "/api/auth/browser/"
+AUTH_COOKIE_DOMAIN = os.environ.get("AUTH_COOKIE_DOMAIN") or None
+AUTH_COOKIE_SECURE = env_bool("AUTH_COOKIE_SECURE", default=IS_PRODUCTION)
+AUTH_COOKIE_SAMESITE = os.environ.get("AUTH_COOKIE_SAMESITE", "Lax")
+
+# The CSRF cookie is read by the SPA through `document.cookie`, and the SPA
+# document is served from `/` and `/auth` - not from under `/api/`. Scoping this
+# cookie to `/api/` makes it invisible to `document.cookie` on those pages
+# (RFC 6265 path matching), so the client can never send `X-CSRFToken` and the
+# browser login fails with "CSRF Failed: CSRF token missing.". Keep it at `/`.
+CSRF_COOKIE_PATH = "/"
+CSRF_COOKIE_SECURE = AUTH_COOKIE_SECURE
+CSRF_COOKIE_SAMESITE = AUTH_COOKIE_SAMESITE
+CSRF_COOKIE_HTTPONLY = False
+CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", [])
+if IS_PRODUCTION and not AUTH_COOKIE_SECURE:
+    raise ImproperlyConfigured("AUTH_COOKIE_SECURE must be true in production.")
+if IS_PRODUCTION and not CSRF_TRUSTED_ORIGINS:
+    raise ImproperlyConfigured("CSRF_TRUSTED_ORIGINS must be set in production.")
 
 CORS_ALLOW_ALL_ORIGINS = env_bool("CORS_ALLOW_ALL_ORIGINS", default=DEBUG)
 CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", [])

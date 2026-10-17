@@ -14,5 +14,8 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     css: false,
+    // Unit tests live in src/. `e2e/` holds Playwright specs that must run
+    // under `npx playwright test`, not vitest.
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
   },
 });

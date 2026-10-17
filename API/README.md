@@ -69,6 +69,17 @@ All API endpoints require **JWT authentication**. Include your token in the Auth
 Authorization: Bearer YOUR_JWT_TOKEN
 ```
 
+### Browser sessions
+
+The React UI does not expose JWTs to JavaScript. It uses the same-origin
+`/api/auth/browser/` endpoints, which set httpOnly access and refresh cookies
+and require Django's `X-CSRFToken` header for state-changing requests. The
+existing `/auth/login/`, `/auth/register/`, and `/auth/token/refresh/`
+endpoints continue to return Bearer tokens for programmatic clients.
+
+Set `AUTH_COOKIE_SECURE=true` and `CSRF_TRUSTED_ORIGINS` to the public HTTPS
+origin before deploying. `AUTH_COOKIE_SECURE=false` is for local HTTP only.
+
 ### API Key Management
 
 The system uses encrypted storage for all external service credentials. See the [User Management Documentation](./NowPlayingAPI/users/README_USERS.md) for complete API key management details.

@@ -1,0 +1,24 @@
+# Browser-session smoke tests. Start the local Supabase CLI stack first
+# (`supabase start`); this file deliberately overrides the API host so tests
+# can never use a hosted Supabase project.
+services:
+  api:
+    environment:
+      DJANGO_ENV: development
+      DEBUG: "false"
+      AUTH_COOKIE_SECURE: "false"
+      SUPABASE_DB_HOST: host.docker.internal
+      SUPABASE_DB_PORT: "54322"
+
+  e2e:
+    image: mcr.microsoft.com/playwright:v1.55.1-noble
+    working_dir: /work
+    volumes:
+      - ./UI/now-playing-ui/e2e:/work/e2e:ro
+      - ./UI/now-playing-ui/playwright.config.ts:/work/playwright.config.ts:ro
+    environment:
+      PLAYWRIGHT_BASE_URL: http://ui
+    depends_on:
+      - ui
+    command: >-
+      sh -c "npx --yes @playwright/test@1.55.1 test"

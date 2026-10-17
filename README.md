@@ -370,3 +370,22 @@ stack), configured through `SUPABASE_DB_*` in `API/.env`. Django admin and Swagg
 API service on `127.0.0.1:${ADMIN_API_PORT:-8011}`; use an SSH tunnel such as
 `ssh -L 8011:127.0.0.1:8011 <user>@<vm-host>` before opening
 `http://127.0.0.1:8011/admin/` or `http://127.0.0.1:8011/docs/`.
+
+### Browser-session security tests
+
+The web UI uses httpOnly JWT cookies through the same-origin `/api` proxy;
+programmatic clients can continue using the documented `Authorization: Bearer`
+endpoints. Production requires HTTPS, `AUTH_COOKIE_SECURE=true`, and an
+explicit `CSRF_TRUSTED_ORIGINS` value in `API/.env`.
+
+To run the browser-session smoke test without touching the hosted Supabase
+project, start the local stack first and then run the E2E Compose profile:
+
+```powershell
+supabase start
+docker compose -f docker-compose.yml -f docker-compose.e2e.yml up --build --abort-on-container-exit e2e
+```
+
+The E2E profile forces Django to connect to `host.docker.internal:54322`, the
+local Supabase CLI database. It uses non-secure cookies only because the test
+browser is HTTP; Django regression tests verify the production `Secure` flag.
