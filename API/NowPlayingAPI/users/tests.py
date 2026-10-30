@@ -7,9 +7,11 @@ from django.utils import timezone
 from rest_framework.exceptions import APIException
 from django.conf import settings
 from django.test import override_settings
+from datetime import datetime, time, timezone as datetime_timezone
 
 from .credentials import get_service_credentials
-from .models import UserApiKey
+from .models import SyncJob, UserApiKey
+from .sync_service import enqueue_due_jobs
 
 
 class AuthTests(TestCase):
@@ -195,3 +197,45 @@ class ServiceCredentialsTests(TestCase):
 
         self.assertEqual(exc.exception.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('Could not decrypt the stored Steam API key', str(exc.exception.detail))
+
+
+class SyncScheduleTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('sync-user', 'sync@example.com', 'Test1234!')
+        self.connection = UserApiKey(user=self.user, service_name='steam', service_user_id='steam-id')
+        self.connection.set_key('secret')
+        self.connection.save()
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def test_user_can_update_one_connection_schedule(self):
+        SyncJob.objects.create(user=self.user, provider='steam')
+        response = self.client.patch(
+            reverse('api-keys-schedule', kwargs={'pk': self.connection.pk}),
+            {'sync_enabled': True, 'sync_time': '03:15', 'sync_timezone': 'America/Mexico_City'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.connection.refresh_from_db()
+        self.assertEqual(self.connection.sync_time, time(3, 15))
+        self.assertEqual(self.connection.sync_timezone, 'America/Mexico_City')
+        self.assertFalse(SyncJob.objects.exists())
+
+    def test_schedule_rejects_invalid_timezone(self):
+        response = self.client.patch(
+            reverse('api-keys-schedule', kwargs={'pk': self.connection.pk}),
+            {'sync_timezone': 'not/a-timezone'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_daily_schedule_only_enqueues_after_configured_time(self):
+        self.connection.sync_time = time(3, 0)
+        self.connection.sync_timezone = 'UTC'
+        self.connection.save(update_fields=['sync_time', 'sync_timezone'])
+
+        before = datetime(2026, 10, 30, 2, 59, tzinfo=datetime_timezone.utc)
+        after = datetime(2026, 10, 30, 3, 1, tzinfo=datetime_timezone.utc)
+        self.assertEqual(enqueue_due_jobs(before), 0)
+        self.assertEqual(enqueue_due_jobs(after), 1)
+        self.assertEqual(SyncJob.objects.get().provider, 'steam')

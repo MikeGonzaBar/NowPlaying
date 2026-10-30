@@ -10,6 +10,8 @@ import {
   IconButton,
   Tooltip,
   CircularProgress,
+  FormControlLabel,
+  Switch,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -21,7 +23,13 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 
-import { ServiceConfig, ApiKey, NewApiKey, TraktAuthStatus } from "../types";
+import {
+  ServiceConfig,
+  ApiKey,
+  NewApiKey,
+  SyncSchedule,
+  TraktAuthStatus,
+} from "../types";
 import { getServiceTooltipContent } from "../utils/serviceConfig";
 import { zincColors } from "../../../theme";
 import { formatShortDate } from "../../../utils/dates";
@@ -33,6 +41,7 @@ interface ServiceCardProps {
   onNewKeyChange: (field: "userId" | "apiKey", value: string) => void;
   onSave: (keyData?: NewApiKey) => Promise<void>;
   onDelete: () => Promise<void>;
+  onScheduleSave: (schedule: SyncSchedule) => Promise<void>;
 
   isPSNEditing?: boolean;
   psnNPSSO?: string;
@@ -54,6 +63,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
   onNewKeyChange,
   onSave,
   onDelete,
+  onScheduleSave,
   isPSNEditing = false,
   psnNPSSO = "",
   psnUpdating = false,
@@ -82,6 +92,17 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
     (service.requiresOAuth ? "Save Credentials" : "Save API Key");
   const playstationSignInUrl = "https://www.playstation.com/";
   const playstationNpssoUrl = "https://ca.account.sony.com/api/v1/ssocookie";
+  const [syncEnabled, setSyncEnabled] = React.useState(true);
+  const [syncTime, setSyncTime] = React.useState("03:00");
+  const [scheduleSaving, setScheduleSaving] = React.useState(false);
+  const browserTimezone =
+    Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+
+  React.useEffect(() => {
+    if (!existingApiKey) return;
+    setSyncEnabled(existingApiKey.sync_enabled);
+    setSyncTime(existingApiKey.sync_time?.slice(0, 5) || "03:00");
+  }, [existingApiKey]);
 
   const handleSave = async () => {
     try {
@@ -115,6 +136,83 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
   };
 
   const [revealUserId, setRevealUserId] = React.useState(false);
+
+  const saveSchedule = async () => {
+    setScheduleSaving(true);
+    try {
+      await onScheduleSave({
+        sync_enabled: syncEnabled,
+        sync_time: syncTime,
+        sync_timezone: browserTimezone,
+      });
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to save schedule");
+    } finally {
+      setScheduleSaving(false);
+    }
+  };
+
+  const formatSyncDate = (value: string | null) =>
+    value ? new Date(value).toLocaleString() : "Not yet";
+
+  const syncControls = existingApiKey && (
+    <Box
+      sx={{
+        mt: 2,
+        pt: 2,
+        borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+      }}
+    >
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+        Automatic sync
+      </Typography>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 2,
+          flexWrap: "wrap",
+        }}
+      >
+        <FormControlLabel
+          control={
+            <Switch
+              checked={syncEnabled}
+              onChange={(event) => setSyncEnabled(event.target.checked)}
+            />
+          }
+          label={syncEnabled ? "Enabled" : "Disabled"}
+        />
+        <TextField
+          label="Run daily at"
+          type="time"
+          size="small"
+          value={syncTime}
+          disabled={!syncEnabled}
+          onChange={(event) => setSyncTime(event.target.value)}
+          slotProps={{ inputLabel: { shrink: true } }}
+        />
+        <Button
+          variant="outlined"
+          onClick={saveSchedule}
+          disabled={scheduleSaving || (syncEnabled && !syncTime)}
+        >
+          {scheduleSaving ? "Saving…" : "Save schedule"}
+        </Button>
+      </Box>
+      <Typography variant="caption" sx={{ color: zincColors.muted }}>
+        {browserTimezone} • Last sync:{" "}
+        {formatSyncDate(existingApiKey.sync_state.last_sync_at)}
+        {existingApiKey.sync_state.next_sync_at &&
+          ` • Next sync: ${formatSyncDate(existingApiKey.sync_state.next_sync_at)}`}
+      </Typography>
+      {existingApiKey.sync_state.error && (
+        <Alert severity="error" sx={{ mt: 1 }}>
+          {existingApiKey.sync_state.error}
+        </Alert>
+      )}
+    </Box>
+  );
 
   const maskIdentifier = (value: string): string => {
     if (!value) return "";
@@ -386,6 +484,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
                 </Button>
               </Box>
             )}
+            {syncControls}
           </>
         )}
       </Paper>
@@ -584,12 +683,30 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
               <Box sx={{ position: "relative", width: "100%" }}>
                 <Typography
                   variant="caption"
-                  sx={{ color: zincColors.muted, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.05em" }}
+                  sx={{
+                    color: zincColors.muted,
+                    fontSize: "11px",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                  }}
                 >
                   {userIdLabel}
                 </Typography>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}>
-                  <Typography sx={{ fontSize: "14px", fontWeight: 600, fontFamily: "monospace" }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    mt: 0.5,
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontSize: "14px",
+                      fontWeight: 600,
+                      fontFamily: "monospace",
+                    }}
+                  >
                     {revealUserId
                       ? existingApiKey.service_user_id
                       : maskIdentifier(existingApiKey.service_user_id)}
@@ -624,12 +741,26 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
             <Box sx={{ position: "relative", width: "100%" }}>
               <Typography
                 variant="caption"
-                sx={{ color: zincColors.muted, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.05em" }}
+                sx={{
+                  color: zincColors.muted,
+                  fontSize: "11px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
               >
                 {apiKeyLabel}
               </Typography>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}>
-                <Typography sx={{ fontSize: "14px", fontWeight: 600, fontFamily: "monospace", color: zincColors.muted }}>
+              <Box
+                sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}
+              >
+                <Typography
+                  sx={{
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    fontFamily: "monospace",
+                    color: zincColors.muted,
+                  }}
+                >
                   ••••••••••••••••••••
                 </Typography>
                 <Typography sx={{ fontSize: "11px", color: zincColors.muted }}>
@@ -701,16 +832,12 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
             sx={{ color: "rgba(255, 255, 255, 0.6)" }}
           >
             Added:{" "}
-            {existingApiKey &&
-              formatShortDate(existingApiKey.created_at)}
+            {existingApiKey && formatShortDate(existingApiKey.created_at)}
             {existingApiKey?.last_used && (
-              <>
-                {" "}
-                • Last used:{" "}
-                {formatShortDate(existingApiKey.last_used)}
-              </>
+              <> • Last used: {formatShortDate(existingApiKey.last_used)}</>
             )}
           </Typography>
+          {syncControls}
         </Box>
       )}
     </Paper>

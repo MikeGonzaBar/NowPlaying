@@ -9,7 +9,7 @@ import {
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { ServiceCard } from "./ServiceCard";
 import { getServicesByCategory } from "../utils/serviceConfig";
-import { ApiKey, NewApiKey, TraktAuthStatus } from "../types";
+import { ApiKey, NewApiKey, SyncSchedule, TraktAuthStatus } from "../types";
 
 interface ServiceSectionProps {
   category: "Gaming" | "Movies" | "Music";
@@ -30,6 +30,7 @@ interface ServiceSectionProps {
   ) => void;
   onSaveApiKey: (serviceName: string, keyData?: NewApiKey) => Promise<void>;
   onDeleteApiKey: (apiKeyId: number, serviceName: string) => Promise<void>;
+  onScheduleSave: (apiKeyId: number, schedule: SyncSchedule) => Promise<void>;
   onPSNEdit?: () => void;
   onPSNCancel?: () => void;
   onPSNSave?: (apiKeyId: number) => Promise<void>;
@@ -51,6 +52,7 @@ export const ServiceSection: React.FC<ServiceSectionProps> = ({
   onNewKeyChange,
   onSaveApiKey,
   onDeleteApiKey,
+  onScheduleSave,
   onPSNEdit,
   onPSNCancel,
   onPSNSave,
@@ -106,6 +108,9 @@ export const ServiceSection: React.FC<ServiceSectionProps> = ({
               onSave={(keyData) => onSaveApiKey(service.name, keyData)}
               onDelete={() =>
                 onDeleteApiKey(existingApiKey!.id, service.displayName)
+              }
+              onScheduleSave={(schedule) =>
+                onScheduleSave(existingApiKey!.id, schedule)
               }
               isPSNEditing={service.name === "psn" ? isPSNEditing : false}
               psnNPSSO={psnNPSSO}

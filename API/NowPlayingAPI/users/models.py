@@ -38,6 +38,9 @@ class UserApiKey(models.Model):
     service_name = models.CharField(max_length=100)
     service_user_id = models.CharField(max_length=255, null=True, blank=True)
     key_hash = models.TextField()
+    sync_enabled = models.BooleanField(default=True)
+    sync_time = models.TimeField(null=True, blank=True)
+    sync_timezone = models.CharField(max_length=64, default="UTC")
     last_used = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -71,3 +74,44 @@ class UserApiKey(models.Model):
         """Update the last used timestamp"""
         self.last_used = timezone.now()
         self.save(update_fields=['last_used'])
+
+
+class SyncJob(models.Model):
+    """Durable per-user provider sync work item."""
+
+    QUEUED = "queued"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    STATUSES = (
+        (QUEUED, "Queued"),
+        (RUNNING, "Running"),
+        (SUCCEEDED, "Succeeded"),
+        (FAILED, "Failed"),
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sync_jobs")
+    provider = models.CharField(max_length=32)
+    status = models.CharField(max_length=16, choices=STATUSES, default=QUEUED)
+    scheduled_for = models.DateTimeField(default=timezone.now)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    next_retry_at = models.DateTimeField(null=True, blank=True)
+    retry_count = models.PositiveSmallIntegerField(default=0)
+    summary = models.JSONField(default=dict, blank=True)
+    error = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["status", "scheduled_for"]),
+            models.Index(fields=["user", "provider", "finished_at"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "provider"],
+                condition=models.Q(status__in=["queued", "running"]),
+                name="one_active_sync_per_user_provider",
+            )
+        ]

@@ -11,6 +11,21 @@ export interface ApiKey {
   created_at: string;
   updated_at: string;
   last_used: string | null;
+  sync_enabled: boolean;
+  sync_time: string | null;
+  sync_timezone: string;
+  sync_state: {
+    status: "never" | "queued" | "running" | "succeeded" | "failed";
+    last_sync_at: string | null;
+    next_sync_at: string | null;
+    error: string;
+  };
+}
+
+export interface SyncSchedule {
+  sync_enabled: boolean;
+  sync_time: string;
+  sync_timezone: string;
 }
 
 export interface ApiKeysResponse {

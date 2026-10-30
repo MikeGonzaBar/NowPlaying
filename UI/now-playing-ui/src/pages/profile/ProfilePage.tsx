@@ -15,6 +15,7 @@ function ProfilePage() {
     handleNewApiKeyChange,
     saveApiKey,
     deleteApiKey,
+    updateSyncSchedule,
     refetchApiKeys,
   } = useApiKeys();
 
@@ -189,6 +190,7 @@ function ProfilePage() {
                 onNewKeyChange={handleNewApiKeyChange}
                 onSaveApiKey={handleSaveApiKey}
                 onDeleteApiKey={handleDeleteApiKey}
+                onScheduleSave={updateSyncSchedule}
                 onPSNEdit={startPSNEditing}
                 onPSNCancel={cancelPSNEditing}
                 onPSNSave={handlePSNSave}
@@ -207,6 +209,7 @@ function ProfilePage() {
                 onNewKeyChange={handleNewApiKeyChange}
                 onSaveApiKey={handleSaveApiKey}
                 onDeleteApiKey={handleDeleteApiKey}
+                onScheduleSave={updateSyncSchedule}
                 onTraktOAuth={handleTraktOAuth}
               />
 
@@ -220,6 +223,7 @@ function ProfilePage() {
                 onNewKeyChange={handleNewApiKeyChange}
                 onSaveApiKey={handleSaveApiKey}
                 onDeleteApiKey={handleDeleteApiKey}
+                onScheduleSave={updateSyncSchedule}
               />
             </Paper>
           </>

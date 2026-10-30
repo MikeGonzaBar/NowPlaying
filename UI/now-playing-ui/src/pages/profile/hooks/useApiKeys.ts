@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ApiKey, ApiKeysResponse, NewApiKey } from "../types";
+import { ApiKey, ApiKeysResponse, NewApiKey, SyncSchedule } from "../types";
 import { authenticatedFetch } from "../../../utils/auth";
 import { getApiUrl, API_CONFIG } from "../../../config/api";
 
@@ -178,6 +178,21 @@ export const useApiKeys = () => {
     }
   };
 
+  const updateSyncSchedule = async (
+    apiKeyId: number,
+    schedule: SyncSchedule,
+  ) => {
+    const response = await authenticatedFetch(
+      getApiUrl(`${API_CONFIG.USERS_ENDPOINT}/api-keys/${apiKeyId}/schedule/`),
+      { method: "PATCH", body: JSON.stringify(schedule) },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || "Failed to update sync schedule");
+    }
+    await fetchApiKeys();
+  };
+
   return {
     apiKeys,
     loading,
@@ -187,6 +202,7 @@ export const useApiKeys = () => {
     saveApiKey,
     deleteApiKey,
     updateApiKey,
+    updateSyncSchedule,
     refetchApiKeys: fetchApiKeys,
   };
 };

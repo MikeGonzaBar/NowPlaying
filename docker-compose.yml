@@ -52,6 +52,27 @@ services:
       api:
         condition: service_started
 
+  sync-worker:
+    build:
+      context: ./API
+      dockerfile: ./Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./API:/app
+    env_file:
+      - ./API/.env
+    environment:
+      - RUN_MIGRATIONS=false
+      - RUN_COLLECTSTATIC=false
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    command: ["sh", "-c", "cd NowPlayingAPI && python manage.py run_sync_worker"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+
   ui:
     build:
       context: ./UI/now-playing-ui

@@ -16,7 +16,8 @@ from .serializers import (
     UserLoginSerializer, 
     UserSerializer,
     ApiKeySerializer,
-    ApiKeyCheckSerializer
+    ApiKeyCheckSerializer,
+    ApiKeyScheduleSerializer,
 )
 from .models import UserApiKey
 from rest_framework.decorators import action, api_view, permission_classes
@@ -237,3 +238,14 @@ class ApiKeyViewSet(viewsets.ModelViewSet):
         """Return a list of services for which the user has stored API keys"""
         services = UserApiKey.objects.filter(user=request.user).values_list('service_name', flat=True)
         return Response(services)
+
+    @action(detail=True, methods=['patch'])
+    def schedule(self, request: Request, pk: str | None = None) -> Response:
+        """Update only the current user's automatic sync schedule."""
+        connection = self.get_object()
+        serializer = ApiKeyScheduleSerializer(connection, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        from .sync_service import clear_queued_jobs
+        clear_queued_jobs(connection)
+        return Response(ApiKeySerializer(connection).data)

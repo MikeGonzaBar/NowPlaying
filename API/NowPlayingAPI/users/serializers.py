@@ -2,6 +2,7 @@ from django.contrib.auth.models import User
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from .models import UserApiKey
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -61,11 +62,22 @@ class ApiKeySerializer(serializers.ModelSerializer):
 
     api_key = serializers.CharField(write_only=True, required=True)
     service_user_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    sync_state = serializers.SerializerMethodField()
     
     class Meta:
         model = UserApiKey
-        fields = ('id', 'service_name', 'service_user_id', 'created_at', 'updated_at', 'last_used', 'api_key')
-        read_only_fields = ('id', 'created_at', 'updated_at', 'last_used')
+        fields = (
+            'id', 'service_name', 'service_user_id', 'created_at', 'updated_at',
+            'last_used', 'sync_enabled', 'sync_time', 'sync_timezone', 'sync_state', 'api_key',
+        )
+        read_only_fields = (
+            'id', 'created_at', 'updated_at', 'last_used', 'sync_enabled',
+            'sync_time', 'sync_timezone', 'sync_state',
+        )
+
+    def get_sync_state(self, instance: UserApiKey) -> dict[str, object]:
+        from .sync_service import connection_sync_state
+        return connection_sync_state(instance)
 
     def validate(self, attrs: dict[str, object]) -> dict[str, object]:
         """Prevent raw PlayStation NPSSO storage through the generic key API."""
@@ -103,6 +115,21 @@ class ApiKeySerializer(serializers.ModelSerializer):
             instance.service_user_id = service_user_id
             instance.save(update_fields=['service_user_id'])
         return super().update(instance, validated_data)
+
+
+class ApiKeyScheduleSerializer(serializers.ModelSerializer):
+    """Update automatic sync settings without accepting credential fields."""
+
+    class Meta:
+        model = UserApiKey
+        fields = ('sync_enabled', 'sync_time', 'sync_timezone')
+
+    def validate_sync_timezone(self, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise serializers.ValidationError("Use a valid IANA timezone.") from exc
+        return value
 
 class ApiKeyCheckSerializer(serializers.Serializer):
     """Validate a submitted API key against the stored encrypted value."""
