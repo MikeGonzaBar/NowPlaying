@@ -55,6 +55,28 @@ export const hasKnownPlaytime = (game: GameData): boolean => {
   return "playtime_forever" in game || "total_playtime" in game;
 };
 
+/**
+ * Whether a game should contribute to its platform's average achievement
+ * completion.
+ *
+ * Epic publishes achievement definitions for only part of the library and
+ * reports no playtime for products that were never launched. Counting all of
+ * those as 0% dragged the Epic average down to zero, so its card only averages
+ * products that were actually played and that expose an achievement set.
+ * Other platforms keep their existing denominator.
+ */
+export const shouldCountTowardAverageAchievement = (
+  game: GameData,
+  platform: string,
+): boolean => {
+  if (platform !== "epic" || !isEpicGame(game)) return true;
+  return (
+    game.playtime_known &&
+    game.playtime_minutes > 0 &&
+    game.total_achievements > 0
+  );
+};
+
 export const calculateAchievementPercentage = (
   game: GameData,
 ): number => {

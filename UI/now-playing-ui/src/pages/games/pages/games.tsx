@@ -44,6 +44,7 @@ import {
   hasKnownPlaytime,
   parseDate,
   cleanAchievementDescription,
+  shouldCountTowardAverageAchievement,
 } from "../utils/utils";
 import {
   SteamAchievement,
@@ -312,6 +313,11 @@ function Games() {
     latestPlayedGames.forEach((game) => {
       const platform = getGamePlatform(game);
       if (!platforms[platform]) return;
+
+      // Epic exposes achievements for only part of the library, and unplayed
+      // products have no playtime. Averaging those in as 0% hid the real Epic
+      // completion rate, so skip them before accruing the percentage.
+      if (!shouldCountTowardAverageAchievement(game, platform)) return;
 
       const percentage = calculateAchievementPercentage(game);
 
