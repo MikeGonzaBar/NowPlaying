@@ -1,8 +1,15 @@
-import { SteamGame, PsnGame, RetroAchievementsGame, XboxGame } from "./types";
+import { GameData, PsnGame, RetroAchievementsGame, SteamGame, XboxGame, EpicGame } from "./types";
 
-export const isPsnGame = (
-  game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame,
-): game is PsnGame => {
+export const isEpicGame = (game: GameData): game is EpicGame => {
+  // Epic products are keyed by namespace/catalog id strings and always expose
+  // playtime_known; Steam is the fallback branch, so this must be checked first.
+  return (
+    typeof (game as EpicGame).namespace === "string" &&
+    typeof (game as EpicGame).playtime_known === "boolean"
+  );
+};
+
+export const isPsnGame = (game: GameData): game is PsnGame => {
   return (
     (game as PsnGame).platform !== undefined &&
     typeof (game as PsnGame).unlocked_achievements === "object" &&
@@ -15,9 +22,7 @@ export const isPsnGame = (
   );
 };
 
-export const isXboxGame = (
-  game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame,
-): game is XboxGame => {
+export const isXboxGame = (game: GameData): game is XboxGame => {
   const hasplatform = "platform" in game;
   const unlocked = (game as any).unlocked_achievements;
   const hasNumericUnlocked = typeof unlocked === "number";
@@ -33,13 +38,13 @@ export const isXboxGame = (
 };
 
 export const isRetroAchievementsGame = (
-  game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame,
+  game: GameData,
 ): game is RetroAchievementsGame => {
   return (game as RetroAchievementsGame).console_name !== undefined;
 };
 
-export const isSteamGame = (
-  game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame,
-): game is SteamGame => {
-  return !("platform" in game) && !("console_name" in game);
+export const isSteamGame = (game: GameData): game is SteamGame => {
+  return (
+    !isEpicGame(game) && !("platform" in game) && !("console_name" in game)
+  );
 };

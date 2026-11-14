@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 PROVIDER_INTERVALS = {
     "steam": timedelta(hours=6),
+    "epic": timedelta(hours=6),
     "psn": timedelta(hours=6),
     "xbox": timedelta(hours=6),
     "retroachievements": timedelta(hours=6),
@@ -21,6 +22,10 @@ PROVIDER_INTERVALS = {
     "trakt_movies": timedelta(hours=2),
     "trakt_shows": timedelta(hours=2),
 }
+
+# Providers whose upstream session dies too quickly for a once-a-day sync.
+# Epic's refresh token lives ~8h, so a daily run would fail every time.
+INTERVAL_ONLY_PROVIDERS = frozenset({"epic"})
 MAX_RETRIES = 3
 RETRY_DELAYS = (timedelta(minutes=1), timedelta(minutes=5), timedelta(minutes=15))
 STALE_AFTER = timedelta(minutes=30)
@@ -75,7 +80,7 @@ def connection_sync_state(connection, now=None):
     if connection.sync_enabled:
         if latest and latest.status in (SyncJob.QUEUED, SyncJob.RUNNING):
             next_sync_at = latest.scheduled_for
-        elif connection.sync_time:
+        elif connection.sync_time and providers[0] not in INTERVAL_ONLY_PROVIDERS:
             next_sync_at = _next_daily_run(connection, latest, now)
         elif latest and latest.status == SyncJob.SUCCEEDED and latest.finished_at:
             next_sync_at = latest.finished_at + PROVIDER_INTERVALS[providers[0]]
@@ -109,7 +114,7 @@ def enqueue_due_jobs(now=None):
             latest = SyncJob.objects.filter(user=user, provider=provider).order_by("-created_at").first()
             if latest and latest.status in (SyncJob.QUEUED, SyncJob.RUNNING):
                 continue
-            if connection.sync_time:
+            if connection.sync_time and provider not in INTERVAL_ONLY_PROVIDERS:
                 if _next_daily_run(connection, latest, now) > now:
                     continue
             else:
@@ -155,6 +160,21 @@ def _run_provider(job):
         c = get_service_credentials(user, "psn", require_user_id=True)
         key = user.api_keys.get(service_name="psn")
         return PSN.get_games(c.api_key, c.service_user_id, user, auth_update_callback=lambda value: _save_key(key, value))
+    if provider == "epic":
+        from epic.api import sync_library
+        from epic.auth import EpicAuthError
+        c = get_service_credentials(user, "epic", require_user_id=True)
+        key = user.api_keys.get(service_name="epic")
+        try:
+            return sync_library(
+                user, c.api_key, persist=lambda value: _save_key(key, value)
+            )
+        except EpicAuthError as exc:
+            # A dead refresh token is fatal, not transient: stop retrying and
+            # surface the connection error so the UI can ask for reconnection.
+            if exc.needs_reauth:
+                raise InvalidServiceCredentials(str(exc)) from exc
+            raise
     if provider == "xbox":
         from xbox.models import XboxAPI
         c = get_service_credentials(user, "xbox", require_user_id=True)
@@ -190,11 +210,27 @@ def run_job(job):
         job.status = SyncJob.SUCCEEDED
         job.finished_at = timezone.now()
         job.next_retry_at = None
-        job.summary = {"items": len(result) if isinstance(result, (list, dict)) else 0}
+        if isinstance(result, dict) and "synced" in result:
+            item_count = int(result["synced"])
+        else:
+            item_count = len(result) if isinstance(result, (list, dict)) else 0
+        job.summary = {"items": item_count}
         job.save(update_fields=["status", "finished_at", "next_retry_at", "summary", "updated_at"])
         _invalidate_caches(job.provider, job.user_id)
+        logger.info(
+            "Automatic %s sync succeeded for user %s: %d items",
+            job.provider,
+            job.user_id,
+            item_count,
+        )
         return True
     except (MissingServiceCredentials, InvalidServiceCredentials) as exc:
+        logger.warning(
+            "Automatic %s sync skipped for user %s: %s",
+            job.provider,
+            job.user_id,
+            exc,
+        )
         _fail(job, exc, retry=False)
     except Exception as exc:
         logger.exception("Automatic %s sync failed for user %s", job.provider, job.user_id)

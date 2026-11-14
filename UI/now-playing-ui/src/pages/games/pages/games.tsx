@@ -41,20 +41,19 @@ import {
   calculateAchievementPercentage,
   formatMinutesCompact,
   getPlaytime,
+  hasKnownPlaytime,
   parseDate,
   cleanAchievementDescription,
 } from "../utils/utils";
 import {
-  SteamGame,
-  PsnGame,
-  RetroAchievementsGame,
-  XboxGame,
   SteamAchievement,
   PsnAchievement,
   RetroAchievementsAchievement,
   XboxAchievement,
+  GameData,
 } from "../utils/types";
 import {
+  isEpicGame,
   isPsnGame,
   isXboxGame,
   isRetroAchievementsGame,
@@ -90,6 +89,7 @@ function Games() {
     error,
     clearError,
     refreshSteam,
+    refreshEpic,
     refreshPSN,
     refreshXbox,
     refreshRetroAchievements,
@@ -173,7 +173,7 @@ function Games() {
       unlockTime: string;
       platform: string;
       appid: number | string;
-      rawGame: SteamGame | PsnGame | XboxGame | RetroAchievementsGame;
+      rawGame: GameData;
     }> = [];
 
     latestPlayedGames.forEach((game) => {
@@ -218,6 +218,21 @@ function Games() {
               image: a.image || "",
               unlockTime: a.unlock_time || "",
               platform: "xbox",
+              appid: game.appid,
+              rawGame: game,
+            });
+          });
+      } else if (isEpicGame(game) && game.achievements) {
+        game.achievements
+          .filter((a) => a.unlocked && a.unlock_time)
+          .forEach((a) => {
+            allAchievements.push({
+              game: game.name,
+              name: a.name,
+              description: a.description || "",
+              image: a.image || "",
+              unlockTime: a.unlock_time || "",
+              platform: "epic",
               appid: game.appid,
               rawGame: game,
             });
@@ -272,6 +287,7 @@ function Games() {
       }
     > = {
       steam: { percentage: 0 },
+      epic: { percentage: 0 },
       psn: {
         percentage: 0,
         psnTrophies: {
@@ -287,6 +303,7 @@ function Games() {
 
     const platformCounts: Record<string, number> = {
       steam: 0,
+      epic: 0,
       psn: 0,
       xbox: 0,
       retroachievements: 0,
@@ -344,7 +361,7 @@ function Games() {
   const platformConfig = SERVICE_PLATFORM_CONFIG;
 
   const getGameImageUrl = (
-    game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame,
+    game: GameData,
   ): string => {
     if (isPsnGame(game) && game.img_icon_url) return game.img_icon_url;
     if (isRetroAchievementsGame(game) && game.image_title)
@@ -398,6 +415,8 @@ function Games() {
     switch (platformKey) {
       case "steam":
         return "/Platforms/steam.webp";
+      case "epic":
+        return "/Platforms/epic.svg";
       case "psn":
         return "/Platforms/playstation.webp";
       case "xbox":
@@ -421,9 +440,21 @@ function Games() {
   };
 
   const getAchievementDisplay = (
-    game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame,
+    game: GameData,
   ): ReactNode => {
     if (isSteamGame(game)) {
+      return (
+        <Typography
+          variant="body2"
+          sx={{
+            fontSize: "11px",
+            color: zincColors.muted,
+          }}
+        >
+          {`${game.unlocked_achievements_count || 0}/${game.total_achievements || 0}`}
+        </Typography>
+      );
+    } else if (isEpicGame(game)) {
       return (
         <Typography
           variant="body2"
@@ -867,7 +898,9 @@ function Games() {
                                   color: zincColors.muted,
                                 }}
                               >
-                                {formatMinutesCompact(getPlaytime(game))}
+                                {hasKnownPlaytime(game)
+                                  ? formatMinutesCompact(getPlaytime(game))
+                                  : "—"}
                               </Typography>
                               <LinearProgress
                                 variant="determinate"
@@ -1282,7 +1315,9 @@ function Games() {
                                   color: zincColors.muted,
                                 }}
                               >
-                                {formatMinutesCompact(getPlaytime(game))}
+                                {hasKnownPlaytime(game)
+                                  ? formatMinutesCompact(getPlaytime(game))
+                                  : "—"}
                               </Typography>
                               <LinearProgress
                                 variant="determinate"
@@ -1388,7 +1423,7 @@ function Games() {
                 <Box
                   sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}
                 >
-                  {["steam", "psn", "xbox", "retroachievements"].map(
+                  {["steam", "epic", "psn", "xbox", "retroachievements"].map(
                     (platform) => {
                       const isConfigured =
                         configuredServices.includes(platform);
@@ -1398,6 +1433,7 @@ function Games() {
 
                       const handleRefresh = () => {
                         if (platform === "steam") refreshSteam();
+                        else if (platform === "epic") refreshEpic();
                         else if (platform === "psn") refreshPSN();
                         else if (platform === "xbox") refreshXbox();
                         else if (platform === "retroachievements")
@@ -1521,7 +1557,7 @@ function Games() {
                 <Box
                   sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}
                 >
-                  {["steam", "psn", "xbox", "retroachievements"].map(
+                  {["steam", "epic", "psn", "xbox", "retroachievements"].map(
                     (platform) => {
                       const isConfigured =
                         configuredServices.includes(platform);
@@ -1721,7 +1757,9 @@ function Games() {
                                   whiteSpace: "nowrap",
                                 }}
                               >
-                                {formatMinutesCompact(getPlaytime(game))}
+                                {hasKnownPlaytime(game)
+                                  ? formatMinutesCompact(getPlaytime(game))
+                                  : "—"}
                               </TableCell>
                               <TableCell
                                 sx={{
@@ -1790,7 +1828,7 @@ function Games() {
             <Box
               sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 2 }}
             >
-              {["steam", "psn", "xbox", "retroachievements"].map((platform) => {
+              {["steam", "epic", "psn", "xbox", "retroachievements"].map((platform) => {
                 const config =
                   platformConfig[platform as keyof typeof platformConfig];
                 const isUpdating = updatingPlatforms[platform];
@@ -1818,6 +1856,7 @@ function Games() {
                     <IconButton
                       onClick={() => {
                         if (platform === "steam") refreshSteam();
+                        else if (platform === "epic") refreshEpic();
                         else if (platform === "psn") refreshPSN();
                         else if (platform === "xbox") refreshXbox();
                         else if (platform === "retroachievements")

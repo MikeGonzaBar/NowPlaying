@@ -26,11 +26,13 @@ describe("stored game library baseline", () => {
       "/steam/get-game-list-stored/": () => ({
         result: includeSteam ? [steam] : [],
       }),
+      "/epic/get-game-list-stored/": { result: [] },
       "/psn/get-game-list-stored/": { result: [psn] },
       "/retroachievements/fetch-games/": { result: [] },
       "/xbox/get-game-list-stored/": { result: [] },
       "/users/api-keys/services/": [
         "steam",
+        "epic",
         "psn",
         "xbox",
         "retroachievements",
@@ -57,7 +59,7 @@ describe("stored game library baseline", () => {
       .spyOn(console, "error")
       .mockImplementation(() => {});
     const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const services = ["steam", "psn", "xbox", "retroachievements"];
+    const services = ["steam", "epic", "psn", "xbox", "retroachievements"];
     const played = {
       appid: 1,
       name: "Hades",
@@ -74,6 +76,7 @@ describe("stored game library baseline", () => {
     };
     const api = mockAuthenticatedFetch({
       "/steam/get-game-list-stored/": { result: [played, unplayed] },
+      "/epic/get-game-list-stored/": { result: [] },
       "/psn/get-game-list-stored/": { result: [] },
       "/retroachievements/fetch-games/": { result: [] },
       "/xbox/get-game-list-stored/": { result: [] },
@@ -111,6 +114,7 @@ describe("stored game library baseline", () => {
     expect(result.current.getGamePlatform).toBe(getPlatform);
     expect(api.calls).toEqual([
       "/steam/get-game-list-stored/",
+      "/epic/get-game-list-stored/",
       "/psn/get-game-list-stored/",
       "/retroachievements/fetch-games/",
       "/xbox/get-game-list-stored/",
@@ -119,5 +123,65 @@ describe("stored game library baseline", () => {
     expect(api.notFound()).toEqual([]);
     expect(consoleError).not.toHaveBeenCalled();
     expect(consoleWarn).not.toHaveBeenCalled();
+  });
+
+  it("lists Epic library products by acquisition date", async () => {
+    const epicProduct = (
+      appid: string,
+      name: string,
+      acquiredAt: string,
+    ) => ({
+      appid,
+      namespace: "ns",
+      app_name: name,
+      name,
+      description: "",
+      developer: "",
+      publisher: "",
+      cover_image: "",
+      img_icon_url: "",
+      acquired_at: acquiredAt,
+      last_played: null,
+      playtime_minutes: 0,
+      playtime_formatted: "",
+      playtime_known: false,
+      playtime_source: "none",
+      achievements: [],
+      total_achievements: 0,
+      unlocked_achievements_count: 0,
+      locked_achievements_count: 0,
+    });
+    mockAuthenticatedFetch({
+      "/steam/get-game-list-stored/": { result: [] },
+      "/epic/get-game-list-stored/": {
+        result: [
+          epicProduct("aaa", "Older Epic Game", "2025-01-01T00:00:00Z"),
+          epicProduct("bbb", "Newer Epic Game", "2026-02-01T00:00:00Z"),
+        ],
+      },
+      "/psn/get-game-list-stored/": { result: [] },
+      "/retroachievements/fetch-games/": { result: [] },
+      "/xbox/get-game-list-stored/": { result: [] },
+      "/users/api-keys/services/": [
+        "steam",
+        "epic",
+        "psn",
+        "xbox",
+        "retroachievements",
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useGameData("https://example.test"),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.latestPlayedGames.map((game) => game.name)).toEqual([
+      "Newer Epic Game",
+      "Older Epic Game",
+    ]);
+    expect(
+      result.current.getGamePlatform(result.current.latestPlayedGames[0]),
+    ).toBe("epic");
   });
 });

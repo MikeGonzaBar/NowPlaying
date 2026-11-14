@@ -1,17 +1,14 @@
 import React, { useMemo } from "react";
 import { Box, Typography, Tooltip } from "@mui/material";
 import {
-  SteamGame,
-  PsnGame,
-  RetroAchievementsGame,
-  XboxGame,
+  GameData,
 } from "../utils/types";
 import { parseDate, cleanAchievementDescription } from "../utils/utils";
 import { formatShortDate } from "../../../utils/dates";
 import { zincColors } from "../../../theme";
 
 interface RecentWinsStripProps {
-  game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
+  game: GameData;
 }
 
 const RecentWinsStrip: React.FC<RecentWinsStripProps> = ({ game }) => {

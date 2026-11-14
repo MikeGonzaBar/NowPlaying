@@ -29,6 +29,7 @@ import {
   NewApiKey,
   SyncSchedule,
   TraktAuthStatus,
+  EpicAuthStatus,
 } from "../types";
 import { getServiceTooltipContent } from "../utils/serviceConfig";
 import { zincColors } from "../../../theme";
@@ -54,6 +55,14 @@ interface ServiceCardProps {
   traktAuthStatus?: TraktAuthStatus | null;
   traktLoading?: boolean;
   onTraktOAuth?: () => Promise<void>;
+
+  epicStatus?: EpicAuthStatus | null;
+  epicLoginUrl?: string;
+  epicConnecting?: boolean;
+  epicCode?: string;
+  onEpicCodeChange?: (value: string) => void;
+  onEpicLogin?: () => Promise<void>;
+  onEpicConnect?: () => Promise<void>;
 }
 
 export const ServiceCard: React.FC<ServiceCardProps> = ({
@@ -74,10 +83,18 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
   traktAuthStatus,
   traktLoading = false,
   onTraktOAuth,
+  epicStatus,
+  epicLoginUrl,
+  epicConnecting = false,
+  epicCode = "",
+  onEpicCodeChange,
+  onEpicLogin,
+  onEpicConnect,
 }) => {
   const userIdInputRef = React.useRef<HTMLInputElement>(null);
   const apiKeyInputRef = React.useRef<HTMLInputElement>(null);
   const isPSN = service.name === "psn";
+  const isEpic = service.connectFlow === "epic";
   const showUserIdField = !isPSN || !!existingApiKey;
   const userIdLabel =
     service.userIdLabel ?? (service.requiresOAuth ? "Client ID" : "User ID");
@@ -188,7 +205,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
           type="time"
           size="small"
           value={syncTime}
-          disabled={!syncEnabled}
+          disabled={!syncEnabled || isEpic}
           onChange={(event) => setSyncTime(event.target.value)}
           slotProps={{ inputLabel: { shrink: true } }}
         />
@@ -205,6 +222,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
         {formatSyncDate(existingApiKey.sync_state.last_sync_at)}
         {existingApiKey.sync_state.next_sync_at &&
           ` • Next sync: ${formatSyncDate(existingApiKey.sync_state.next_sync_at)}`}
+        {isEpic && " • Epic syncs every 6 hours; a daily time is not used."}
       </Typography>
       {existingApiKey.sync_state.error && (
         <Alert severity="error" sx={{ mt: 1 }}>
@@ -670,6 +688,89 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
         </Box>
       )}
 
+      {isEpic && (
+        <Box sx={{ mb: 2 }}>
+          {existingApiKey && epicStatus?.needs_reauth && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Your Epic session expired. Sign in again to resume sync.
+            </Alert>
+          )}
+          <Typography
+            variant="body2"
+            sx={{ mb: 1, color: "rgba(255, 255, 255, 0.7)" }}
+          >
+            Sign in with Epic, copy the URL of the page you land on (it contains
+            <code> ?code=… </code>), then paste it here.
+          </Typography>
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              {...(epicLoginUrl
+                ? {
+                    component: "a",
+                    href: epicLoginUrl,
+                    target: "_blank",
+                    rel: "noopener noreferrer",
+                  }
+                : { onClick: onEpicLogin })}
+              startIcon={<OpenInNewIcon />}
+              sx={{ borderColor: "#00a8cc", color: "#00a8cc" }}
+            >
+              Open Epic login
+            </Button>
+            {existingApiKey && (
+              <Chip
+                size="small"
+                label={
+                  epicStatus?.needs_reauth ? "Needs reconnecting" : "Connected"
+                }
+                sx={{
+                  backgroundColor: epicStatus?.needs_reauth
+                    ? "#f59e0b"
+                    : "#22c55e",
+                  color: epicStatus?.needs_reauth ? "#1a1a1a" : "#052e16",
+                  fontWeight: 700,
+                }}
+              />
+            )}
+          </Box>
+          <TextField
+            fullWidth
+            multiline
+            minRows={2}
+            size="small"
+            label={apiKeyLabel}
+            value={epicCode}
+            onChange={(e) => onEpicCodeChange?.(e.target.value)}
+            placeholder={apiKeyPlaceholder}
+            name="epic-auth-code"
+            autoComplete="off"
+          />
+          <Box sx={{ mt: 1.5, display: "flex", justifyContent: "flex-end" }}>
+            <Button
+              variant="contained"
+              onClick={onEpicConnect}
+              disabled={epicConnecting || !epicCode.trim()}
+              sx={{
+                backgroundColor: "#00a8cc",
+                "&:hover": {
+                  backgroundColor: "#0097b2",
+                },
+              }}
+            >
+              {epicConnecting
+                ? "Connecting…"
+                : existingApiKey
+                  ? "Reconnect Epic"
+                  : saveButtonLabel}
+            </Button>
+          </Box>
+        </Box>
+      )}
+
+      {!isEpic && (
+        <>
       <Box
         sx={{
           display: "flex",
@@ -815,6 +916,8 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
             {saveButtonLabel}
           </Button>
         </Box>
+      )}
+        </>
       )}
 
       {existingApiKey && (

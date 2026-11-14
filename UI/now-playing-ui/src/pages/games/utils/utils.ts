@@ -1,12 +1,13 @@
-import { SteamGame, PsnGame, RetroAchievementsGame, XboxGame } from "./types";
+import { GameData } from "./types";
 import {
+  isEpicGame,
   isPsnGame,
   isXboxGame,
   isRetroAchievementsGame,
   isSteamGame,
 } from "./typeGuards";
 
-export const parseDate = (dateString: string): Date => {
+export const parseDate = (dateString: string | null | undefined): Date => {
   if (!dateString) {
     return new Date(1970, 0, 1);
   }
@@ -18,6 +19,12 @@ export const parseDate = (dateString: string): Date => {
 };
 
 export const getPlaytime = (game: any): number => {
+  // Epic only reports playtime through a local agent; until then it is unknown,
+  // not zero.
+  if (isEpicGame(game)) {
+    return game.playtime_known ? game.playtime_minutes : 0;
+  }
+
   if ("playtime_forever" in game) {
     return game.playtime_forever;
   }
@@ -43,10 +50,18 @@ export const getPlaytime = (game: any): number => {
   return 0;
 };
 
+export const hasKnownPlaytime = (game: GameData): boolean => {
+  if (isEpicGame(game)) return game.playtime_known;
+  return "playtime_forever" in game || "total_playtime" in game;
+};
+
 export const calculateAchievementPercentage = (
-  game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame,
+  game: GameData,
 ): number => {
-  if (isXboxGame(game)) {
+  if (isEpicGame(game)) {
+    if (!game.total_achievements) return 0;
+    return (game.unlocked_achievements_count / game.total_achievements) * 100;
+  } else if (isXboxGame(game)) {
     const percentage =
       (game.unlocked_achievements / game.total_achievements) * 100;
     return percentage;
@@ -86,7 +101,7 @@ export const calculateAchievementPercentage = (
  * Returns array of Date objects for unlocked achievements
  */
 export const getAchievementUnlockDates = (
-  game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame,
+  game: GameData,
 ): Date[] => {
   const unlockDates: Date[] = [];
 
@@ -150,11 +165,13 @@ export const groupAchievementsByDate = (
  * Returns array of platform names
  */
 export const parsePlatforms = (
-  game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame,
+  game: GameData,
 ): string[] => {
   const platforms: string[] = [];
 
-  if (isXboxGame(game) && game.platform) {
+  if (isEpicGame(game)) {
+    platforms.push("Epic Games");
+  } else if (isXboxGame(game) && game.platform) {
     const platformList = game.platform.split(",").map((p) => p.trim());
     platforms.push(...platformList);
   }
@@ -257,6 +274,7 @@ export const formatPlatformName = (platform: string): string => {
     PS4: "PlayStation 4",
     PS5: "PlayStation 5",
     Steam: "Steam",
+    "Epic Games": "Epic Games",
   };
 
   return platformMap[platform] || platform;

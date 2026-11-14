@@ -111,6 +111,28 @@ class DetailEndpointTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_games_detail_by_title_includes_epic_games(self):
+        """Epic-only titles must resolve by title, not only by app id."""
+        from epic.models import EpicGame
+
+        EpicGame.objects.create(
+            user=self.user,
+            appid="518490da62794d0a8f3695cbe2fcf0a6",
+            namespace="3b391953ce4b42bb9a28a2fee249154b",
+            app_name="Brotato",
+            name="Brotato",
+        )
+
+        response = self.client.get("/games/detail-by-title/", {"title": "Brotato"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["platform_count"], 1)
+        epic_entry = response.data["platforms"][0]
+        self.assertEqual(epic_entry["platform"], "epic")
+        self.assertEqual(epic_entry["data"]["name"], "Brotato")
+        # Epic has no last-played timestamp, so no misleading recency rank.
+        self.assertNotIn("recency_rank", epic_entry["data"])
+
     def test_games_detail_by_id_psn_id_does_not_500(self):
         """/game/PPSA01649_00 must resolve to 404, not crash the ORM with an
         integer-backed Steam appid (audit finding #4)."""

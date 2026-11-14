@@ -86,6 +86,13 @@ TRAKT_AUTH_CODE = os.environ.get("TRAKT_AUTH_CODE", "")
 TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "")
 SPOTIFY_ACCESS_TOKEN = os.environ.get("SPOTIFY_ACCESS_TOKEN", "")
 
+# Epic Games uses the public launcher client, not a per-developer credential.
+# Override only if Epic rotates the constants shipped inside its launcher.
+EPIC_CLIENT_ID = os.environ.get("EPIC_CLIENT_ID", "34a02cf8f4414e29b15921876da36f9a")
+EPIC_CLIENT_SECRET = os.environ.get(
+    "EPIC_CLIENT_SECRET", "daafbccc737745039dffe53d94fc76cf"
+)
+
 
 
 INSTALLED_APPS = [
@@ -100,6 +107,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "drf_spectacular_sidecar",
     "steam",
+    "epic",
     "playstation",
     "trakt",
     "music",
@@ -313,6 +321,9 @@ CACHES = {
 CACHE_TIMEOUTS = {
     'MUSIC': 900,
     'STEAM_GAMES': 900,
+    'EPIC_GAMES': 900,
+    'EPIC_CATALOG': 604800,
+    'EPIC_ACHIEVEMENTS': 604800,
     'SEARCH_RESULTS': 300,
     'ANALYTICS': 3600,
     'USER_PROFILE': 1800,

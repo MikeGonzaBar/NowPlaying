@@ -1,15 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useApi } from "../../../hooks/useApi";
-import {
-  SteamGame,
-  PsnGame,
-  RetroAchievementsGame,
-  XboxGame,
-} from "../utils/types";
+import { GameData } from "../utils/types";
 import { parseDate } from "../utils/utils";
 import { consolidateRawGames, getCrossPlatformGames } from "../utils/grouping";
-
-type GameData = SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
 
 interface GameApiResponse {
   result?:
@@ -49,6 +42,7 @@ export const useGameData = (beBaseUrl: string) => {
     Record<string, Set<string>>
   >({
     steam: new Set(),
+    epic: new Set(),
     psn: new Set(),
     xbox: new Set(),
     retroachievements: new Set(),
@@ -78,15 +72,26 @@ export const useGameData = (beBaseUrl: string) => {
 
   const mergeAndSortGames = (
     steamArray: GameData[],
+    epicArray: GameData[],
     psnArray: GameData[],
     retroArray: GameData[],
     xboxArray: GameData[],
   ): GameData[] => {
     const invalidTimestamp = new Date(1970, 0, 1).getTime();
-    return [...steamArray, ...psnArray, ...retroArray, ...xboxArray]
+    // Epic exposes no last-played timestamp. Sort those products by acquisition
+    // date instead so a connected Epic library is still listed; `lastPlayed` is
+    // only used for ordering, never displayed as a play date.
+    const sortTimestamp = (game: GameData): Date => {
+      const lastPlayed = parseDate(game.last_played);
+      if (lastPlayed.getTime() !== invalidTimestamp) return lastPlayed;
+      const acquiredAt = (game as { acquired_at?: string | null }).acquired_at;
+      return parseDate(acquiredAt);
+    };
+
+    return [...steamArray, ...epicArray, ...psnArray, ...retroArray, ...xboxArray]
       .map((game) => ({
         ...game,
-        lastPlayed: parseDate(game.last_played),
+        lastPlayed: sortTimestamp(game),
       }))
       .filter((game) => game.lastPlayed.getTime() !== invalidTimestamp)
       .sort((a, b) => b.lastPlayed.getTime() - a.lastPlayed.getTime());
@@ -96,15 +101,18 @@ export const useGameData = (beBaseUrl: string) => {
     try {
       setLoading(true);
 
-      const [steamArray, psnArray, retroArray, xboxArray] = await Promise.all([
-        fetchGameData(`${beBaseUrl}/steam/get-game-list-stored/`),
-        fetchGameData(`${beBaseUrl}/psn/get-game-list-stored/`),
-        fetchGameData(`${beBaseUrl}/retroachievements/fetch-games/`),
-        fetchGameData(`${beBaseUrl}/xbox/get-game-list-stored/`),
-      ]);
+      const [steamArray, epicArray, psnArray, retroArray, xboxArray] =
+        await Promise.all([
+          fetchGameData(`${beBaseUrl}/steam/get-game-list-stored/`),
+          fetchGameData(`${beBaseUrl}/epic/get-game-list-stored/`),
+          fetchGameData(`${beBaseUrl}/psn/get-game-list-stored/`),
+          fetchGameData(`${beBaseUrl}/retroachievements/fetch-games/`),
+          fetchGameData(`${beBaseUrl}/xbox/get-game-list-stored/`),
+        ]);
 
       const newPlatformGameIds: Record<string, Set<string>> = {
         steam: new Set(steamArray.map((game) => String(game.appid))),
+        epic: new Set(epicArray.map((game) => String(game.appid))),
         psn: new Set(psnArray.map((game) => String(game.appid))),
         xbox: new Set(xboxArray.map((game) => String(game.appid))),
         retroachievements: new Set(
@@ -115,6 +123,7 @@ export const useGameData = (beBaseUrl: string) => {
 
       const allGames = [
         ...steamArray,
+        ...epicArray,
         ...psnArray,
         ...retroArray,
         ...xboxArray,
@@ -122,6 +131,7 @@ export const useGameData = (beBaseUrl: string) => {
 
       const merged = mergeAndSortGames(
         steamArray,
+        epicArray,
         psnArray,
         retroArray,
         xboxArray,
@@ -139,24 +149,30 @@ export const useGameData = (beBaseUrl: string) => {
 
   const refreshGames = async () => {
     try {
-      const [_steamRes, psnRes, _retroRes, _xboxRes] = await Promise.all([
-        api
-          .request<RefreshResponse>(`${beBaseUrl}/steam/get-game-list/`)
-          .catch((e): FailedRequest => ({ __error: e })),
-        api
-          .request<RefreshResponse>(`${beBaseUrl}/psn/get-game-list/`)
-          .catch((e): FailedRequest => ({ __error: e })),
-        api
-          .request<RefreshResponse>(
-            `${beBaseUrl}/retroachievements/fetch-recently-played-games/`,
-          )
-          .catch((e): FailedRequest => ({ __error: e })),
-        api
-          .request<RefreshResponse>(`${beBaseUrl}/xbox/get-game-list/`)
-          .catch((e): FailedRequest => ({ __error: e })),
-      ]);
+      const [_steamRes, epicRes, psnRes, _retroRes, _xboxRes] =
+        await Promise.all([
+          api
+            .request<RefreshResponse>(`${beBaseUrl}/steam/get-game-list/`)
+            .catch((e): FailedRequest => ({ __error: e })),
+          api
+            .request<RefreshResponse>(`${beBaseUrl}/epic/get-game-list/`)
+            .catch((e): FailedRequest => ({ __error: e })),
+          api
+            .request<RefreshResponse>(`${beBaseUrl}/psn/get-game-list/`)
+            .catch((e): FailedRequest => ({ __error: e })),
+          api
+            .request<RefreshResponse>(
+              `${beBaseUrl}/retroachievements/fetch-recently-played-games/`,
+            )
+            .catch((e): FailedRequest => ({ __error: e })),
+          api
+            .request<RefreshResponse>(`${beBaseUrl}/xbox/get-game-list/`)
+            .catch((e): FailedRequest => ({ __error: e })),
+        ]);
 
-      if (psnRes && !isFailedRequest(psnRes) && psnRes.result?.error) {
+      if (epicRes && !isFailedRequest(epicRes) && epicRes.result?.error) {
+        setError(epicRes.result.error);
+      } else if (psnRes && !isFailedRequest(psnRes) && psnRes.result?.error) {
         setError(psnRes.result.error);
       } else if (psnRes && isFailedRequest(psnRes)) {
         setError("An error occurred while refreshing PSN games");
@@ -182,6 +198,26 @@ export const useGameData = (beBaseUrl: string) => {
       setError("An error occurred while refreshing Steam games");
     } finally {
       setUpdatingPlatforms((prev) => ({ ...prev, steam: false }));
+    }
+  };
+
+  const refreshEpic = async () => {
+    try {
+      setUpdatingPlatforms((prev) => ({ ...prev, epic: true }));
+      const resp = await api.request<RefreshResponse>(
+        `${beBaseUrl}/epic/get-game-list/`,
+      );
+      if (resp.result?.error) {
+        setError(resp.result.error);
+      } else {
+        setError(null);
+      }
+      await fetchGames();
+    } catch (error) {
+      console.error("Error refreshing Epic games:", error);
+      setError("An error occurred while refreshing Epic games");
+    } finally {
+      setUpdatingPlatforms((prev) => ({ ...prev, epic: false }));
     }
   };
 
@@ -243,7 +279,13 @@ export const useGameData = (beBaseUrl: string) => {
       const services = response || [];
       setConfiguredServices(services);
 
-      const requiredServices = ["steam", "xbox", "psn", "retroachievements"];
+      const requiredServices = [
+        "steam",
+        "epic",
+        "xbox",
+        "psn",
+        "retroachievements",
+      ];
       const missing = requiredServices.filter(
         (service) => !services.includes(service),
       );
@@ -262,6 +304,7 @@ export const useGameData = (beBaseUrl: string) => {
       const gameId = String(game.appid);
 
       if (platformGameIds.steam.has(gameId)) return "steam";
+      if (platformGameIds.epic.has(gameId)) return "epic";
       if (platformGameIds.psn.has(gameId)) return "psn";
       if (platformGameIds.xbox.has(gameId)) return "xbox";
       if (platformGameIds.retroachievements.has(gameId))
@@ -299,6 +342,7 @@ export const useGameData = (beBaseUrl: string) => {
     clearError: () => setError(null),
     refreshGames,
     refreshSteam,
+    refreshEpic,
     refreshPSN,
     refreshXbox,
     refreshRetroAchievements,

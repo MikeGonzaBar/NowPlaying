@@ -2,21 +2,18 @@ import React, { useMemo, useState, useEffect } from "react";
 import { Box, Typography, IconButton, Tab, Tabs } from "@mui/material";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import CloseIcon from "@mui/icons-material/Close";
-import {
-  SteamGame,
-  PsnGame,
-  RetroAchievementsGame,
-  XboxGame,
-} from "../utils/types";
+import { GameData } from "../utils/types";
 import { useGameDetail, useGameDetailById, usePlatformGameDetail } from "../hooks/useGameDetail";
 import {
   calculateAchievementPercentage,
   formatMinutesCompact,
   getPlaytime,
+  hasKnownPlaytime,
 } from "../utils/utils";
 import { getPlatformMatch } from "../utils/platformHelper";
 import { getCombinedDetailMetrics } from "../utils/gameDetail";
 import {
+  isEpicGame,
   isPsnGame,
   isXboxGame,
   isRetroAchievementsGame,
@@ -46,14 +43,9 @@ const GameDetails: React.FC = () => {
   const [isTransitioning, setIsTransitioning] = useState(true);
 
   const directRouteId = id ? String(id) : undefined;
-  const VALID_PROVIDERS = ["steam", "psn", "xbox", "retroachievements"] as const;
+  const VALID_PROVIDERS = ["steam", "epic", "psn", "xbox", "retroachievements"] as const;
   const typedPlatform = VALID_PROVIDERS.find((p) => p === routePlatform);
-  const routeGame = location.state?.game as
-    | SteamGame
-    | PsnGame
-    | RetroAchievementsGame
-    | XboxGame
-    | undefined;
+  const routeGame = location.state?.game as GameData | undefined;
   const matchingRouteGame =
     routeGame && directRouteId
       ? String((routeGame as { appid?: number | string }).appid) === directRouteId
@@ -101,10 +93,7 @@ const GameDetails: React.FC = () => {
     if (directRouteId) {
       return (
         (resolvedCrossPlatformGame?.platforms?.[0]?.data as
-          | SteamGame
-          | PsnGame
-          | RetroAchievementsGame
-          | XboxGame
+          | GameData
           | undefined) || null
       );
     }
@@ -147,7 +136,7 @@ const GameDetails: React.FC = () => {
 
   const displayGame = (selectedPlatformData
     ? platformGameDetail || selectedPlatformData.data
-    : platformGameDetail || game || resolvedCrossPlatformGame?.platforms[0]?.data || null) as SteamGame | PsnGame | RetroAchievementsGame | XboxGame | null;
+    : platformGameDetail || game || resolvedCrossPlatformGame?.platforms[0]?.data || null) as GameData | null;
 
   const hasGameData = game || resolvedCrossPlatformGame || platformGameDetail;
 
@@ -168,7 +157,7 @@ const GameDetails: React.FC = () => {
     [displayGame],
   );
   const hasPlaytime = useMemo(
-    () => !!displayGame && ("playtime_forever" in displayGame || "total_playtime" in displayGame),
+    () => !!displayGame && hasKnownPlaytime(displayGame),
     [displayGame],
   );
   const completionPercentage = useMemo(() => {
@@ -197,6 +186,7 @@ const GameDetails: React.FC = () => {
 
   const providerKey = useMemo<string | null>(() => {
     if (!displayGame) return null;
+    if (isEpicGame(displayGame)) return "epic";
     if (isRetroAchievementsGame(displayGame)) return "retroachievements";
     if (isXboxGame(displayGame)) return "xbox";
     if (isPsnGame(displayGame)) return "psn";
@@ -477,7 +467,9 @@ const GameDetails: React.FC = () => {
                   label={
                     p.platform === "psn"
                       ? "PlayStation"
-                      : p.platform.charAt(0).toUpperCase() + p.platform.slice(1)
+                      : p.platform === "epic"
+                        ? "Epic Games"
+                        : p.platform.charAt(0).toUpperCase() + p.platform.slice(1)
                   }
                 />
               ))}

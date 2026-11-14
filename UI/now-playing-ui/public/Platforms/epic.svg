@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1807" role="img" aria-label="Epic Games">
+  <title>Epic Games</title>
+  <path fill="#2b2b2b" d="M160 0h1216a160 160 0 0 1 160 160v1170a160 160 0 0 1-88 143l-618 329a120 120 0 0 1-120 0l-618-329A160 160 0 0 1 0 1330V160A160 160 0 0 1 160 0Z"/>
+  <text x="768" y="955" text-anchor="middle" fill="#ffffff" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="1000" letter-spacing="-8" textLength="980" lengthAdjust="spacingAndGlyphs">EPIC</text>
+  <text x="768" y="1305" text-anchor="middle" fill="#ffffff" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="800" font-size="275" textLength="1090" lengthAdjust="spacingAndGlyphs">GAMES</text>
+  <path fill="#ffffff" d="M468 1430l300 145 300-145v85L768 1660l-300-145Z"/>
+</svg>

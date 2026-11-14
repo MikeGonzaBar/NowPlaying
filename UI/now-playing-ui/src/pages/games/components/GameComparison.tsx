@@ -71,11 +71,13 @@ const SourceCard: React.FC<SourceCardProps> = ({ platform }) => {
     const platformName = getPlatformName(platform.platform);
     const platformColor = platform.platform === "steam"
         ? "#1b2838"
-        : platform.platform === "psn"
-            ? "#003087"
-            : platform.platform === "xbox"
-                ? "#107c10"
-                : "#cc9900";
+        : platform.platform === "epic"
+            ? "#2a2a2a"
+            : platform.platform === "psn"
+                ? "#003087"
+                : platform.platform === "xbox"
+                    ? "#107c10"
+                    : "#cc9900";
     const completionRate = total > 0
         ? ((unlockedAchievements / total) * 100).toFixed(1)
         : "0.0";
@@ -134,6 +136,7 @@ const AggregatedStat: React.FC<AggregatedStatProps> = ({ icon, label, value }) =
 
 const getPlatformName = (platform: string): string => {
     if (platform === "steam") return "Steam";
+    if (platform === "epic") return "Epic Games";
     if (platform === "psn") return "PlayStation";
     if (platform === "xbox") return "Xbox";
     return "RetroAchievements";

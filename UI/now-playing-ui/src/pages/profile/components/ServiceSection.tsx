@@ -9,7 +9,7 @@ import {
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { ServiceCard } from "./ServiceCard";
 import { getServicesByCategory } from "../utils/serviceConfig";
-import { ApiKey, NewApiKey, SyncSchedule, TraktAuthStatus } from "../types";
+import { ApiKey, NewApiKey, SyncSchedule, TraktAuthStatus, EpicAuthStatus } from "../types";
 
 interface ServiceSectionProps {
   category: "Gaming" | "Movies" | "Music";
@@ -22,6 +22,10 @@ interface ServiceSectionProps {
   isPSNEditing?: boolean;
   psnNPSSO?: string;
   psnUpdating?: boolean;
+  epicStatus?: EpicAuthStatus | null;
+  epicLoginUrl?: string;
+  epicConnecting?: boolean;
+  epicCode?: string;
 
   onNewKeyChange: (
     serviceName: string,
@@ -36,6 +40,9 @@ interface ServiceSectionProps {
   onPSNSave?: (apiKeyId: number) => Promise<void>;
   onPSNChange?: (value: string) => void;
   onTraktOAuth?: () => Promise<void>;
+  onEpicLogin?: () => Promise<void>;
+  onEpicConnect?: () => Promise<void>;
+  onEpicCodeChange?: (value: string) => void;
 }
 
 export const ServiceSection: React.FC<ServiceSectionProps> = ({
@@ -49,6 +56,10 @@ export const ServiceSection: React.FC<ServiceSectionProps> = ({
   isPSNEditing,
   psnNPSSO,
   psnUpdating,
+  epicStatus,
+  epicLoginUrl,
+  epicConnecting,
+  epicCode,
   onNewKeyChange,
   onSaveApiKey,
   onDeleteApiKey,
@@ -58,6 +69,9 @@ export const ServiceSection: React.FC<ServiceSectionProps> = ({
   onPSNSave,
   onPSNChange,
   onTraktOAuth,
+  onEpicLogin,
+  onEpicConnect,
+  onEpicCodeChange,
 }) => {
   const services = getServicesByCategory(category);
 
@@ -126,6 +140,19 @@ export const ServiceSection: React.FC<ServiceSectionProps> = ({
               }
               traktLoading={traktLoading}
               onTraktOAuth={onTraktOAuth}
+              epicStatus={service.name === "epic" ? epicStatus : undefined}
+              epicLoginUrl={
+                service.name === "epic" ? epicLoginUrl : undefined
+              }
+              epicConnecting={
+                service.name === "epic" ? epicConnecting : undefined
+              }
+              epicCode={service.name === "epic" ? epicCode : undefined}
+              onEpicCodeChange={
+                service.name === "epic" ? onEpicCodeChange : undefined
+              }
+              onEpicLogin={onEpicLogin}
+              onEpicConnect={onEpicConnect}
             />
           );
         })}

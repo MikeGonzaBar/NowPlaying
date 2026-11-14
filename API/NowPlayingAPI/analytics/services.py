@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, date
 from collections import Counter
 from .models import GamingStreak
 from steam.models import Game as SteamGame, Achievement as SteamAchievement
+from epic.models import EpicGame, EpicAchievement
 from playstation.models import PSNGame, PSNAchievement
 from xbox.models import XboxGame, XboxAchievement
 from retroachievements.models import RetroAchievementsGame, GameAchievement
@@ -365,6 +366,14 @@ class AnalyticsService:
         
         platforms = {
             'steam': {'games': 0, 'achievements': 0, 'playtime': timedelta()},
+            # Epic only exposes a cumulative launcher total, not per-window
+            # playtime, so report it as a lifetime figure.
+            'epic': {
+                'games': 0,
+                'achievements': 0,
+                'playtime': timedelta(),
+                'playtime_scope': 'lifetime',
+            },
             'psn': {'games': 0, 'achievements': 0, 'playtime': timedelta()},
             'xbox': {'games': 0, 'achievements': 0, 'playtime': timedelta()},
             'retroachievements': {'games': 0, 'achievements': 0, 'playtime': timedelta()},
@@ -395,6 +404,38 @@ class AnalyticsService:
             unlocked=True
         ).count()
         
+        # Epic never reports last-played, so activity is derived from achievement
+        # unlocks in the window; counting last_played would always return zero.
+        epic_achievements = EpicAchievement.objects.filter(
+            game__user=user,
+            unlock_time__gte=start_datetime,
+            unlock_time__lte=end_datetime,
+            unlocked=True,
+        )
+        platforms['epic']['games'] = (
+            epic_achievements.values('game').distinct().count()
+        )
+        platforms['epic']['achievements'] = epic_achievements.count()
+        # Playtime is a cumulative launcher total, not window-scoped. None means
+        # no game has a known total yet, which stays distinct from "0 minutes".
+        epic_playtime = (
+            EpicGame.objects.filter(user=user)
+            .exclude(playtime_source=EpicGame.PLAYTIME_UNKNOWN)
+            .aggregate(total=Sum('playtime_minutes'))['total']
+        )
+        platforms['epic']['playtime'] = (
+            timedelta(minutes=epic_playtime) if epic_playtime else None
+        )
+        logger.debug(
+            "Epic analytics for user %s (%d days): %d active games, "
+            "%d achievements, %s lifetime playtime",
+            user.pk,
+            days,
+            platforms['epic']['games'],
+            platforms['epic']['achievements'],
+            platforms['epic']['playtime'],
+        )
+
         platforms['psn']['games'] = PSNGame.objects.filter(user=user, last_played__gte=start_datetime, last_played__lte=end_datetime).count()
         platforms['psn']['achievements'] = PSNAchievement.objects.filter(
             game__user=user, unlock_time__gte=start_datetime, unlock_time__lte=end_datetime, unlocked=True
@@ -439,7 +480,7 @@ class AnalyticsService:
         for platform, data in platforms.items():
             formatted_data = data.copy()
             
-            if 'playtime' in formatted_data:
+            if formatted_data.get('playtime') is not None:
                 formatted_data['playtime'] = AnalyticsService._format_duration(formatted_data['playtime'])
             if 'listening_time' in formatted_data:
                 formatted_data['listening_time'] = AnalyticsService._format_duration(formatted_data['listening_time'])
@@ -1133,6 +1174,20 @@ class AnalyticsService:
             if game.num_possible_achievements > 0:
                 if game.num_achieved == game.num_possible_achievements:
                     completed_titles.add(AnalyticsService._game_identity(game.title))
+
+        # Epic has no last-played date; a game completed in the window is one
+        # whose last achievement unlocked inside it.
+        epic_games = EpicGame.objects.filter(
+            user=user,
+            achievements__unlocked=True,
+            achievements__unlock_time__gte=start_datetime,
+        ).distinct()
+        for game in epic_games:
+            total_achievements = game.achievements.count()
+            if total_achievements > 0:
+                unlocked_count = game.achievements.filter(unlocked=True).count()
+                if unlocked_count == total_achievements:
+                    completed_titles.add(AnalyticsService._game_identity(game.name))
         
         return len({title for title in completed_titles if title})
 

@@ -127,11 +127,18 @@ const AllGames: React.FC = () => {
 const getPlatformIcon = (platformKey: string): string => {
         switch (platformKey) {
             case "steam": return "/Platforms/steam.webp";
+            case "epic": return "/Platforms/epic.svg";
             case "psn": return "/Platforms/playstation.webp";
             case "xbox": return "/Platforms/xbox.svg";
             case "retroachievements": return "/Platforms/retroachievements.png";
             default: return "/Platforms/steam.webp";
         }
+    };
+
+    const getPlatformLabel = (platformKey: string): string => {
+        if (platformKey === "epic") return "Epic Games";
+        if (platformKey === "retroachievements") return "RetroAchievements";
+        return platformKey.charAt(0).toUpperCase() + platformKey.slice(1);
     };
 
     const getPlatformIconSize = (platformKey: string): number => {
@@ -143,7 +150,7 @@ const getPlatformIcon = (platformKey: string): string => {
         library.forEach((game) => {
             game.platforms.forEach((platform) => platforms.add(platform.key));
         });
-        const order = ['steam', 'psn', 'xbox', 'retroachievements'];
+        const order = ['steam', 'epic', 'psn', 'xbox', 'retroachievements'];
         return order.filter((key) => platforms.has(key));
     }, [library]);
 
@@ -175,7 +182,11 @@ const getPlatformIcon = (platformKey: string): string => {
         filtered = filtered.filter((item) => {
             if (playedFilter === 'all') return true;
             const hasPlayed = item.hasPlaytime || Boolean(item.lastPlayed);
-            return playedFilter === 'played' ? hasPlayed : !hasPlayed;
+            if (playedFilter === 'played') return hasPlayed;
+            // Epic has no last-played timestamp, so an Epic-only title without
+            // playtime is unknown rather than proven unplayed.
+            const epicOnly = item.game.sources.every((source) => source.platform === 'epic');
+            return !hasPlayed && !epicOnly;
         });
 
         if (sortKey === 'recently_earned_achievement') {
@@ -274,7 +285,7 @@ return (
                         </Button>
                         {availablePlatforms.map((platform) => (
                             <Button key={platform} size="small" onClick={() => { setSelectedPlatform(platform); setPage(1); }} variant={selectedPlatform === platform ? 'contained' : 'outlined'} startIcon={<Box component="img" src={getPlatformIcon(platform)} alt={`${platform} icon`} sx={{ width: getPlatformIconSize(platform) * 0.5, height: 'auto' }} />} aria-pressed={selectedPlatform === platform} sx={{ fontSize: '12px', textTransform: 'none', fontFamily: 'Inter, sans-serif', py: 1.25, backgroundColor: selectedPlatform === platform ? 'rgba(59, 130, 246, 0.2)' : 'transparent', border: '1px solid rgba(59, 130, 246, 0.5)', color: zincColors.white, '&:hover': { backgroundColor: 'rgba(59, 130, 246, 0.3)' } }}>
-                                {platform === 'retroachievements' ? 'RetroAchievements' : platform.charAt(0).toUpperCase() + platform.slice(1)}
+                                {getPlatformLabel(platform)}
                             </Button>
                         ))}
                     </Box>
@@ -371,7 +382,7 @@ return (
                             aria-pressed={selectedPlatform === platform}
                             sx={{ fontSize: '12px', textTransform: 'none', fontFamily: 'Inter, sans-serif', py: 1.25, backgroundColor: selectedPlatform === platform ? 'rgba(59, 130, 246, 0.2)' : 'transparent', border: '1px solid rgba(59, 130, 246, 0.5)', color: zincColors.white, '&:hover': { backgroundColor: 'rgba(59, 130, 246, 0.3)' } }}
                         >
-                            {platform === 'retroachievements' ? 'RetroAchievements' : platform.charAt(0).toUpperCase() + platform.slice(1)}
+                            {getPlatformLabel(platform)}
                         </Button>
                     ))}
                 </Box>

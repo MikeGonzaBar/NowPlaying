@@ -102,14 +102,58 @@ export interface XboxGame {
   locked_achievements: number;
 }
 
+export interface EpicAchievement {
+  name: string;
+  achievement_name: string;
+  description: string;
+  image: string;
+  unlocked: boolean;
+  unlock_time?: string | null;
+  progress: number;
+  xp: number;
+  rarity_percent: number | null;
+  hidden: boolean;
+}
+
+export interface EpicGame {
+  appid: string;
+  namespace: string;
+  app_name: string;
+  name: string;
+  description: string;
+  developer: string;
+  publisher: string;
+  cover_image: string;
+  img_icon_url: string;
+  acquired_at: string | null;
+  last_played: string | null;
+  /** 0 unless playtime_known is true; Epic reports cumulative launcher playtime. */
+  playtime_minutes: number;
+  playtime_formatted: string;
+  playtime_known: boolean;
+  playtime_source: "none" | "epic" | "manual" | "agent";
+  achievements: EpicAchievement[];
+  total_achievements: number;
+  unlocked_achievements_count: number;
+  locked_achievements_count: number;
+}
+
+/** Any provider's raw game record as returned by the API. */
+export type GameData =
+  | SteamGame
+  | PsnGame
+  | RetroAchievementsGame
+  | XboxGame
+  | EpicGame;
+
 
 /**
  * Platform metadata for display purposes.
  */
 export interface GamePlatform {
-  /** Internal platform key: "steam" | "psn" | "xbox" | "retroachievements" */
+  /** Internal platform key: "steam" | "epic" | "psn" | "xbox" | "retroachievements" */
   key: string;
-  /** Human-readable display name: "Steam", "PlayStation", "Xbox", etc. */
+  /** Human-readable display name: "Steam", "Epic Games", "PlayStation", etc. */
   displayName: string;
   /** Platform icon URL */
   icon: string;
@@ -141,7 +185,7 @@ export interface GameSource {
   /** Game image/cover URL */
   imageUrl: string;
   /** Original platform-specific game object */
-  raw: SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
+  raw: SteamGame | PsnGame | RetroAchievementsGame | XboxGame | EpicGame;
 }
 
 /**
@@ -182,6 +226,12 @@ export const PLATFORM_METADATA: Record<string, GamePlatform> = {
     displayName: "Steam",
     icon: "/Platforms/steam.webp",
     color: "#1b2838",
+  },
+  epic: {
+    key: "epic",
+    displayName: "Epic Games",
+    icon: "/Platforms/epic.svg",
+    color: "#2a2a2a",
   },
   psn: {
     key: "psn",

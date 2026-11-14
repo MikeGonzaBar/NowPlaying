@@ -49,6 +49,13 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
       borderColor: "#6366f1",
     },
     {
+      name: "Epic Games",
+      data: platform_distribution.epic,
+      color: "#94a3b8",
+      icon: VideogameAssetIcon,
+      borderColor: "#94a3b8",
+    },
+    {
       name: "PlayStation",
       data: platform_distribution.psn,
       color: "#3b82f6",
@@ -520,7 +527,9 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
                       color: "#64748b",
                     }}
                   >
-                    Playtime: {platform.data?.playtime || "Unavailable"}
+                    Playtime
+                    {platform.data?.playtime_scope === "lifetime" ? " (lifetime)" : ""}
+                    : {platform.data?.playtime || "Unavailable"}
                   </Typography>
                 </Box>
               </Card>

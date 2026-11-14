@@ -1,15 +1,10 @@
 import {
+  GameData,
   Game,
   GameSource,
-  SteamGame,
-  PsnGame,
-  RetroAchievementsGame,
-  XboxGame,
   PLATFORM_METADATA,
 } from "./types";
 import { normalizeGames } from "./normalize";
-
-type GameData = SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
 
 /**
  * Groups canonical games by their normalized title.

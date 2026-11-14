@@ -10,10 +10,7 @@ import {
   Cell,
 } from "recharts";
 import {
-  SteamGame,
-  PsnGame,
-  RetroAchievementsGame,
-  XboxGame,
+  GameData,
 } from "../utils/types";
 import {
   getAchievementUnlockDates,
@@ -29,7 +26,7 @@ import {
 } from "../../../utils/dates";
 
 interface EnhancedTimeMetricsProps {
-  game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
+  game: GameData;
 }
 
 const EnhancedTimeMetrics: React.FC<EnhancedTimeMetricsProps> = ({ game }) => {

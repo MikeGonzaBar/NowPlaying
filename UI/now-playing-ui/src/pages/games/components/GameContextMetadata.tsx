@@ -1,15 +1,12 @@
 import React, { useState } from "react";
 import { Box, Typography, Button } from "@mui/material";
 import {
-  SteamGame,
-  PsnGame,
-  RetroAchievementsGame,
-  XboxGame,
+  GameData,
 } from "../utils/types";
 import { zincColors } from "../../../theme";
 
 interface GameContextMetadataProps {
-  game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
+  game: GameData;
 }
 
 const GameContextMetadata: React.FC<GameContextMetadataProps> = ({ game }) => {

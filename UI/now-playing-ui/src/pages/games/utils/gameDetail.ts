@@ -22,7 +22,9 @@ export const getDetailMetrics = (data: Record<string, unknown>) => {
   }).length;
   return {
     playtime: parsePlaytimeMinutes(
-      data.playtime_forever ?? data.total_playtime,
+      data.playtime_forever ??
+        data.total_playtime ??
+        (data.playtime_known === true ? data.playtime_formatted : undefined),
     ),
     total: achievements.length,
     unlocked,

@@ -9,6 +9,7 @@ from .models import UserApiKey
 
 
 SERVICE_LABELS = {
+    "epic": "Epic Games",
     "lastfm": "Last.fm",
     "psn": "PlayStation",
     "retroachievements": "RetroAchievements",

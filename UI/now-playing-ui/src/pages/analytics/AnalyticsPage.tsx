@@ -81,6 +81,12 @@ interface AnalyticsData {
     };
     platform_distribution: {
         steam: { games: number; achievements: number; playtime: string };
+        epic: {
+            games: number;
+            achievements: number;
+            playtime: string | null;
+            playtime_scope?: "lifetime";
+        };
         psn: { games: number; achievements: number; playtime: string };
         xbox: { games: number; achievements: number; playtime: string };
         retroachievements: { games: number; achievements: number; playtime: string };
@@ -315,7 +321,7 @@ const AnalyticsPage: React.FC = () => {
 
     const getMostActivePlatform = () => {
         const platforms = analyticsData.platform_distribution;
-        const gamingPlatforms = ['steam', 'psn', 'xbox', 'retroachievements'];
+        const gamingPlatforms = ['steam', 'epic', 'psn', 'xbox', 'retroachievements'];
         const musicPlatforms = ['spotify', 'lastfm'];
 
         let maxActivity = 0;
@@ -339,6 +345,9 @@ const AnalyticsPage: React.FC = () => {
 
         if (mostActive === 'lastfm' || mostActive === 'spotify') {
             return 'Last.fm / Spotify';
+        }
+        if (mostActive === 'epic') {
+            return 'Epic Games';
         }
         return mostActive.charAt(0).toUpperCase() + mostActive.slice(1);
     };

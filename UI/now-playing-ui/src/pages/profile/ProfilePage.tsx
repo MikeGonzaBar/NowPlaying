@@ -1,7 +1,14 @@
+import { useEffect } from "react";
 import { Box, Typography, Paper, CircularProgress, Alert } from "@mui/material";
 
 import AppShell from "../../components/AppShell";
-import { useProfile, useApiKeys, useTraktAuth, usePSNEdit } from "./hooks";
+import {
+  useProfile,
+  useApiKeys,
+  useTraktAuth,
+  usePSNEdit,
+  useEpicAuth,
+} from "./hooks";
 import { authenticatedFetch } from "../../utils/auth";
 import { getApiUrl, API_CONFIG } from "../../config/api";
 import { ServiceSection, TraktOAuthDialog } from "./components";
@@ -40,6 +47,43 @@ function ProfilePage() {
     cancelEditing: cancelPSNEditing,
     setNPSSO,
   } = usePSNEdit();
+
+  const {
+    epicStatus,
+    epicLoginUrl,
+    epicConnecting,
+    epicCode,
+    setEpicCode,
+    refetchEpicStatus,
+    openEpicLogin,
+    connectEpic,
+  } = useEpicAuth();
+
+  useEffect(() => {
+    void refetchEpicStatus();
+  }, [refetchEpicStatus]);
+
+  const handleEpicLogin = async () => {
+    try {
+      await openEpicLogin();
+    } catch (error) {
+      alert(
+        error instanceof Error ? error.message : "Failed to open Epic login",
+      );
+    }
+  };
+
+  const handleEpicConnect = async () => {
+    try {
+      const message = await connectEpic();
+      alert(message);
+      await refetchApiKeys();
+    } catch (error) {
+      alert(
+        error instanceof Error ? error.message : "Failed to connect Epic Games",
+      );
+    }
+  };
 
   const handleSaveApiKey = async (
     serviceName: string,
@@ -195,6 +239,13 @@ function ProfilePage() {
                 onPSNCancel={cancelPSNEditing}
                 onPSNSave={handlePSNSave}
                 onPSNChange={setNPSSO}
+                epicStatus={epicStatus}
+                epicLoginUrl={epicLoginUrl}
+                epicConnecting={epicConnecting}
+                epicCode={epicCode}
+                onEpicCodeChange={setEpicCode}
+                onEpicLogin={handleEpicLogin}
+                onEpicConnect={handleEpicConnect}
               />
 
               {/* Movies Section */}

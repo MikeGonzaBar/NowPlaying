@@ -24,9 +24,22 @@ export const SERVICES: ServiceConfig[] = [
     saveButtonLabel: "Connect PlayStation",
   },
   {
-    name: "xbox",
-    displayName: "Xbox",
+    name: "epic",
+    displayName: "Epic Games",
     category: "Gaming",
+    placeholder: "Epic account",
+    imagePath: "/Platforms/epic.svg",
+    connectFlow: "epic",
+    notice:
+      "Epic does not publish a public API. NowPlaying uses the same launcher sign-in flow as open-source Epic clients, so the session expires after a few hours and needs reconnecting. Playtime is not available from Epic.",
+    userIdLabel: "Epic account",
+    apiKeyLabel: "Authorization code",
+    apiKeyPlaceholder: "Paste the redirect URL or code from Epic",
+    saveButtonLabel: "Connect Epic",
+  },
+  {
+    name: "xbox",
+    displayName: "Xbox",    category: "Gaming",
     placeholder: "Xbox User ID",
     imagePath: "/Platforms/xbox.svg",
     userIdLabel: "XUID",
@@ -88,6 +101,12 @@ export const getServiceTooltipContent = (serviceName: string): string => {
 • Sign in at playstation.com
 • Open ca.account.sony.com/api/v1/ssocookie in the same browser
 • Paste the npsso value; your PSN Online ID is detected automatically`,
+
+    epic: `Epic Games Setup:
+• Click "Open Epic login" and sign in
+• Copy the URL of the page you land on (it contains ?code=...)
+• Paste that URL here and click Connect
+• Epic sessions expire after a few hours; reconnect when prompted`,
 
     xbox: `Xbox Setup:
 • API Key: Get from OpenXBL.com

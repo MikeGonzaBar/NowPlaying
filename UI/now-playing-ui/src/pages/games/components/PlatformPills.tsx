@@ -1,15 +1,12 @@
 import React, { useMemo } from "react";
 import { Box, Typography } from "@mui/material";
 import {
-  SteamGame,
-  PsnGame,
-  RetroAchievementsGame,
-  XboxGame,
+  GameData,
 } from "../utils/types";
 import { parsePlatforms, formatPlatformName } from "../utils/utils";
 
 interface PlatformPillsProps {
-  game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
+  game: GameData;
 }
 
 const PlatformPills: React.FC<PlatformPillsProps> = ({ game }) => {

@@ -6,6 +6,7 @@ from datetime import timedelta
 from rest_framework.test import APITestCase
 
 from analytics.services import AnalyticsService
+from epic.models import EpicGame
 from music.models import Song
 from steam.models import Game
 from trakt.models import Episode, EpisodeWatch, Movie, MovieWatch, Season, Show
@@ -252,3 +253,45 @@ class RecentActivityEndpointTests(APITestCase):
 
     def test_non_integer_limit_is_rejected(self):
         self.assertEqual(self.client.get("/analytics/recent-activity/?limit=abc").status_code, 400)
+
+
+class EpicPlatformDistributionTests(TestCase):
+    """Epic playtime is a lifetime total and unknown is not zero."""
+
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.user = User.objects.create_user(username="epic-analytics")
+
+    def test_playtime_is_reported_as_lifetime(self):
+        EpicGame.objects.create(
+            user=self.user,
+            appid="cat-known",
+            namespace="ns-known",
+            name="Known",
+            playtime_minutes=120,
+            playtime_source=EpicGame.PLAYTIME_EPIC,
+        )
+        EpicGame.objects.create(
+            user=self.user,
+            appid="cat-unknown",
+            namespace="ns-unknown",
+            name="Unknown",
+        )
+
+        distribution = AnalyticsService.get_platform_distribution(self.user)
+
+        self.assertEqual(distribution["epic"]["playtime_scope"], "lifetime")
+        self.assertEqual(distribution["epic"]["playtime"], "2 hours")
+
+    def test_no_known_playtime_renders_as_unavailable(self):
+        EpicGame.objects.create(
+            user=self.user,
+            appid="cat-unknown",
+            namespace="ns-unknown",
+            name="Unknown",
+        )
+
+        distribution = AnalyticsService.get_platform_distribution(self.user)
+
+        self.assertIsNone(distribution["epic"]["playtime"])

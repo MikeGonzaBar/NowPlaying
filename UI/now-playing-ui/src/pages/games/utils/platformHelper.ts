@@ -1,4 +1,4 @@
-import { SteamGame, PsnGame, RetroAchievementsGame, XboxGame } from "./types";
+import { GameData } from "./types";
 
 const platformConfig = [
   {
@@ -73,14 +73,25 @@ const platformConfig = [
  */
 export const SERVICE_PLATFORM_CONFIG = {
   steam: { name: "Steam", color: "#1b2838" },
+  epic: { name: "Epic Games", color: "#2a2a2a" },
   psn: { name: "PlayStation", color: "#003791" },
   xbox: { name: "Xbox", color: "#107c10" },
   retroachievements: { name: "RetroAchievements", color: "#ff6b35" },
 } as const;
 
-export const getPlatformMatch = (
-  game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame,
-) => {
+export const getPlatformMatch = (game: GameData) => {
+  // Epic products carry no platform/console string; match them explicitly so
+  // they do not fall through to the Steam default logo.
+  if ("namespace" in game && "playtime_known" in game) {
+    return {
+      key: "namespace",
+      value: "Epic Games",
+      src: "/Platforms/epic.svg",
+      alt: "Epic Games Logo",
+      width: "45px",
+    };
+  }
+
   const matchedPlatform = platformConfig.find(({ key, value }) => {
     if (key === "default") return false;
     if (!(key in game)) return false;

@@ -17,10 +17,7 @@ import {
   AreaChart,
 } from "recharts";
 import {
-  SteamGame,
-  PsnGame,
-  RetroAchievementsGame,
-  XboxGame,
+  GameData,
 } from "../utils/types";
 import {
   getAchievementUnlockDates,
@@ -35,7 +32,7 @@ import {
 } from "../../../utils/dates";
 
 interface ActivitySparklineProps {
-  game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
+  game: GameData;
   height?: number;
   days?: number;
 }

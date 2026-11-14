@@ -80,12 +80,21 @@ class ApiKeySerializer(serializers.ModelSerializer):
         return connection_sync_state(instance)
 
     def validate(self, attrs: dict[str, object]) -> dict[str, object]:
-        """Prevent raw PlayStation NPSSO storage through the generic key API."""
+        """Prevent raw PlayStation/Epic secrets through the generic key API."""
         is_existing_psn = self.instance is not None and self.instance.service_name == 'psn'
         is_new_psn = attrs.get('service_name') == 'psn'
         if is_new_psn or is_existing_psn:
             raise serializers.ValidationError({
                 'service_name': 'Use /psn/exchange-npsso/ to connect PlayStation.'
+            })
+        is_epic = attrs.get('service_name') == 'epic' or (
+            self.instance is not None and self.instance.service_name == 'epic'
+        )
+        # Only block key writes; sync settings on an existing Epic connection
+        # must stay editable.
+        if is_epic and 'api_key' in attrs:
+            raise serializers.ValidationError({
+                'service_name': 'Use /epic/authenticate/ to connect Epic Games.'
             })
         return attrs
     

@@ -1,16 +1,13 @@
 import React, { useMemo, useState } from "react";
 import { Box, Typography, Button, Chip } from "@mui/material";
 import {
-  SteamGame,
-  PsnGame,
-  RetroAchievementsGame,
-  XboxGame,
+  GameData,
 } from "../utils/types";
 import { cleanAchievementDescription } from "../utils/utils";
 import { zincColors } from "../../../theme";
 
 interface MasterAchievementListProps {
-  game: SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
+  game: GameData;
 }
 
 type FilterType = "All" | "Unlocked" | "Locked";

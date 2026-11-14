@@ -23,10 +23,17 @@ describe("test infrastructure", () => {
 
     mockAuthenticatedFetch({
       "/steam/get-game-list-stored/": steamLibrary,
+      "/epic/get-game-list-stored/": { result: [] },
       "/psn/get-game-list-stored/": { result: [] },
       "/retroachievements/fetch-games/": { result: [] },
       "/xbox/get-game-list-stored/": { result: [] },
-      "/users/api-keys/services/": ["steam", "psn", "xbox", "retroachievements"],
+      "/users/api-keys/services/": [
+        "steam",
+        "epic",
+        "psn",
+        "xbox",
+        "retroachievements",
+      ],
     });
 
     render(

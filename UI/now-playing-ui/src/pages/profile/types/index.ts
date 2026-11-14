@@ -42,6 +42,7 @@ export interface ServiceConfig {
   placeholder: string;
   imagePath: string;
   requiresOAuth?: boolean;
+  connectFlow?: "epic";
   notice?: string;
   userIdLabel?: string;
   apiKeyLabel?: string;
@@ -54,6 +55,16 @@ export interface TraktAuthStatus {
   token_expired?: boolean;
   expires_at?: string;
   auth_url?: string;
+}
+
+export interface EpicAuthStatus {
+  connected: boolean;
+  expired: boolean;
+  needs_reauth: boolean;
+  account_id?: string;
+  display_name?: string;
+  access_expires_at?: string | null;
+  refresh_expires_at?: string | null;
 }
 
 export interface NewApiKey {

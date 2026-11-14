@@ -1,15 +1,15 @@
 import {
-  SteamGame,
-  PsnGame,
-  RetroAchievementsGame,
-  XboxGame,
+  GameData,
   Game,
   GameSource,
   PLATFORM_METADATA,
 } from "./types";
-import { isPsnGame, isXboxGame, isRetroAchievementsGame } from "./typeGuards";
-
-type GameData = SteamGame | PsnGame | RetroAchievementsGame | XboxGame;
+import {
+  isEpicGame,
+  isPsnGame,
+  isXboxGame,
+  isRetroAchievementsGame,
+} from "./typeGuards";
 
 /**
  * Normalizes a game title for cross-platform matching.
@@ -32,6 +32,13 @@ function extractPlaytime(game: GameData): {
   minutes: number;
   hasPlaytime: boolean;
 } {
+  if (isEpicGame(game)) {
+    return {
+      minutes: game.playtime_known ? game.playtime_minutes : 0,
+      hasPlaytime: game.playtime_known,
+    };
+  }
+
   if ("playtime_forever" in game && typeof game.playtime_forever === "number") {
     return { minutes: game.playtime_forever, hasPlaytime: true };
   }
@@ -122,6 +129,7 @@ function extractDates(game: GameData): {
  * Determines the platform key for a game.
  */
 function getPlatformKey(game: GameData): string {
+  if (isEpicGame(game)) return "epic";
   if (isRetroAchievementsGame(game)) return "retroachievements";
   if (isXboxGame(game)) return "xbox";
   if (isPsnGame(game)) return "psn";

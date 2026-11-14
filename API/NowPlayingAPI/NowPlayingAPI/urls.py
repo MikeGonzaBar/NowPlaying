@@ -39,6 +39,7 @@ import unicodedata
 from retroachievements import views as retroachievements_views
 from steam import views as steam_views
 from playstation import views as psn_views
+from epic import views as epic_views
 from trakt import views as trakt_views
 from music import views as music_views
 from xbox import views as xbox_views
@@ -180,6 +181,24 @@ def games_search(request: Request) -> Response:
         logger.warning("Steam search error: %s", e)
     
     try:
+        from epic.models import EpicGame
+        epic_games = EpicGame.objects.filter(
+            Q(user=request.user) &
+            (Q(name__icontains=query) | Q(name__istartswith=query))
+        )[:10]
+
+        for game in epic_games:
+            results.append({
+                'id': game.id,
+                'title': game.name,
+                'platform': 'epic',
+                'cover_image': game.cover_image or '',
+                'appid': game.appid,
+            })
+    except Exception as e:
+        logger.warning("Epic search error: %s", e)
+
+    try:
         from playstation.models import PSNGame
         psn_games = PSNGame.objects.filter(
             Q(user=request.user) & 
@@ -316,6 +335,27 @@ def games_detail_by_title(request: Request) -> Response:
         logger.warning("Steam detail by title error: %s", e)
 
     try:
+        from epic.models import EpicGame
+        from epic.serializers import EpicSerializer
+
+        def _epic_entry(game):
+            # Epic exposes no last-played date, so a recency rank would claim
+            # "#1 Most Played" for every title. Leave it unset.
+            return {
+                'platform': 'epic',
+                'data': EpicSerializer(game).data,
+            }
+
+        exact, near = _collect_matches(
+            EpicGame.objects.filter(user=request.user), 'name'
+        )
+        platforms_data.extend(_epic_entry(game) for game in _prefetch_matches(exact))
+        if near:
+            fuzzy_producers.append(lambda near=near: [_epic_entry(game) for game in _prefetch_matches(near)])
+    except Exception as e:
+        logger.warning("Epic detail by title error: %s", e)
+
+    try:
         from playstation.models import PSNGame
         from playstation.serializers import PSNGameSerializer
 
@@ -423,14 +463,16 @@ def games_detail_by_id(request: Request) -> Response:
     if not appid:
         return Response({'error': 'appid is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    if platform and platform not in {'steam', 'psn', 'xbox', 'retroachievements'}:
+    if platform and platform not in {'steam', 'epic', 'psn', 'xbox', 'retroachievements'}:
         return Response(
-            {'error': 'Invalid platform. Must be one of: steam, psn, xbox, retroachievements.'},
+            {'error': 'Invalid platform. Must be one of: steam, epic, psn, xbox, retroachievements.'},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
     from steam.models import Game as SteamGame
     from steam.serializers import SteamSerializer
+    from epic.models import EpicGame
+    from epic.serializers import EpicSerializer
     from playstation.models import PSNGame
     from playstation.serializers import PSNGameSerializer
     from xbox.models import XboxGame
@@ -438,6 +480,7 @@ def games_detail_by_id(request: Request) -> Response:
 
     platform_queries = [
         ('steam', SteamGame, SteamSerializer),
+        ('epic', EpicGame, EpicSerializer),
         ('psn', PSNGame, PSNGameSerializer),
         ('xbox', XboxGame, XboxGameSerializer),
     ]
@@ -486,9 +529,12 @@ def games_detail_by_id(request: Request) -> Response:
             )
             continue
         if game:
+            data = serializer(game).data
+            if platform_key != 'epic':
+                data = _with_recency_rank(data, model, game, request.user)
             platforms_data.append({
                 'platform': platform_key,
-                'data': _with_recency_rank(serializer(game).data, model, game, request.user),
+                'data': data,
             })
 
     if not platforms_data:
@@ -512,7 +558,7 @@ def games_detail_by_id(request: Request) -> Response:
             type=OpenApiTypes.STR,
             location=OpenApiParameter.QUERY,
             required=True,
-            enum=["steam", "psn", "xbox", "retroachievements"],
+            enum=["steam", "epic", "psn", "xbox", "retroachievements"],
             description="Platform that owns the app id.",
         ),
         OpenApiParameter(
@@ -532,9 +578,9 @@ def games_detail(request: Request) -> Response:
     platform = request.GET.get('platform', '').strip().lower()
     appid = request.GET.get('appid', '').strip()
 
-    if platform not in {'steam', 'psn', 'xbox', 'retroachievements'}:
+    if platform not in {'steam', 'epic', 'psn', 'xbox', 'retroachievements'}:
         return Response(
-            {'error': "platform must be one of: steam, psn, xbox, retroachievements."},
+            {'error': "platform must be one of: steam, epic, psn, xbox, retroachievements."},
             status=status.HTTP_400_BAD_REQUEST,
         )
     if not appid:
@@ -551,6 +597,16 @@ def games_detail(request: Request) -> Response:
         if not game:
             return Response({'error': 'Game not found.'}, status=status.HTTP_404_NOT_FOUND)
         return Response({'result': _with_recency_rank(SteamSerializer(game).data, SteamGame, game, request.user)})
+
+    if platform == 'epic':
+        from epic.models import EpicGame
+        from epic.serializers import EpicSerializer
+
+        game = EpicGame.objects.filter(user=request.user, appid=appid).prefetch_related('achievements').first()
+        if not game:
+            return Response({'error': 'Game not found.'}, status=status.HTTP_404_NOT_FOUND)
+        # No recency rank: Epic has no last-played timestamp.
+        return Response({'result': EpicSerializer(game).data})
 
     if platform == 'psn':
         from playstation.models import PSNGame
@@ -595,6 +651,7 @@ if settings.ENABLE_ADMIN_SITE:
 
 router = routers.DefaultRouter()
 router.register(r"steam", steam_views.SteamViewSet, basename="steam")
+router.register(r"epic", epic_views.EpicViewSet, basename="epic")
 router.register(r"psn", psn_views.PSNViewSet, basename="psn")
 router.register(r"trakt", trakt_views.TraktViewSet, basename="trakt")
 router.register(r"music", music_views.StreamedSongViewSet, basename="music")
