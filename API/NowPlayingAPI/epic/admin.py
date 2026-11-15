@@ -58,6 +58,7 @@ class EpicGameAdmin(admin.ModelAdmin):
         "last_played",
         "playtime_minutes",
         "playtime_source",
+        "playtime_updated_at",
         "metadata",
         "achievement_progress",
         "game_image_display",
@@ -75,6 +76,7 @@ class EpicGameAdmin(admin.ModelAdmin):
         "acquired_at",
         "last_played",
         "playtime_display",
+        "playtime_updated_at",
         "achievement_progress",
     ]
     inlines = [EpicAchievementInline]

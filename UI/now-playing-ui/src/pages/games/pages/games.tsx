@@ -105,7 +105,14 @@ function Games() {
   );
 
   const recentlyPlayed = useMemo(
-    () => consolidatedGames.slice(0, 10).map((game) => game.sources[0].raw),
+    () =>
+      [...consolidatedGames]
+        .sort(
+          (a, b) =>
+            (b.lastPlayed?.getTime() ?? 0) - (a.lastPlayed?.getTime() ?? 0),
+        )
+        .slice(0, 10)
+        .map((game) => game.sources[0].raw),
     [consolidatedGames],
   );
 
@@ -120,6 +127,10 @@ function Games() {
   const recent100Percent = useMemo(() => {
     return consolidatedGames
       .filter((game) => game.totalAchievements > 0 && game.unlockedAchievements >= game.totalAchievements)
+      .sort(
+        (a, b) =>
+          (b.lastPlayed?.getTime() ?? 0) - (a.lastPlayed?.getTime() ?? 0),
+      )
       .slice(0, 10)
       .map((game) => game.sources[0].raw)
   }, [consolidatedGames]);

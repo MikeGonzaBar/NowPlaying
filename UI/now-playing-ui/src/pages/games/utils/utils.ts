@@ -56,6 +56,20 @@ export const hasKnownPlaytime = (game: GameData): boolean => {
 };
 
 /**
+ * Timestamp of the last sync that observed a change in Epic's cumulative
+ * playtime. Epic exposes no last-played date, so this is the only recency
+ * signal available for its games; it is null for products never played.
+ */
+export const getEpicPlaytimeUpdatedAt = (game: GameData): Date | null => {
+  if (!isEpicGame(game) || !game.playtime_known || game.playtime_minutes <= 0) {
+    return null;
+  }
+  if (!game.playtime_updated_at) return null;
+  const updated = new Date(game.playtime_updated_at);
+  return Number.isNaN(updated.getTime()) ? null : updated;
+};
+
+/**
  * Whether a game should contribute to its platform's average achievement
  * completion.
  *

@@ -43,6 +43,10 @@ class EpicGame(models.Model):
     playtime_source = models.CharField(
         max_length=16, choices=PLAYTIME_SOURCES, default=PLAYTIME_UNKNOWN
     )
+    # Last sync that observed a new cumulative playtime for this product. Epic
+    # has no last-played timestamp, so this is the only recency signal available
+    # for "recently played". It changes only when the total actually moves.
+    playtime_updated_at = models.DateTimeField(null=True, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:

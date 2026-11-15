@@ -3,6 +3,35 @@ import { describe, expect, it, vi } from "vitest";
 import { useGameData } from "../pages/games/hooks/useGameData";
 import { mockAuthenticatedFetch } from "./setup";
 
+const epicProduct = (
+  appid: string,
+  name: string,
+  acquiredAt: string,
+  overrides: Record<string, unknown> = {},
+) => ({
+  appid,
+  namespace: "ns",
+  app_name: name,
+  name,
+  description: "",
+  developer: "",
+  publisher: "",
+  cover_image: "",
+  img_icon_url: "",
+  acquired_at: acquiredAt,
+  last_played: null,
+  playtime_minutes: 0,
+  playtime_formatted: "",
+  playtime_known: false,
+  playtime_source: "none",
+  playtime_updated_at: null,
+  achievements: [],
+  total_achievements: 0,
+  unlocked_achievements_count: 0,
+  locked_achievements_count: 0,
+  ...overrides,
+});
+
 describe("stored game library baseline", () => {
   it("updates the platform callback after refresh while preserving provider priority", async () => {
     const steam = {
@@ -126,31 +155,6 @@ describe("stored game library baseline", () => {
   });
 
   it("lists Epic library products by acquisition date", async () => {
-    const epicProduct = (
-      appid: string,
-      name: string,
-      acquiredAt: string,
-    ) => ({
-      appid,
-      namespace: "ns",
-      app_name: name,
-      name,
-      description: "",
-      developer: "",
-      publisher: "",
-      cover_image: "",
-      img_icon_url: "",
-      acquired_at: acquiredAt,
-      last_played: null,
-      playtime_minutes: 0,
-      playtime_formatted: "",
-      playtime_known: false,
-      playtime_source: "none",
-      achievements: [],
-      total_achievements: 0,
-      unlocked_achievements_count: 0,
-      locked_achievements_count: 0,
-    });
     mockAuthenticatedFetch({
       "/steam/get-game-list-stored/": { result: [] },
       "/epic/get-game-list-stored/": {
@@ -183,5 +187,44 @@ describe("stored game library baseline", () => {
     expect(
       result.current.getGamePlatform(result.current.latestPlayedGames[0]),
     ).toBe("epic");
+  });
+
+  it("orders played Epic products by their latest playtime change", async () => {
+    mockAuthenticatedFetch({
+      "/steam/get-game-list-stored/": { result: [] },
+      "/epic/get-game-list-stored/": {
+        result: [
+          epicProduct("aaa", "Unplayed Newer", "2026-02-01T00:00:00Z"),
+          epicProduct("bbb", "Played Earlier", "2024-01-01T00:00:00Z", {
+            playtime_known: true,
+            playtime_source: "epic",
+            playtime_minutes: 120,
+            playtime_updated_at: "2026-03-01T00:00:00Z",
+          }),
+          epicProduct("ccc", "Unplayed Older", "2025-01-01T00:00:00Z"),
+        ],
+      },
+      "/psn/get-game-list-stored/": { result: [] },
+      "/retroachievements/fetch-games/": { result: [] },
+      "/xbox/get-game-list-stored/": { result: [] },
+      "/users/api-keys/services/": [
+        "steam",
+        "epic",
+        "psn",
+        "xbox",
+        "retroachievements",
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useGameData("https://example.test"),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.latestPlayedGames.map((game) => game.name)).toEqual([
+      "Played Earlier",
+      "Unplayed Newer",
+      "Unplayed Older",
+    ]);
   });
 });

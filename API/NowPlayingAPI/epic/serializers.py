@@ -58,6 +58,7 @@ class EpicSerializer(serializers.ModelSerializer):
             "playtime_formatted",
             "playtime_known",
             "playtime_source",
+            "playtime_updated_at",
             "total_achievements",
             "unlocked_achievements_count",
             "locked_achievements_count",

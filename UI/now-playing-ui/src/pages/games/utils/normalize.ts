@@ -10,6 +10,7 @@ import {
   isXboxGame,
   isRetroAchievementsGame,
 } from "./typeGuards";
+import { getEpicPlaytimeUpdatedAt } from "./utils";
 
 /**
  * Normalizes a game title for cross-platform matching.
@@ -117,6 +118,11 @@ function extractDates(game: GameData): {
   lastPlayed: Date | null;
   firstPlayed: Date | null;
 } {
+  if (isEpicGame(game)) {
+    // Epic has no last-played date. Its latest playtime change is the closest
+    // honest activity signal and keeps played Epic titles in recent lists.
+    return { lastPlayed: getEpicPlaytimeUpdatedAt(game), firstPlayed: null };
+  }
   const lastPlayed = game.last_played ? new Date(game.last_played) : null;
   const firstPlayed =
     "first_played" in game && game.first_played

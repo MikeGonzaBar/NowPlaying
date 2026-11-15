@@ -27,7 +27,8 @@ model memory.
 
 **Bottom line:** Epic now reaches Steam parity for library, metadata, achievements
 and total playtime. It does not expose last-played or per-session timestamps, so
-recent activity is derived from achievement unlock dates.
+recent activity is derived from achievement unlock dates and from the last sync
+that observed a changed cumulative playtime.
 
 ### Non-goals
 
@@ -161,7 +162,8 @@ Objective: a working, tested provider behind the existing sync machinery.
    - `EpicGame`: `user`, `appid` (catalog item id, **string** — not an integer),
      `namespace`, `app_name`, `name`, `description`, `developer`, `publisher`,
      `cover_image`, `last_played`, `playtime_minutes` (default 0 = unknown),
-     `playtime_source` (`none|epic|manual|agent`), `metadata` JSON.
+     `playtime_source` (`none|epic|manual|agent`), `playtime_updated_at`,
+     `metadata` JSON.
      `unique_together = ("user", "appid")`.
    - `EpicAchievement`: `game`, `achievement_name`, `display_name`, `description`,
      `icon`, `unlocked`, `unlock_time`, `progress`, `xp`, `rarity_percent`,
@@ -243,8 +245,10 @@ Authorization: bearer <access_token>
 - A product may have several app builds. Reports for the same namespace describe
   the same sessions, so the **maximum** total wins; summing would double-count.
 - There is no `lastPlayed`, session list, or date range. Playtime is therefore a
-  lifetime figure (`playtime_scope: "lifetime"` in analytics), and recent
-  activity still comes from achievement `unlockDate`.
+  lifetime figure (`playtime_scope: "lifetime"` in analytics). To place played
+  Epic products in recent lists, the backend records `playtime_updated_at`
+  whenever a sync observes a changed cumulative total; achievement `unlockDate`
+  remains the only per-event timestamp.
 - Games never launched through the Epic launcher return no artifact: they stay
   `playtime_source="none"` (unknown), never zero.
 - Manual/agent totals are authoritative and are not overwritten by a sync.
@@ -475,9 +479,11 @@ is why mapping takes the maximum per namespace instead of summing.
   launcher have no artifact, so `playtime_known=false` and the UI shows "—";
   this means unknown, not zero. Analytics labels the figure "(lifetime)".
 - Epic is interval-only (6h) because the refresh window is shorter than 24h.
-- Epic has no last-played timestamp or per-session history. The list is ordered
-  by `acquired_at` so the library is visible; that date is never shown as a play
-  date. Recent activity uses achievement unlock dates.
+- Epic has no last-played timestamp or per-session history. Unplayed products are
+  ordered by `acquired_at` so the library is visible; that date is never shown as
+  a play date. Played products carry `playtime_updated_at`, the last sync that
+  observed a new cumulative total, which feeds the "Recently Played" and
+  "Recent 100%" ordering alongside other platforms' real last-played dates.
 - Achievement sync costs two Store GraphQL calls per owned product (definitions
   are cached for a week, but the per-account state must be re-read), so a
   500-game library takes a few minutes per sync; there is no bulk endpoint.

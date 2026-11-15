@@ -132,6 +132,8 @@ export interface EpicGame {
   playtime_formatted: string;
   playtime_known: boolean;
   playtime_source: "none" | "epic" | "manual" | "agent";
+  /** Last sync that observed a changed cumulative playtime; null if never. */
+  playtime_updated_at?: string | null;
   achievements: EpicAchievement[];
   total_achievements: number;
   unlocked_achievements_count: number;

@@ -17,6 +17,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.db import transaction
+from django.utils import timezone
 
 import http_client
 
@@ -780,12 +781,26 @@ def _sync_products(
             defaults.pop("playtime_source", None)
 
         if game is None:
+            if "playtime_minutes" in defaults:
+                defaults["playtime_updated_at"] = timezone.now()
             game, _created = EpicGame.objects.update_or_create(
                 user=user, appid=item_id, defaults=defaults
             )
             created_count += 1
             status = "created"
         else:
+            # Only a changed cumulative total is real new activity. Re-syncing
+            # the same playtime must not keep pushing the game to the top of
+            # "Recently Played".
+            if (
+                "playtime_minutes" in defaults
+                and (
+                    game.playtime_minutes != defaults["playtime_minutes"]
+                    or game.playtime_updated_at is None
+                )
+            ):
+                defaults["playtime_updated_at"] = timezone.now()
+
             changed = [
                 field
                 for field, value in defaults.items()

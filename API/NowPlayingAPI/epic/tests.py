@@ -1,11 +1,12 @@
 import json
-from datetime import datetime, time, timezone as datetime_timezone
+from datetime import datetime, time, timedelta, timezone as datetime_timezone
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.test import SimpleTestCase, TestCase, override_settings
+from django.utils import timezone as django_timezone
 
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -346,6 +347,7 @@ class EpicSyncTests(TestCase):
         self.assertEqual(hades.playtime_source, EpicGame.PLAYTIME_EPIC)
         self.assertTrue(hades.playtime_known)
         self.assertEqual(hades.convert_playtime(), "2h 30m")
+        self.assertIsNotNone(hades.playtime_updated_at)
 
         achievements = {
             achievement.name: achievement
@@ -401,6 +403,27 @@ class EpicSyncTests(TestCase):
         unlisted = EpicGame.objects.get(user=self.user, namespace="ns_unlisted")
         self.assertEqual(unlisted.playtime_source, EpicGame.PLAYTIME_UNKNOWN)
         self.assertFalse(unlisted.playtime_known)
+        self.assertIsNone(unlisted.playtime_updated_at)
+
+    def test_sync_tracks_when_playtime_last_changed(self):
+        sync_library(self.user, token_payload(), persist=self.persisted.append)
+        hades = EpicGame.objects.get(user=self.user, namespace=HADES_NAMESPACE)
+        first_update = hades.playtime_updated_at
+        self.assertIsNotNone(first_update)
+
+        previous = django_timezone.now() - timedelta(days=7)
+        EpicGame.objects.filter(pk=hades.pk).update(playtime_updated_at=previous)
+        sync_library(self.user, token_payload(), persist=self.persisted.append)
+
+        hades.refresh_from_db()
+        self.assertEqual(hades.playtime_updated_at, previous)
+
+        EpicGame.objects.filter(pk=hades.pk).update(playtime_minutes=1)
+        sync_library(self.user, token_payload(), persist=self.persisted.append)
+
+        hades.refresh_from_db()
+        self.assertEqual(hades.playtime_minutes, 150)
+        self.assertGreater(hades.playtime_updated_at, previous)
 
     def test_sync_does_not_overwrite_manual_playtime(self):
         EpicGame.objects.create(
@@ -417,6 +440,7 @@ class EpicSyncTests(TestCase):
         hades = EpicGame.objects.get(user=self.user, namespace=HADES_NAMESPACE)
         self.assertEqual(hades.playtime_minutes, 5000)
         self.assertEqual(hades.playtime_source, EpicGame.PLAYTIME_MANUAL)
+        self.assertIsNone(hades.playtime_updated_at)
 
     def test_sync_is_idempotent(self):
         sync_library(self.user, token_payload(), persist=self.persisted.append)

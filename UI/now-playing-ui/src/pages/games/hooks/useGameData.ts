@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useApi } from "../../../hooks/useApi";
 import { GameData } from "../utils/types";
-import { parseDate } from "../utils/utils";
+import { getEpicPlaytimeUpdatedAt, parseDate } from "../utils/utils";
 import { consolidateRawGames, getCrossPlatformGames } from "../utils/grouping";
 
 interface GameApiResponse {
@@ -78,12 +78,15 @@ export const useGameData = (beBaseUrl: string) => {
     xboxArray: GameData[],
   ): GameData[] => {
     const invalidTimestamp = new Date(1970, 0, 1).getTime();
-    // Epic exposes no last-played timestamp. Sort those products by acquisition
-    // date instead so a connected Epic library is still listed; `lastPlayed` is
-    // only used for ordering, never displayed as a play date.
+    // Epic exposes no last-played timestamp. Prefer the last time its playtime
+    // actually changed, then fall back to the acquisition date so a connected
+    // library is still listed; `lastPlayed` is only used for ordering, never
+    // displayed as a play date.
     const sortTimestamp = (game: GameData): Date => {
       const lastPlayed = parseDate(game.last_played);
       if (lastPlayed.getTime() !== invalidTimestamp) return lastPlayed;
+      const playtimeUpdated = getEpicPlaytimeUpdatedAt(game);
+      if (playtimeUpdated) return playtimeUpdated;
       const acquiredAt = (game as { acquired_at?: string | null }).acquired_at;
       return parseDate(acquiredAt);
     };
