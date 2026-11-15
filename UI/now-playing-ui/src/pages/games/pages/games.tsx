@@ -60,7 +60,7 @@ import {
   isRetroAchievementsGame,
   isSteamGame,
 } from "../utils/typeGuards";
-import { consolidateRawGames } from "../utils/grouping";
+import { consolidateRawGames, getCompletedSource } from "../utils/grouping";
 
 import { SERVICE_PLATFORM_CONFIG } from "../utils/platformHelper";
 import { GameImage } from "../components/GameImage";
@@ -126,13 +126,17 @@ function Games() {
 
   const recent100Percent = useMemo(() => {
     return consolidatedGames
-      .filter((game) => game.totalAchievements > 0 && game.unlockedAchievements >= game.totalAchievements)
+      .flatMap((game) => {
+        const completedSource = getCompletedSource(game);
+        return completedSource ? [{ game, completedSource }] : [];
+      })
       .sort(
         (a, b) =>
-          (b.lastPlayed?.getTime() ?? 0) - (a.lastPlayed?.getTime() ?? 0),
+          (b.game.lastPlayed?.getTime() ?? 0) -
+          (a.game.lastPlayed?.getTime() ?? 0),
       )
       .slice(0, 10)
-      .map((game) => game.sources[0].raw)
+      .map(({ completedSource }) => completedSource.raw)
   }, [consolidatedGames]);
 
   useEffect(() => {

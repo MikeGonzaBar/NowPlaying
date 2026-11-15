@@ -146,3 +146,20 @@ export function getCrossPlatformGames(games: Game[]): Game[] {
 export function consolidateRawGames(games: GameData[]): Game[] {
   return consolidateGames(normalizeGames(games));
 }
+
+/**
+ * Returns the first platform source that has a complete achievement set.
+ *
+ * Completion is tracked per platform. A cross-platform title may be 100% on
+ * one store and partially complete on another, so the Recent 100% list must
+ * look at each source rather than the aggregated totals.
+ */
+export function getCompletedSource(game: Game): GameSource | null {
+  return (
+    game.sources.find(
+      (source) =>
+        source.totalAchievements > 0 &&
+        source.unlockedAchievements >= source.totalAchievements,
+    ) ?? null
+  );
+}
