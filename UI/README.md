@@ -1,6 +1,6 @@
 # NowPlaying UI
 
-**Version 1.4.0**
+**Version 1.4.1**
 
 This folder contains the frontend user interface for the **NowPlaying** project, built with **React**, **TypeScript**, and **Vite**, with Material-UI for styling. The application provides a comprehensive dashboard for tracking your gaming, movie, and music activities across multiple platforms with advanced search functionality.
 
@@ -18,7 +18,7 @@ This folder contains the frontend user interface for the **NowPlaying** project,
 
 ### Advanced Search Functionality
 
-- **Cross-Platform Game Search**: Real-time search across Steam, PlayStation, Xbox, and RetroAchievements
+- **Cross-Platform Game Search**: Real-time search across Steam, Epic, PlayStation, Xbox, and RetroAchievements
   - **Autocomplete Interface**: Shows game title, platform, and cover image in search suggestions
   - **Debounced Search**: Optimized API calls with intelligent input handling to reduce server load
   - **Seamless Navigation**: Direct navigation to game details page with full game data context
@@ -52,7 +52,7 @@ This folder contains the frontend user interface for the **NowPlaying** project,
 The NowPlaying UI is a modern React application that provides:
 
 - **JWT Authentication**: Secure login/registration with automatic token refresh
-- **Multi-Platform Gaming**: Steam, PlayStation, Xbox, and RetroAchievements integration
+- **Multi-Platform Gaming**: Steam, Epic, PlayStation, Xbox, and RetroAchievements integration
 - **Entertainment Tracking**: Trakt integration for movies and TV shows
 - **Analytics Dashboard**: Comprehensive statistics and insights across all entertainment platforms with performance-optimized caching
 - **Music Integration**: Spotify and Last.fm scrobbling with Last.fm genre analytics

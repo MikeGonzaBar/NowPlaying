@@ -1,8 +1,14 @@
 # NowPlaying API
 
-**Version 1.4.0**
+**Version 1.4.1**
 
-This folder contains the backend API for the **NowPlaying** project. The API is built using Django 5.1 and Django REST Framework to fetch and manage data from various entertainment services including Steam, PlayStation, Xbox, RetroAchievements, Spotify, Last.fm, and Trakt.
+## 1.4.1 - Documentation Update
+
+- Added Epic Games Store integration documentation (README_EPIC.md)
+- Updated gaming services section with Epic endpoints
+- Added Epic to platform lists across all documentation
+
+This folder contains the backend API for the **NowPlaying** project. The API is built using Django 5.1 and Django REST Framework to fetch and manage data from various entertainment services including Steam, Epic, PlayStation, Xbox, RetroAchievements, Spotify, Last.fm, and Trakt.
 
 ## Quick Start
 
@@ -149,6 +155,17 @@ The system uses encrypted storage for all external service credentials. See the 
 
 📖 **[Complete Xbox Documentation](./NowPlayingAPI/xbox/README_XBOX.md)**
 
+#### Epic Games Store
+
+**Endpoints**: `/epic/`
+
+- **Game Library**: Fetch and store your Epic Games library
+- **Achievement Tracking**: Monitor achievement progress across Epic games
+- **Playtime Analytics**: Track total playtime and gaming habits
+- **Cumulative Playtime**: Epic reports lifetime playtime, not per-window
+
+📖 **[Epic Games Documentation](./NowPlayingAPI/epic/README_EPIC.md)**
+
 #### RetroAchievements
 
 **Endpoints**: `/retroachievements/`
@@ -169,7 +186,7 @@ The system uses encrypted storage for all external service credentials. See the 
 
 - **Comprehensive Statistics**: Cross-platform analytics combining gaming, music, and movie data
 - **Performance Optimized**: Cached results with intelligent query aggregation
-- **Multi-Platform Gaming Stats**: Unified statistics across Steam, PlayStation, Xbox, and RetroAchievements
+- **Multi-Platform Gaming Stats**: Unified statistics across Steam, Epic, PlayStation, Xbox, and RetroAchievements
 - **Entertainment Insights**: Music listening patterns, Last.fm genre tags, TMDB media genres, and movie/show watching trends
 - **Gaming Streaks**: Achievement and activity streak tracking
 - **Cache Invalidation**: Music and Trakt sync operations clear analytics caches after data changes
@@ -419,6 +436,8 @@ API/
 │   │   └── README_PLAYSTATION.md # Detailed PlayStation documentation
 │   ├── xbox/                # Xbox integration
 │   │   └── README_XBOX.md   # Detailed Xbox service documentation
+│   ├── epic/                # Epic Games Store integration
+│   │   └── README_EPIC.md  # Detailed Epic service documentation
 │   ├── retroachievements/   # RetroAchievements integration
 │   │   └── README_RETROACHIEVEMENTS.md # Detailed RA documentation
 │   ├── static/              # Collected static files

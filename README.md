@@ -1,12 +1,12 @@
 # NowPlaying
 
-**Version 1.4.0**
+**Version 1.4.1**
 
 ## What is it about?
 
 NowPlaying is a comprehensive portfolio project designed to showcase your latest entertainment activities across multiple platforms. The application features JWT-based authentication and provides a centralized dashboard to track:
 
-- **Gaming Activity**: Latest games you've played, time spent, achievements earned, and trophies collected across multiple platforms
+- **Gaming Activity**: Latest games you've played, time spent, achievements earned, and trophies collected across multiple platforms (Steam, Epic, PlayStation, Xbox, RetroAchievements)
 - **Movie & TV Shows**: Movies and shows you've watched with detailed progress tracking
 - **Music**: Songs you've listened to with scrobbling data and listening history
 
@@ -74,9 +74,13 @@ The application includes user authentication, profile management, integrated API
   - **Component Structure**: Verified all React components use Material-UI styling efficiently
   - **Performance**: Maintained all existing functionality while dramatically improving load times
 
+### Version 1.4.1 - Documentation Update
+
+- **Epic Games Documentation**: Added Epic Games Store integration documentation to API and root README files, including endpoints, authentication, and features.
+
 ### Advanced Search Functionality
 
-- **Cross-Platform Game Search**: Real-time search across Steam, PlayStation, Xbox, and RetroAchievements platforms
+- **Cross-Platform Game Search**: Real-time search across Steam, Epic, PlayStation, Xbox, and RetroAchievements platforms
   - **Autocomplete Suggestions**: Shows game title, platform, and cover image
   - **Debounced Search**: Optimized API calls with intelligent input handling
   - **Seamless Navigation**: Direct navigation to game details page on selection

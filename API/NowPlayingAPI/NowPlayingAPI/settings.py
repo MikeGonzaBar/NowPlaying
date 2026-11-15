@@ -255,7 +255,7 @@ REST_FRAMEWORK = {
 SPECTACULAR_SETTINGS: dict[str, Any] = {
     'TITLE': 'NowPlaying API',
     'DESCRIPTION': 'Entertainment activity API for games, music, movies, shows, and analytics.',
-    'VERSION': os.environ.get('API_VERSION', '1.4.0'),
+    'VERSION': os.environ.get('API_VERSION', '1.4.1'),
     'SERVE_INCLUDE_SCHEMA': False,
     'SWAGGER_UI_DIST': 'SIDECAR',
     'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
