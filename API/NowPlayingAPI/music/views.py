@@ -15,6 +15,7 @@ from django.db.models import Count, Q
 from django.utils import timezone
 from datetime import timedelta, datetime
 from utils import versioned_cache_key, versioned_cache_invalidate
+import hashlib
 import logging
 import threading
 
@@ -315,9 +316,12 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
 
         # Every filter must be part of the cache key; otherwise a filtered
         # response can be served for an unfiltered request and vice versa.
+        # Hash the search term so arbitrary characters cannot break backends
+        # such as memcached that reject spaces in keys.
+        search_key = hashlib.md5(search.lower().encode("utf-8")).hexdigest()[:12] if search else "none"
         cache_key = (
             f"stored_songs_{request.user.id}_{source}_{date_param}_"
-            f"{search.lower()}_{page}_{page_size}"
+            f"{search_key}_{page}_{page_size}"
         )
         cached_result = cache.get(cache_key)
         if cached_result:
