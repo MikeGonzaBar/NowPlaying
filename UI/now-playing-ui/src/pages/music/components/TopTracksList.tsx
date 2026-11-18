@@ -1,7 +1,12 @@
 import { Box, Typography } from "@mui/material";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import MusicNoteIcon from "@mui/icons-material/MusicNote";
-import { TopTrack } from "../types";
+
+interface TopTrack {
+  title: string;
+  count: number;
+  recording_id?: string;
+}
 
 interface TopTracksListProps {
   tracks: TopTrack[];
@@ -14,11 +19,11 @@ export function TopTracksList({ tracks, isFirst = false }: TopTracksListProps) {
       <Typography
         sx={{
           mb: 1.5,
-          fontSize: "10px",
+          fontSize: "12px",
           fontWeight: 700,
-          color: "#71717a",
+          color: "#a1a1aa",
           textTransform: "uppercase",
-          letterSpacing: "0.2em",
+          letterSpacing: "0.16em",
         }}
       >
         Top 3 Tracks
@@ -35,8 +40,14 @@ export function TopTracksList({ tracks, isFirst = false }: TopTracksListProps) {
               bgcolor: "rgba(0,0,0,0.4)",
               border: "1px solid rgba(255,255,255,0.05)",
               borderRadius: "12px",
+              color: "inherit",
+              textDecoration: "none",
               "&:hover": {
                 bgcolor: "rgba(255,255,255,0.1)",
+              },
+              "&:focus-visible": {
+                outline: "2px solid #f43f5e",
+                outlineOffset: 2,
               },
               transition: "all 0.2s",
             }}

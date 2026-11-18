@@ -227,4 +227,45 @@ describe("stored game library baseline", () => {
       "Unplayed Older",
     ]);
   });
+
+  it("keeps successful providers when another provider fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const steamGame = {
+      appid: 11,
+      name: "Still Loaded",
+      playtime_forever: 90,
+      last_played: "2026-07-09T12:00:00Z",
+    };
+
+    mockAuthenticatedFetch({
+      "/steam/get-game-list-stored/": { result: [steamGame] },
+      "/epic/get-game-list-stored/": {
+        result: { error: "Epic session expired" },
+      },
+      "/psn/get-game-list-stored/": { result: [] },
+      "/retroachievements/fetch-games/": { result: [] },
+      "/xbox/get-game-list-stored/": { result: [] },
+      "/users/api-keys/services/": [
+        "steam",
+        "epic",
+        "psn",
+        "xbox",
+        "retroachievements",
+      ],
+    });
+
+    const { result } = renderHook(() => useGameData("https://example.test"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // A failed provider must be reported separately, not hidden or turned
+    // into an empty library, and it must not block the successful one.
+    expect(result.current.providerErrors.epic).toContain("Epic session expired");
+    expect(result.current.providerErrors.steam).toBeUndefined();
+    expect(result.current.latestPlayedGames.map((game) => game.name)).toEqual([
+      "Still Loaded",
+    ]);
+    expect(result.current.providerLoading.epic).toBe(false);
+    expect(result.current.providerLoading.steam).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
 });

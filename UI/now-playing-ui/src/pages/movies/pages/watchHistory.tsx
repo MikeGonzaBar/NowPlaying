@@ -336,6 +336,60 @@ function WatchHistory() {
     return groups;
   };
 
+  const handleExportHistory = () => {
+    if (allHistoryItems.length === 0) return;
+
+    const escapeCell = (value: unknown): string => {
+      const text = value === null || value === undefined ? "" : String(value);
+      return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
+
+    const rows = allHistoryItems.map((item) => [
+      item.watched_at ?? "",
+      item.type === "movie" ? "Movie" : "Episode",
+      item.title,
+      item.year ?? "",
+      item.type === "episode" && item.episode_info
+        ? `S${item.episode_info.season_number}E${item.episode_info.episode_number}`
+        : "",
+      item.type === "episode"
+        ? (item.episode_info?.episode_title ?? "")
+        : "",
+      item.rating ?? "",
+      item.runtime ?? "",
+      (item.genres ?? []).join("; "),
+    ]);
+
+    const header = [
+      "Watched At",
+      "Type",
+      "Title",
+      "Year",
+      "Episode",
+      "Episode Title",
+      "Rating",
+      "Runtime (min)",
+      "Genres",
+    ];
+
+    const csv = [header, ...rows]
+      .map((row) => row.map(escapeCell).join(","))
+      .join("\r\n");
+
+    // Prepend a BOM so spreadsheet apps detect UTF-8 titles correctly.
+    const blob = new Blob([`\uFEFF${csv}`], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `watch-history-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const handleItemClick = (item: HistoryItem) => {
     if (item.type === "movie") {
       navigate(item.tmdb_id ? `/movies/${item.tmdb_id}` : "/movies", {
@@ -1345,22 +1399,30 @@ function WatchHistory() {
               <Button
                 fullWidth
                 startIcon={<DownloadIcon sx={{ fontSize: 16 }} />}
+                onClick={handleExportHistory}
+                disabled={allHistoryItems.length === 0}
                 sx={{
                   py: 1.5,
                   backgroundColor: "rgba(255, 255, 255, 0.05)",
                   border: "1px solid #2a2e37",
                   borderRadius: 2,
-                  fontSize: "10px",
+                  fontSize: "12px",
                   fontWeight: 700,
                   color: "#fff",
                   textTransform: "uppercase",
-                  letterSpacing: "0.1em",
+                  letterSpacing: "0.08em",
                   "&:hover": {
                     backgroundColor: "rgba(255, 255, 255, 0.1)",
                   },
+                  "&.Mui-disabled": {
+                    color: "#71717a",
+                    borderColor: "#27272a",
+                  },
                 }}
               >
-                Export History
+                {allHistoryItems.length === 0
+                  ? "No history to export"
+                  : `Export History (${allHistoryItems.length})`}
               </Button>
             </Box>
           </Grid>

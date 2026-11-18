@@ -79,8 +79,12 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("analytics", "0002_remove_unused_models"),
+        ("music", "0006_song_genre_tags"),
+        ("retroachievements", "0001_initial"),
         ("steam", "0009_achievement_unique_steam_game_achievement"),
         ("playstation", "0004_psnachievement_unique_psn_game_achievement"),
+        ("trakt", "0012_encrypt_trakt_tokens"),
+        ("users", "0006_userapikey_sync_schedule"),
         ("xbox", "0005_xboxachievement_unique_xbox_game_achievement"),
     ]
 

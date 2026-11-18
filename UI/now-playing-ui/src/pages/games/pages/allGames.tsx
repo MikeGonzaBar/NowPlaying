@@ -348,7 +348,7 @@ return (
                 open={filterSheetOpen}
                 onClose={() => setFilterSheetOpen(false)}
                 aria-label="Game filters"
-                sx={{ '& .MuiDrawer-paper': { bgcolor: 'rgba(15, 17, 21, 1)', borderTop: '1px solid rgba(255,255,255,0.08)', borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: '85vh', overflowY: 'auto', p: 2, pb: 3 } }}
+                sx={{ '& .MuiDrawer-paper': { bgcolor: 'rgba(15, 17, 21, 1)', borderTop: '1px solid rgba(255,255,255,0.08)', borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: '85vh', overflowY: 'auto', p: 2, pb: 'calc(24px + env(safe-area-inset-bottom))' } }}
             >
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
                     <Typography variant="h2" sx={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: '1.1rem', color: zincColors.white }}>

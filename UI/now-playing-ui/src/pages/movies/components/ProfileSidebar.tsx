@@ -14,14 +14,26 @@ import { useState } from "react";
 import { authenticatedFetch } from "../../../utils/auth";
 import { getApiUrl, API_CONFIG } from "../../../config/api";
 
+interface ProfileStats {
+  username?: string | null;
+  total_plays?: number | null;
+  total_movies?: number | null;
+  total_shows?: number | null;
+}
+
 interface ProfileSidebarProps {
-  stats: any;
+  stats: ProfileStats | null;
   onSyncComplete?: () => void;
 }
 
 function ProfileSidebar({ stats, onSyncComplete }: ProfileSidebarProps) {
   const [syncingMovies, setSyncingMovies] = useState(false);
   const [syncingShows, setSyncingShows] = useState(false);
+  // The dashboard passes `null` until its request succeeds (and keeps it null
+  // if the request fails). Missing stats are unavailable, not zero activity.
+  const safeStats: ProfileStats = stats ?? {};
+  const statValue = (value: number | null | undefined): string | number =>
+    value === null || value === undefined ? "—" : value;
 
   const handleSyncMovies = async () => {
     try {
@@ -132,15 +144,15 @@ function ProfileSidebar({ stats, onSyncComplete }: ProfileSidebarProps) {
             }}
           >
             <Typography sx={{ color: "#fff", fontSize: 20, fontWeight: 700 }}>
-              {stats.username?.charAt(0).toUpperCase() || "U"}
+              {safeStats.username?.charAt(0).toUpperCase() || "U"}
             </Typography>
           </Box>
           <Box>
             <Typography sx={{ fontWeight: 700, color: "#fff", fontSize: 14 }}>
-              {stats.username || "User"}
+              {safeStats.username || "User"}
             </Typography>
             <Typography sx={{ fontSize: "12px", color: "#9ca3af" }}>
-              Trakt VIP since 2021
+              Connected Trakt account
             </Typography>
           </Box>
         </Box>
@@ -164,13 +176,14 @@ function ProfileSidebar({ stats, onSyncComplete }: ProfileSidebarProps) {
             <Typography
               sx={{ fontSize: "12px", fontWeight: 700, color: "#fff" }}
             >
-              {stats.total_plays || 0}
+              {statValue(safeStats.total_plays)}
             </Typography>
             <Typography
               sx={{
-                fontSize: "9px",
-                color: "#9ca3af",
+                fontSize: "11px",
+                color: "#cbd5e1",
                 textTransform: "uppercase",
+                letterSpacing: "0.04em",
               }}
             >
               Plays
@@ -187,13 +200,14 @@ function ProfileSidebar({ stats, onSyncComplete }: ProfileSidebarProps) {
             <Typography
               sx={{ fontSize: "12px", fontWeight: 700, color: "#fff" }}
             >
-              {stats.total_movies || 0}
+              {statValue(safeStats.total_movies)}
             </Typography>
             <Typography
               sx={{
-                fontSize: "9px",
-                color: "#9ca3af",
+                fontSize: "11px",
+                color: "#cbd5e1",
                 textTransform: "uppercase",
+                letterSpacing: "0.04em",
               }}
             >
               Movies
@@ -210,13 +224,14 @@ function ProfileSidebar({ stats, onSyncComplete }: ProfileSidebarProps) {
             <Typography
               sx={{ fontSize: "12px", fontWeight: 700, color: "#fff" }}
             >
-              {stats.total_shows || 0}
+              {statValue(safeStats.total_shows)}
             </Typography>
             <Typography
               sx={{
-                fontSize: "9px",
-                color: "#9ca3af",
+                fontSize: "11px",
+                color: "#cbd5e1",
                 textTransform: "uppercase",
+                letterSpacing: "0.04em",
               }}
             >
               Shows

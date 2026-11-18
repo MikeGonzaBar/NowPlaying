@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { Box, Button, CircularProgress, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  CircularProgress,
+  Typography,
+  TextField,
+} from "@mui/material";
 import { authenticatedFetch } from "../../../utils/auth";
 import { getApiUrl, API_CONFIG } from "../../../config/api";
 import { avatarUrl } from "../../../utils/avatars";
@@ -47,9 +53,11 @@ function SongHistory() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [totalItems, setTotalItems] = useState(0);
-  const [sourceFilter, _setSourceFilter] = useState<
+  const [sourceFilter, setSourceFilter] = useState<
     "all" | "spotify" | "lastfm"
   >("all");
+  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const fetchSongs = async (pageNum: number, isInitial: boolean = false) => {
     try {
@@ -61,9 +69,14 @@ function SongHistory() {
 
       const sourceParam =
         sourceFilter !== "all" ? `&source=${sourceFilter}` : "";
+      const dateParam = dateFilter !== "all" ? `&date=${dateFilter}` : "";
+      const searchParam = searchQuery
+        ? `&search=${encodeURIComponent(searchQuery)}`
+        : "";
+
       const response = await authenticatedFetch(
         getApiUrl(
-          `${API_CONFIG.MUSIC_ENDPOINT}/get-stored-songs/?page=${pageNum}&page_size=50${sourceParam}`,
+          `${API_CONFIG.MUSIC_ENDPOINT}/get-stored-songs/?page=${pageNum}&page_size=50${sourceParam}${dateParam}${searchParam}`,
         ),
       );
 
@@ -90,10 +103,18 @@ function SongHistory() {
   };
 
   useEffect(() => {
-    setPage(1);
-    setSongs([]);
-    fetchSongs(1, true);
-  }, [sourceFilter]);
+    // Debounce typing so the list does not reset and refetch on every keystroke.
+    const timer = setTimeout(
+      () => {
+        setPage(1);
+        setSongs([]);
+        fetchSongs(1, true);
+      },
+      searchQuery ? 400 : 0,
+    );
+
+    return () => clearTimeout(timer);
+  }, [sourceFilter, dateFilter, searchQuery]);
 
   const loadMore = () => {
     if (!loadingMore && hasMore) {
@@ -156,6 +177,61 @@ function SongHistory() {
         description={`${totalItems.toLocaleString()} scrobbles | All time`}
       />
 
+      {/* Filters */}
+      <Box sx={{ mb: 4, px: 2 }}>
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 2 }}>
+          <Button
+            variant="outlined"
+            sx={{ mr: 1, fontSize: "12px" }}
+            onClick={() => setSourceFilter("all")}
+          >
+            All
+          </Button>
+          <Button
+            variant="outlined"
+            sx={{ mr: 1, fontSize: "12px" }}
+            onClick={() => setSourceFilter("spotify")}
+          >
+            Spotify
+          </Button>
+          <Button
+            variant="outlined"
+            sx={{ mr: 1, fontSize: "12px" }}
+            onClick={() => setSourceFilter("lastfm")}
+          >
+            Last.fm
+          </Button>
+          <Button
+            variant="outlined"
+            sx={{ mr: 1, fontSize: "12px" }}
+            onClick={() => setDateFilter("all")}
+          >
+            All Time
+          </Button>
+          <Button
+            variant="outlined"
+            sx={{ mr: 1, fontSize: "12px" }}
+            onClick={() => setDateFilter("last7d")}
+          >
+            Last 7 Days
+          </Button>
+          <Button
+            variant="outlined"
+            sx={{ mr: 1, fontSize: "12px" }}
+            onClick={() => setDateFilter("last30d")}
+          >
+            Last 30 Days
+          </Button>
+          <TextField
+            sx={{ flex: 1, fontSize: "12px", minWidth: 120 }}
+            label="Search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            variant="outlined"
+          />
+        </Box>
+      </Box>
+
       {/* Songs List */}
       <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {sortedDates.map((dateKey) => {
@@ -177,146 +253,159 @@ function SongHistory() {
                 {dateLabel}
               </Typography>
               <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                {dateSongs.map((song) => (
-                  <Box
-                    key={song.id}
-                    onClick={() => handleSongClick(song)}
-                    role={song.track_url ? "link" : undefined}
-                    tabIndex={song.track_url ? 0 : undefined}
-                    aria-label={song.track_url ? `${song.title} by ${song.artist}` : undefined}
-                    onKeyDown={(event) => {
-                      if (song.track_url && (event.key === "Enter" || event.key === " ")) {
-                        event.preventDefault();
-                        handleSongClick(song);
-                      }
-                    }}
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 2,
-                      p: 2,
-                      bgcolor: "#161618",
-                      border: "1px solid #262626",
-                      borderRadius: "12px",
-                      cursor: song.track_url ? "pointer" : "default",
-                      transition: "all 0.2s",
-                      "&:hover": {
-                        bgcolor: "#1a1a1c",
-                        borderColor: song.track_url ? "#EF4444" : "#262626",
-                      },
-                      "&:focus-visible": {
-                        outline: "2px solid #f43f5e",
-                        outlineOffset: 3,
-                      },
-                    }}
-                  >
+                {dateSongs.map((song) => {
+                  const displayTitle =
+                    song.title.length > 30
+                      ? `${song.title.slice(0, 27)}...`
+                      : song.title;
+                  const displayArtist =
+                    song.artist.length > 25
+                      ? `${song.artist.slice(0, 22)}...`
+                      : song.artist;
+
+                  return (
                     <Box
-                      component="img"
-                      src={
-                        song.album_thumbnail || avatarUrl(song.title, 64)
-                      }
-                      alt={song.title}
-                      sx={{
-                        width: 64,
-                        height: 64,
-                        borderRadius: "8px",
-                        objectFit: "cover",
-                        flexShrink: 0,
+                      key={song.id}
+                      onClick={() => handleSongClick(song)}
+                      role={song.track_url ? "link" : undefined}
+                      tabIndex={song.track_url ? 0 : undefined}
+                      aria-label={song.track_url ? `${song.title} by ${song.artist}` : undefined}
+                      onKeyDown={(event) => {
+                        if (song.track_url && (event.key === "Enter" || event.key === " ")) {
+                          event.preventDefault();
+                          handleSongClick(song);
+                        }
                       }}
-                    />
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography
-                        sx={{
-                          fontSize: "16px",
-                          fontWeight: 600,
-                          color: "#f4f4f5",
-                          mb: 0.5,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {song.title}
-                      </Typography>
-                      <Typography
-                        onClick={(e) => handleArtistClick(song, e)}
-                        sx={{
-                          fontSize: "14px",
-                          color: song.artist_lastfm_url ? "#EF4444" : "#71717a",
-                          cursor: song.artist_lastfm_url
-                            ? "pointer"
-                            : "default",
-                          mb: 0.5,
-                          "&:hover": {
-                            textDecoration: song.artist_lastfm_url
-                              ? "underline"
-                              : "none",
-                          },
-                        }}
-                      >
-                        {song.artist}
-                      </Typography>
-                      {song.album && (
-                        <Typography
-                          sx={{
-                            fontSize: "12px",
-                            color: "#71717a",
-                          }}
-                        >
-                          {song.album}
-                        </Typography>
-                      )}
-                    </Box>
-                    <Box
                       sx={{
                         display: "flex",
-                        flexDirection: "column",
-                        alignItems: "flex-end",
-                        gap: 0.5,
-                        ml: 2,
-                      }}
+        alignItems: "center",
+        gap: 2,
+        p: 2,
+        bgcolor: "#161618",
+        border: "1px solid #262626",
+        borderRadius: "12px",
+        cursor: song.track_url ? "pointer" : "default",
+        transition: "all 0.2s",
+        "&:hover": {
+          bgcolor: "#1a1a1c",
+          borderColor: song.track_url ? "#EF4444" : "#262626",
+        },
+        "&:focus-visible": {
+          outline: "2px solid #f43f5e",
+          outlineOffset: 3,
+        },
+      }}
                     >
-                      <Typography
+                      <Box
+                        component="img"
+                        src={
+                          song.album_thumbnail || avatarUrl(song.title, 64)
+                        }
+                        alt={song.title}
                         sx={{
-                          fontSize: "12px",
-                          color: "#71717a",
+                          width: 48,
+                          height: 48,
+                          borderRadius: "8px",
+                          objectFit: "cover",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography
+                          sx={{
+                            fontSize: "14px",
+                            fontWeight: 600,
+                            color: "#f4f4f5",
+                            mb: 0.5,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {displayTitle}
+                        </Typography>
+                        <Typography
+                          onClick={(e) => handleArtistClick(song, e)}
+                          sx={{
+                            fontSize: "12px",
+                            color: song.artist_lastfm_url
+                              ? "#EF4444"
+                              : "#71717a",
+                            cursor: song.artist_lastfm_url
+                              ? "pointer"
+                              : "default",
+                            mb: 0.5,
+                            "&:hover": {
+                              textDecoration: song.artist_lastfm_url
+                                ? "underline"
+                                : "none",
+                            },
+                          }}
+                        >
+                          {displayArtist}
+                        </Typography>
+                        {song.album && (
+                          <Typography
+                            sx={{
+                              fontSize: "10px",
+                              color: "#71717a",
+                            }}
+                          >
+                            {song.album}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "flex-end",
+                          gap: 0.5,
+                          ml: 2,
                         }}
                       >
-                        {formatPlayedAt(song.played_at)}
-                      </Typography>
-                      {song.duration_ms && (
                         <Typography
                           sx={{
                             fontSize: "12px",
                             color: "#71717a",
                           }}
                         >
-                          {formatDuration(song.duration_ms)}
+                          {formatPlayedAt(song.played_at)}
                         </Typography>
-                      )}
-                      <Box sx={{ display: "flex", gap: 0.5, mt: 0.5 }}>
-                        {song.loved && (
-                          <FavoriteIcon
-                            sx={{ fontSize: 16, color: "#EF4444" }}
-                          />
+                        {song.duration_ms && (
+                          <Typography
+                            sx={{
+                              fontSize: "10px",
+                              color: "#71717a",
+                            }}
+                          >
+                            {formatDuration(song.duration_ms)}
+                          </Typography>
                         )}
-                        <Typography
-                          sx={{
-                            fontSize: "10px",
-                            color: "#71717a",
-                            px: 1,
-                            py: 0.25,
-                            bgcolor: "#262626",
-                            borderRadius: "4px",
-                            textTransform: "uppercase",
-                          }}
-                        >
-                          {song.source === "lastfm" ? "Last.fm" : "Spotify"}
-                        </Typography>
+                        <Box sx={{ display: "flex", gap: 0.5, mt: 0.5 }}>
+                          {song.loved && (
+                            <FavoriteIcon
+                              sx={{ fontSize: 14, color: "#EF4444" }}
+                            />
+                          )}
+                          <Typography
+                            sx={{
+                              fontSize: "9px",
+                              color: "#71717a",
+                              px: 1,
+                              py: 0.25,
+                              bgcolor: "#262626",
+                              borderRadius: "4px",
+                              textTransform: "uppercase",
+                            }}
+                          >
+                            {song.source === "lastfm" ? "Last.fm" : "Spotify"}
+                          </Typography>
+                        </Box>
                       </Box>
                     </Box>
-                  </Box>
-                ))}
+                  );
+                })}
               </Box>
             </Box>
           );

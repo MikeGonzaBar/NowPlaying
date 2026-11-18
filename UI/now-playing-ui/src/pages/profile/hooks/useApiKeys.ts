@@ -32,11 +32,13 @@ const getRequiredFieldsMessage = (serviceName: string) => {
 export const useApiKeys = () => {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [newApiKeys, setNewApiKeys] = useState<Record<string, NewApiKey>>({});
 
   const fetchApiKeys = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await authenticatedFetch(
         getApiUrl(`${API_CONFIG.USERS_ENDPOINT}/api-keys/`),
       );
@@ -45,10 +47,15 @@ export const useApiKeys = () => {
         const apiKeysData: ApiKeysResponse = await response.json();
         setApiKeys(apiKeysData.results);
       } else {
-        throw new Error("Failed to fetch API keys");
+        throw new Error(
+          `Failed to fetch connected services (status ${response.status})`,
+        );
       }
     } catch (err) {
       console.error("Error fetching API keys:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to fetch connected services",
+      );
     } finally {
       setLoading(false);
     }
@@ -196,6 +203,7 @@ export const useApiKeys = () => {
   return {
     apiKeys,
     loading,
+    error,
     newApiKeys,
     getApiKeyForService,
     handleNewApiKeyChange,

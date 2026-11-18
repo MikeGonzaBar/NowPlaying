@@ -1,4 +1,4 @@
-import { Box, Tooltip, Typography } from "@mui/material";
+import { Box, Tooltip, Typography, Link } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import { avatarUrl } from "../../../utils/avatars";
 import { RankingBadge } from "./RankingBadge";
@@ -17,7 +17,6 @@ interface MusicItemCardProps {
   /** Internal route for the canonical entity detail page. */
   to?: string;
   onClick?: () => void;
-  url: string | null;
   imageShape?: "circle" | "square";
 }
 
@@ -32,29 +31,18 @@ export function MusicItemCard({
   topTracks,
   to,
   onClick,
-  url,
   imageShape = "circle",
 }: MusicItemCardProps) {
   const borderRadius = imageShape === "circle" ? "50%" : "16px";
   const pulseBorderRadius = imageShape === "circle" ? "50%" : "16px";
-  const interactive = Boolean(to || url);
+  const hasEntityLink = Boolean(to);
 
-  const linkProps = to
+  const entityLinkProps = to
     ? { component: RouterLink, to }
-    : url
-      ? {
-          component: "a" as const,
-          href: url,
-          target: "_blank",
-          rel: "noopener noreferrer",
-        }
-      : {};
+    : {};
 
   return (
     <Box
-      {...linkProps}
-      onClick={onClick}
-      aria-label={interactive ? `${name} - view details` : undefined}
       sx={{
         position: "relative",
         bgcolor: "#161618",
@@ -65,23 +53,18 @@ export function MusicItemCard({
         flexDirection: { xs: "column", lg: "row" },
         gap: 4,
         alignItems: "center",
-        cursor: url ? "pointer" : "default",
         transition: "all 0.3s",
         ...(isFirst
           ? {
-            borderColor: "rgba(239, 68, 68, 0.5)",
-            boxShadow: "0 0 15px rgba(239, 68, 68, 0.15)",
-          }
+              borderColor: "rgba(239, 68, 68, 0.5)",
+              boxShadow: "0 0 15px rgba(239, 68, 68, 0.15)",
+            }
           : {
-            "&:hover": {
-              borderColor: "#3f3f46",
-            },
-          }),
+              "&:hover": {
+                borderColor: "#3f3f46",
+              },
+            }),
         opacity: rank > 10 ? 0.9 : 1,
-        "&:focus-visible": {
-          outline: "2px solid #f43f5e",
-          outlineOffset: 3,
-        },
       }}
     >
       {/* Ranking Badge */}
@@ -131,24 +114,42 @@ export function MusicItemCard({
         </Box>
         <Box sx={{ minWidth: 0 }}>
           <Tooltip title={name} placement="top" enterDelay={400}>
-            <Typography
-              variant="h2"
-              sx={{
-                fontSize: { xs: "24px", md: "32px" },
-                fontWeight: 700,
-                mb: 0.5,
-                transition: "color 0.2s",
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-                "&:hover": {
-                  color: "#EF4444",
-                },
-              }}
-            >
-              {name}
-            </Typography>
+            {hasEntityLink ? (
+              <Link
+                {...entityLinkProps}
+                onClick={onClick}
+                aria-label={`${name} - view details`}
+                sx={{
+                  color: "inherit",
+                  textDecoration: "none",
+                  "&:hover": {
+                    color: "#EF4444",
+                  },
+                  "&:focus-visible": {
+                    outline: "2px solid #f43f5e",
+                    outlineOffset: 2,
+                  },
+                }}
+              >
+                {name}
+              </Link>
+            ) : (
+              <Typography
+                variant="h2"
+                sx={{
+                  fontSize: { xs: "24px", md: "32px" },
+                  fontWeight: 700,
+                  mb: 0.5,
+                  transition: "color 0.2s",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
+                {name}
+              </Typography>
+            )}
           </Tooltip>
           {subtitle && (
             <Tooltip title={subtitle} placement="top" enterDelay={400}>

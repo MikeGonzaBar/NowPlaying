@@ -27,9 +27,80 @@ const isFailedRequest = (
   value: RefreshResponse | FailedRequest,
 ): value is FailedRequest => "__error" in value;
 
+type ProviderKey = "steam" | "epic" | "psn" | "xbox" | "retroachievements";
+
+const PROVIDERS: ReadonlyArray<{
+  key: ProviderKey;
+  label: string;
+  path: string;
+}> = [
+  { key: "steam", label: "Steam", path: "/steam/get-game-list-stored/" },
+  { key: "epic", label: "Epic Games", path: "/epic/get-game-list-stored/" },
+  { key: "psn", label: "PlayStation", path: "/psn/get-game-list-stored/" },
+  {
+    key: "retroachievements",
+    label: "RetroAchievements",
+    path: "/retroachievements/fetch-games/",
+  },
+  { key: "xbox", label: "Xbox", path: "/xbox/get-game-list-stored/" },
+];
+
+const emptyProviderResults = (): Record<ProviderKey, GameData[]> => ({
+  steam: [],
+  epic: [],
+  psn: [],
+  xbox: [],
+  retroachievements: [],
+});
+
+const allProvidersLoading = (): Record<ProviderKey, boolean> => ({
+  steam: true,
+  epic: true,
+  psn: true,
+  xbox: true,
+  retroachievements: true,
+});
+
+const mergeAndSortGames = (
+  steamArray: GameData[],
+  epicArray: GameData[],
+  psnArray: GameData[],
+  retroArray: GameData[],
+  xboxArray: GameData[],
+): GameData[] => {
+  const invalidTimestamp = new Date(1970, 0, 1).getTime();
+  // Epic exposes no last-played timestamp. Prefer the last time its playtime
+  // actually changed, then fall back to the acquisition date so a connected
+  // library is still listed; `lastPlayed` is only used for ordering, never
+  // displayed as a play date.
+  const sortTimestamp = (game: GameData): Date => {
+    const lastPlayed = parseDate(game.last_played);
+    if (lastPlayed.getTime() !== invalidTimestamp) return lastPlayed;
+    const playtimeUpdated = getEpicPlaytimeUpdatedAt(game);
+    if (playtimeUpdated) return playtimeUpdated;
+    const acquiredAt = (game as { acquired_at?: string | null }).acquired_at;
+    return parseDate(acquiredAt);
+  };
+
+  return [...steamArray, ...epicArray, ...psnArray, ...retroArray, ...xboxArray]
+    .map((game) => ({
+      ...game,
+      lastPlayed: sortTimestamp(game),
+    }))
+    .filter((game) => game.lastPlayed.getTime() !== invalidTimestamp)
+    .sort((a, b) => b.lastPlayed.getTime() - a.lastPlayed.getTime());
+};
+
 export const useGameData = (beBaseUrl: string) => {
-  const [latestPlayedGames, setLatestPlayedGames] = useState<GameData[]>([]);
-  const [allGamesList, setAllGamesList] = useState<GameData[]>([]);
+  const [providerResults, setProviderResults] = useState<
+    Record<ProviderKey, GameData[]>
+  >(emptyProviderResults);
+  const [providerErrors, setProviderErrors] = useState<
+    Partial<Record<ProviderKey, string>>
+  >({});
+  const [providerLoading, setProviderLoading] = useState<
+    Record<ProviderKey, boolean>
+  >(allProvidersLoading);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [missingServices, setMissingServices] = useState<string[]>([]);
@@ -38,17 +109,43 @@ export const useGameData = (beBaseUrl: string) => {
     Record<string, boolean>
   >({});
 
-  const [platformGameIds, setPlatformGameIds] = useState<
-    Record<string, Set<string>>
-  >({
-    steam: new Set(),
-    epic: new Set(),
-    psn: new Set(),
-    xbox: new Set(),
-    retroachievements: new Set(),
-  });
-
   const api = useApi();
+
+  const latestPlayedGames = useMemo(
+    () =>
+      mergeAndSortGames(
+        providerResults.steam,
+        providerResults.epic,
+        providerResults.psn,
+        providerResults.retroachievements,
+        providerResults.xbox,
+      ),
+    [providerResults],
+  );
+
+  const allGamesList = useMemo(
+    () => [
+      ...providerResults.steam,
+      ...providerResults.epic,
+      ...providerResults.psn,
+      ...providerResults.retroachievements,
+      ...providerResults.xbox,
+    ],
+    [providerResults],
+  );
+
+  const platformGameIds = useMemo(
+    () => ({
+      steam: new Set(providerResults.steam.map((game) => String(game.appid))),
+      epic: new Set(providerResults.epic.map((game) => String(game.appid))),
+      psn: new Set(providerResults.psn.map((game) => String(game.appid))),
+      xbox: new Set(providerResults.xbox.map((game) => String(game.appid))),
+      retroachievements: new Set(
+        providerResults.retroachievements.map((game) => String(game.appid)),
+      ),
+    }),
+    [providerResults],
+  );
 
   const fetchGameData = async (url: string): Promise<GameData[]> => {
     const data = await api.request<GameApiResponse>(url);
@@ -58,96 +155,49 @@ export const useGameData = (beBaseUrl: string) => {
       return result;
     }
 
-    if (
-      result &&
-      typeof result === "object" &&
-      "games" in result &&
-      Array.isArray(result.games)
-    ) {
-      return result.games;
+    if (result && typeof result === "object") {
+      // Provider-level failures arrive as a 200 response with `{error}`.
+      // Surface them as failed providers instead of treating them as an
+      // empty library, which would look like zero activity.
+      if ("error" in result && result.error) {
+        throw new Error(String(result.error));
+      }
+      if ("games" in result && Array.isArray(result.games)) {
+        return result.games;
+      }
     }
 
     return [];
   };
 
-  const mergeAndSortGames = (
-    steamArray: GameData[],
-    epicArray: GameData[],
-    psnArray: GameData[],
-    retroArray: GameData[],
-    xboxArray: GameData[],
-  ): GameData[] => {
-    const invalidTimestamp = new Date(1970, 0, 1).getTime();
-    // Epic exposes no last-played timestamp. Prefer the last time its playtime
-    // actually changed, then fall back to the acquisition date so a connected
-    // library is still listed; `lastPlayed` is only used for ordering, never
-    // displayed as a play date.
-    const sortTimestamp = (game: GameData): Date => {
-      const lastPlayed = parseDate(game.last_played);
-      if (lastPlayed.getTime() !== invalidTimestamp) return lastPlayed;
-      const playtimeUpdated = getEpicPlaytimeUpdatedAt(game);
-      if (playtimeUpdated) return playtimeUpdated;
-      const acquiredAt = (game as { acquired_at?: string | null }).acquired_at;
-      return parseDate(acquiredAt);
-    };
-
-    return [...steamArray, ...epicArray, ...psnArray, ...retroArray, ...xboxArray]
-      .map((game) => ({
-        ...game,
-        lastPlayed: sortTimestamp(game),
-      }))
-      .filter((game) => game.lastPlayed.getTime() !== invalidTimestamp)
-      .sort((a, b) => b.lastPlayed.getTime() - a.lastPlayed.getTime());
-  };
-
   const fetchGames = async () => {
-    try {
-      setLoading(true);
+    setLoading(true);
+    setProviderErrors({});
+    setProviderLoading(allProvidersLoading());
 
-      const [steamArray, epicArray, psnArray, retroArray, xboxArray] =
-        await Promise.all([
-          fetchGameData(`${beBaseUrl}/steam/get-game-list-stored/`),
-          fetchGameData(`${beBaseUrl}/epic/get-game-list-stored/`),
-          fetchGameData(`${beBaseUrl}/psn/get-game-list-stored/`),
-          fetchGameData(`${beBaseUrl}/retroachievements/fetch-games/`),
-          fetchGameData(`${beBaseUrl}/xbox/get-game-list-stored/`),
-        ]);
+    // Settle each provider independently: a failing or slow platform must not
+    // hide libraries that already loaded successfully.
+    await Promise.all(
+      PROVIDERS.map(async ({ key, label, path }) => {
+        try {
+          const games = await fetchGameData(`${beBaseUrl}${path}`);
+          setProviderResults((prev) => ({ ...prev, [key]: games }));
+        } catch (err) {
+          console.error(`Error loading ${label} games:`, err);
+          // Keep any previously loaded library for this provider; a failed
+          // refresh should surface the error, not erase real data.
+          setProviderErrors((prev) => ({
+            ...prev,
+            [key]:
+              err instanceof Error ? err.message : `Failed to load ${label}`,
+          }));
+        } finally {
+          setProviderLoading((prev) => ({ ...prev, [key]: false }));
+        }
+      }),
+    );
 
-      const newPlatformGameIds: Record<string, Set<string>> = {
-        steam: new Set(steamArray.map((game) => String(game.appid))),
-        epic: new Set(epicArray.map((game) => String(game.appid))),
-        psn: new Set(psnArray.map((game) => String(game.appid))),
-        xbox: new Set(xboxArray.map((game) => String(game.appid))),
-        retroachievements: new Set(
-          retroArray.map((game) => String(game.appid)),
-        ),
-      };
-      setPlatformGameIds(newPlatformGameIds);
-
-      const allGames = [
-        ...steamArray,
-        ...epicArray,
-        ...psnArray,
-        ...retroArray,
-        ...xboxArray,
-      ];
-
-      const merged = mergeAndSortGames(
-        steamArray,
-        epicArray,
-        psnArray,
-        retroArray,
-        xboxArray,
-      );
-      setLatestPlayedGames(merged);
-
-      setAllGamesList(allGames);
-    } catch (err) {
-      console.error(err);
-      setError("Failed to load games data");
-    } finally {
-      setLoading(false);
-    }
+    setLoading(false);
   };
 
   const refreshGames = async () => {
@@ -338,11 +388,19 @@ export const useGameData = (beBaseUrl: string) => {
     [allGamesList],
   );
 
+  const clearError = () => {
+    setError(null);
+    setProviderErrors({});
+  };
+
   return {
     latestPlayedGames,
     loading,
     error,
-    clearError: () => setError(null),
+    providerErrors,
+    providerLoading,
+    clearError,
+    refetchGames: fetchGames,
     refreshGames,
     refreshSteam,
     refreshEpic,

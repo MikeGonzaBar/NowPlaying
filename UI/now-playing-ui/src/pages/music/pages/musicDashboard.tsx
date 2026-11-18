@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Box, Button, CircularProgress } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import SideBar from "../../../components/sideBar";
 import { authenticatedFetch } from "../../../utils/auth";
 import { getApiUrl, API_CONFIG } from "../../../config/api";
@@ -796,29 +796,27 @@ function MusicDashboard() {
                 </Box>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
                   {stats.top_artists.slice(0, 10).map((artist, idx) => {
-                    const handleClick = () => {
-                      if (artist.artist_lastfm_url) {
-                        window.open(artist.artist_lastfm_url, "_blank");
-                      }
-                    };
                     return (
                       <Box
                         key={idx}
-                        onClick={handleClick}
+                        component={RouterLink}
+                        to={`/music/artists/${encodeURIComponent(artist.name)}`}
                         sx={{
                           display: "flex",
                           alignItems: "center",
                           gap: 1,
-                          cursor: artist.artist_lastfm_url
-                            ? "pointer"
-                            : "default",
+                          cursor: "pointer",
+                          color: "inherit",
+                          textDecoration: "none",
                           transition: "all 0.2s",
-                          "&:hover": artist.artist_lastfm_url
-                            ? {
-                              transform: "translateX(4px)",
-                              opacity: 0.8,
-                            }
-                            : {},
+                          "&:hover": {
+                            transform: "translateX(4px)",
+                            opacity: 0.8,
+                          },
+                          "&:focus-visible": {
+                            outline: "2px solid #e11d48",
+                            outlineOffset: 2,
+                          },
                         }}
                       >
                         <Box
@@ -932,37 +930,29 @@ function MusicDashboard() {
                   }}
                 >
                   {stats.top_albums.slice(0, 4).map((album, idx) => {
-                    const handleClick = () => {
-                      if (album.track_url) {
-                        window.open(album.track_url, "_blank");
-                      } else if (album.artist_lastfm_url) {
-                        window.open(album.artist_lastfm_url, "_blank");
-                      }
-                    };
                     return (
                       <Box
                         key={idx}
-                        onClick={handleClick}
+                        component={RouterLink}
+                        to={`/music/albums/${encodeURIComponent(album.name)}`}
+                        aria-label={`${album.name} by ${album.artist}`}
                         sx={{
                           position: "relative",
                           aspectRatio: "1",
                           borderRadius: "8px",
                           overflow: "hidden",
                           border: "1px solid #27272a",
-                          cursor:
-                            album.track_url || album.artist_lastfm_url
-                              ? "pointer"
-                              : "default",
+                          cursor: "pointer",
+                          color: "inherit",
+                          textDecoration: "none",
                           transition: "all 0.3s",
                           "&:hover": {
-                            borderColor:
-                              album.track_url || album.artist_lastfm_url
-                                ? "#e11d48"
-                                : "#27272a",
-                            transform:
-                              album.track_url || album.artist_lastfm_url
-                                ? "scale(1.05)"
-                                : "none",
+                            borderColor: "#e11d48",
+                            transform: "scale(1.05)",
+                          },
+                          "&:focus-visible": {
+                            outline: "2px solid #e11d48",
+                            outlineOffset: 2,
                           },
                           "&:hover .album-overlay": { opacity: 1 },
                         }}
@@ -1065,33 +1055,27 @@ function MusicDashboard() {
                 </Box>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
                   {stats.top_tracks.slice(0, 10).map((track, idx) => {
-                    const handleClick = () => {
-                      if (track.track_url) {
-                        window.open(track.track_url, "_blank");
-                      } else if (track.artist_lastfm_url) {
-                        window.open(track.artist_lastfm_url, "_blank");
-                      }
-                    };
                     return (
                       <Box
                         key={idx}
-                        onClick={handleClick}
+                        component={RouterLink}
+                        to={`/music/tracks/${encodeURIComponent(track.title)}`}
                         sx={{
                           display: "flex",
                           alignItems: "center",
                           gap: 1,
-                          cursor:
-                            track.track_url || track.artist_lastfm_url
-                              ? "pointer"
-                              : "default",
+                          cursor: "pointer",
+                          color: "inherit",
+                          textDecoration: "none",
                           transition: "all 0.2s",
-                          "&:hover":
-                            track.track_url || track.artist_lastfm_url
-                              ? {
-                                transform: "translateX(4px)",
-                                opacity: 0.8,
-                              }
-                              : {},
+                          "&:hover": {
+                            transform: "translateX(4px)",
+                            opacity: 0.8,
+                          },
+                          "&:focus-visible": {
+                            outline: "2px solid #e11d48",
+                            outlineOffset: 2,
+                          },
                         }}
                       >
                         <Box

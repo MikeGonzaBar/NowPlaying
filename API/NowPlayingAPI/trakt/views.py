@@ -609,6 +609,14 @@ class TraktViewSet(viewsets.ViewSet):
             "seasons": list(seasons),
             "episodes": list(episodes),
             "show_metadata": show_metadata or {},
+            # The live Trakt request failed and this is a database-only
+            # fallback. Flag it so clients do not present incomplete progress
+            # (or an empty list) as trustworthy zero activity.
+            "stats_unavailable": True,
+            "warning": (
+                "Live Trakt data is unavailable, so progress statistics may be "
+                "incomplete and were withheld."
+            ),
         })
 
     @action(detail=False, methods=["get"], url_path="fetch-latest-movies")

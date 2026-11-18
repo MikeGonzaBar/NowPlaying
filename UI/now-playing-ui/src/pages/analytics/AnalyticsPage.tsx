@@ -237,6 +237,25 @@ const AnalyticsPage: React.FC = () => {
         setActiveTab(newValue);
     };
 
+    const handleExportAnalytics = () => {
+        if (!analyticsData || analyticsData.has_partial_failures) return;
+
+        // The analytics payload is deeply nested (totals, distributions,
+        // trends), so export it as JSON rather than flattening it into a CSV
+        // that would lose the structure.
+        const blob = new Blob([JSON.stringify(analyticsData, null, 2)], {
+            type: 'application/json;charset=utf-8;',
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `analytics-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
     if (loading) {
         return (
             <Box sx={{ display: "flex" }}>
@@ -357,8 +376,8 @@ const AnalyticsPage: React.FC = () => {
             <SideBar activeItem="Analytics" />
             <Box component="main" sx={{ flexGrow: 1, maxWidth: "1400px", mx: "auto", px: { xs: 2, md: 4, lg: 8 }, py: 8 }}>
                 {/* Header */}
-                <Box sx={{ mb: 8 }}>
-                    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { md: 'flex-end' }, gap: 4, mb: 8 }}>
+                <Box sx={{ mb: 4 }}>
+                    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { md: 'flex-end' }, gap: 3, mb: 4 }}>
                         <Box>
                             <Typography
                                 variant="h1"
@@ -386,10 +405,10 @@ const AnalyticsPage: React.FC = () => {
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                             <Card sx={{
-                                bgcolor: '#1a1d23',
+                                bgcolor: '#18181b',
                                 border: '1px solid #27272a',
-                                px: 4,
-                                py: 2,
+                                px: 3,
+                                py: 1.5,
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: 2,
@@ -412,11 +431,12 @@ const AnalyticsPage: React.FC = () => {
                                     <Button
                                         startIcon={<DownloadIcon />}
                                         disabled={Boolean(analyticsData.has_partial_failures)}
+                                        onClick={handleExportAnalytics}
                                         sx={{
                                             bgcolor: '#6366f1',
                                             color: '#fff',
-                                            px: 4,
-                                            py: 2,
+                                            px: 3,
+                                            py: 1.5,
                                             fontSize: '0.875rem',
                                             fontWeight: 500,
                                             borderRadius: '0.5rem',
@@ -434,7 +454,7 @@ const AnalyticsPage: React.FC = () => {
                 </Box>
 
                 {/* Navigation Tabs */}
-                <Box sx={{ borderBottom: '1px solid #27272a', mb: 8 }}>
+                <Box sx={{ borderBottom: '1px solid #27272a', mb: 4 }}>
                     <Tabs
                         value={activeTab}
                         onChange={handleTabChange}
@@ -476,14 +496,14 @@ const AnalyticsPage: React.FC = () => {
                             <Box sx={{
                                 display: 'grid',
                                 gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
-                                gap: 4,
-                                mb: 8
+                                gap: 3,
+                                mb: 4
                             }}>
                                 {/* Gaming Card */}
                                 <Card sx={{
                                     bgcolor: '#ff5f40',
                                     color: '#fff',
-                                    p: 6,
+                                    p: 3.5,
                                     borderRadius: '1rem',
                                     position: 'relative',
                                     overflow: 'hidden',
@@ -525,7 +545,7 @@ const AnalyticsPage: React.FC = () => {
                                 <Card sx={{
                                     bgcolor: '#40b3a2',
                                     color: '#fff',
-                                    p: 6,
+                                    p: 3.5,
                                     borderRadius: '1rem',
                                     position: 'relative',
                                     overflow: 'hidden',
@@ -569,7 +589,7 @@ const AnalyticsPage: React.FC = () => {
                                 <Card sx={{
                                     bgcolor: '#e5e7eb',
                                     color: '#1f2937',
-                                    p: 6,
+                                    p: 3.5,
                                     borderRadius: '1rem',
                                     position: 'relative',
                                     overflow: 'hidden',
@@ -617,7 +637,7 @@ const AnalyticsPage: React.FC = () => {
                                 <Card sx={{
                                     bgcolor: '#8b5cf6',
                                     color: '#fff',
-                                    p: 6,
+                                    p: 3.5,
                                     borderRadius: '1rem',
                                     position: 'relative',
                                     overflow: 'hidden',
@@ -694,16 +714,16 @@ const AnalyticsPage: React.FC = () => {
                                         display: 'grid',
                                         gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' },
                                         gap: 8,
-                                        mb: 8
+                                        mb: 4
                                     }}>
                                         {/* Time Dedicated Trend - all 7 days, Gaming + Music + TV */}
                                         {renderOnce('time-dedicated-trend',
-                                            <Card sx={{ bgcolor: '#1a1d23', border: '1px solid #27272a', p: 6, borderRadius: '1rem' }}>
+                                            <Card sx={{ bgcolor: '#18181b', border: '1px solid #27272a', p: 3.5, borderRadius: '1rem' }}>
                                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 6 }}>
                                                     <Typography sx={{ fontSize: '1.125rem', fontWeight: 700, color: '#fff' }}>
                                                         Time Dedicated Trend
                                                     </Typography>
-                                                    <Box sx={{ display: 'flex', gap: 4, fontSize: '0.75rem', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                    <Box sx={{ display: 'flex', gap: 3, fontSize: '0.75rem', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                                             <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#ff5f40' }} />
                                                             <Typography sx={{ color: '#e2e8f0' }}>Gaming</Typography>
@@ -727,7 +747,7 @@ const AnalyticsPage: React.FC = () => {
                                                         <XAxis
                                                             dataKey="name"
                                                             stroke="#e2e8f0"
-                                                            style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                                                            style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}
                                                         />
                                                         <YAxis
                                                             stroke="#e2e8f0"
@@ -736,7 +756,7 @@ const AnalyticsPage: React.FC = () => {
                                                         />
                                                         <Tooltip
                                                             contentStyle={{
-                                                                backgroundColor: '#1a1d23',
+                                                                backgroundColor: '#18181b',
                                                                 border: '1px solid #27272a',
                                                                 borderRadius: '0.5rem',
                                                                 color: '#e2e8f0'
@@ -758,7 +778,7 @@ const AnalyticsPage: React.FC = () => {
 
                                         {/* Recurring Genres - merged from content types + music + media */}
                                         {renderOnce('recurring-genres',
-                                            <Card sx={{ bgcolor: '#1a1d23', border: '1px solid #27272a', p: 6, borderRadius: '1rem', display: 'flex', flexDirection: 'column' }}>
+                                            <Card sx={{ bgcolor: '#18181b', border: '1px solid #27272a', p: 3.5, borderRadius: '1rem', display: 'flex', flexDirection: 'column' }}>
                                                 <Typography sx={{ fontSize: '1.125rem', fontWeight: 700, color: '#e2e8f0', mb: 6 }}>
                                                     Recurring Genres
                                                 </Typography>
@@ -777,11 +797,11 @@ const AnalyticsPage: React.FC = () => {
                                                                     paddingAngle={1}
                                                                 >
                                                                     {overviewGenres.map((g: { type?: string }, idx: number) => (
-                                                                        <Cell key={idx} fill={getGenreColor(g.type || 'tv')} stroke="#1a1d23" strokeWidth={2} />
+                                                                        <Cell key={idx} fill={getGenreColor(g.type || 'tv')} stroke="#18181b" strokeWidth={2} />
                                                                     ))}
                                                                 </Pie>
                                                                 <Tooltip
-                                                                    contentStyle={{ backgroundColor: '#1a1d23', border: '1px solid #27272a', borderRadius: '0.5rem', color: '#e2e8f0' }}
+                                                                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '0.5rem', color: '#e2e8f0' }}
                                                                     formatter={(value: number | undefined, name?: string) => [`${value ?? 0}%`, name ?? '']}
                                                                 />
                                                             </PieChart>
@@ -798,7 +818,7 @@ const AnalyticsPage: React.FC = () => {
                                                         <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#e2e8f0' }}>
                                                             {overviewGenres.length > 0 ? overviewGenres.length : (analyticsData.genre_distribution?.total_tags ?? 0)}
                                                         </Typography>
-                                                        <Typography sx={{ fontSize: '0.625rem', color: '#e2e8f0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                        <Typography sx={{ fontSize: '0.75rem', color: '#e2e8f0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                                             Tags
                                                         </Typography>
                                                     </Box>
@@ -835,13 +855,13 @@ const AnalyticsPage: React.FC = () => {
                                     gap: 4
                                 }}>
                                     <Card sx={{
-                                        bgcolor: '#1a1d23',
+                                        bgcolor: '#18181b',
                                         border: '1px solid #27272a',
                                         p: 5,
                                         borderRadius: '0.75rem',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: 4,
+                                        gap: 3,
                                         cursor: 'pointer',
                                         '&:hover': { borderColor: '#6366f1', transition: 'border-color 0.2s' }
                                     }}>
@@ -869,13 +889,13 @@ const AnalyticsPage: React.FC = () => {
                                     </Card>
 
                                     <Card sx={{
-                                        bgcolor: '#1a1d23',
+                                        bgcolor: '#18181b',
                                         border: '1px solid #27272a',
                                         p: 5,
                                         borderRadius: '0.75rem',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: 4,
+                                        gap: 3,
                                         cursor: 'pointer',
                                         '&:hover': { borderColor: '#6366f1', transition: 'border-color 0.2s' }
                                     }}>
@@ -901,13 +921,13 @@ const AnalyticsPage: React.FC = () => {
                                     </Card>
 
                                     <Card sx={{
-                                        bgcolor: '#1a1d23',
+                                        bgcolor: '#18181b',
                                         border: '1px solid #27272a',
                                         p: 5,
                                         borderRadius: '0.75rem',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: 4,
+                                        gap: 3,
                                         cursor: 'pointer',
                                         '&:hover': { borderColor: '#6366f1', transition: 'border-color 0.2s' }
                                     }}>

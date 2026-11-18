@@ -11,7 +11,7 @@ from users.credentials import get_service_credentials
 from query_params import bounded_int, pagination_params
 from django.core.cache import cache
 from django.conf import settings
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.utils import timezone
 from datetime import timedelta, datetime
 from utils import versioned_cache_key, versioned_cache_invalidate
@@ -289,11 +289,36 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
         sorted by played_at in descending order with pagination support.
         """
         source = request.query_params.get('source')
+        search = (request.query_params.get('search') or '').strip()
+        date_param = (request.query_params.get('date') or 'all').strip().lower()
         page, page_size = pagination_params(request.query_params, default_page_size=50, max_page_size=100)
         if source and source not in ['spotify', 'lastfm']:
             raise ValidationError({'source': "Must be 'spotify' or 'lastfm'."})
-        
-        cache_key = f"stored_songs_{request.user.id}_{source}_{page}_{page_size}"
+
+        date_windows = {'last7d': 7, 'last30d': 30, 'last90d': 90, 'last365d': 365}
+        days = None
+        if date_param not in ('', 'all'):
+            if date_param in date_windows:
+                days = date_windows[date_param]
+            else:
+                try:
+                    days = int(date_param)
+                except (TypeError, ValueError):
+                    raise ValidationError({
+                        'date': (
+                            "Must be 'all', a number of days, or one of: "
+                            "last7d, last30d, last90d, last365d."
+                        )
+                    })
+                if days < 1 or days > 365:
+                    raise ValidationError({'date': "Day count must be between 1 and 365."})
+
+        # Every filter must be part of the cache key; otherwise a filtered
+        # response can be served for an unfiltered request and vice versa.
+        cache_key = (
+            f"stored_songs_{request.user.id}_{source}_{date_param}_"
+            f"{search.lower()}_{page}_{page_size}"
+        )
         cached_result = cache.get(cache_key)
         if cached_result:
             return Response(cached_result)
@@ -302,6 +327,16 @@ class StreamedSongViewSet(viewsets.ModelViewSet):
         
         if source and source in ['spotify', 'lastfm']:
             songs = songs.filter(source=source)
+
+        if days is not None:
+            songs = songs.filter(played_at__gte=timezone.now() - timedelta(days=days))
+
+        if search:
+            songs = songs.filter(
+                Q(title__icontains=search)
+                | Q(artist__icontains=search)
+                | Q(album__icontains=search)
+            )
             
         songs = songs.order_by("-played_at")
         

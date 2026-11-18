@@ -10,7 +10,7 @@ import MilitaryTechIcon from "@mui/icons-material/MilitaryTech";
 
 const MUSIC_TEAL = "#40b3a2";
 const MUSIC_BLUE = "#3b82f6";
-const CARD_DARK = "#1a1d23";
+const CARD_DARK = "#18181b";
 const BORDER_SLATE = "#27272a";
 
 interface MusicStatsProps {
@@ -368,7 +368,7 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
               >
                 Scrobbles per Day
               </Typography>
-              <Typography sx={{ fontSize: "0.75rem", color: "#64748b" }}>
+              <Typography sx={{ fontSize: "0.75rem", color: "#94a3b8" }}>
                 Listening volume vs average duration
               </Typography>
             </Box>
@@ -438,8 +438,8 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
                   <Typography
                     sx={{
                       mt: 1,
-                      fontSize: "10px",
-                      color: "#64748b",
+                      fontSize: "12px",
+                      color: "#94a3b8",
                       fontWeight: 700,
                       textTransform: "uppercase",
                       flexShrink: 0,
@@ -535,7 +535,7 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
               </Typography>
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   color: "#94a3b8",
                   fontWeight: 600,
                   textTransform: "uppercase",
@@ -636,9 +636,9 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
             <Box>
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   fontWeight: 700,
-                  color: "#64748b",
+                  color: "#94a3b8",
                   textTransform: "uppercase",
                   letterSpacing: "0.1em",
                 }}
@@ -683,9 +683,9 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
             <Box>
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   fontWeight: 700,
-                  color: "#64748b",
+                  color: "#94a3b8",
                   textTransform: "uppercase",
                   letterSpacing: "0.1em",
                 }}
@@ -726,9 +726,9 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
               <Box>
                 <Typography
                   sx={{
-                    fontSize: "10px",
+                    fontSize: "12px",
                     fontWeight: 700,
-                    color: "#64748b",
+                    color: "#94a3b8",
                     textTransform: "uppercase",
                     letterSpacing: "0.1em",
                   }}

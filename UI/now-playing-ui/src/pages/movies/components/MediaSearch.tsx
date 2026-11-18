@@ -79,13 +79,16 @@ function MediaSearch() {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    if (searchQuery.trim()) {
+    if (searchQuery.trim().length >= 2) {
       searchTimeoutRef.current = setTimeout(() => {
         searchMedia(searchQuery);
       }, 300);
-    } else {
-      setResults([]);
-      setShowResults(false);
+    } else if (!searchQuery.trim()) {
+      // Delay clearing so a brief empty state mid-typing does not wipe results.
+      searchTimeoutRef.current = setTimeout(() => {
+        setResults([]);
+        setShowResults(false);
+      }, 500);
     }
 
     return () => {

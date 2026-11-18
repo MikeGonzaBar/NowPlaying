@@ -67,7 +67,10 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
       return [];
     }
 
-    const targetDateStr = selectedDate.toISOString().split("T")[0];
+    // Compare local dates (not UTC) so a dot's day matches its unlocks.
+    const dateKey = (date: Date) =>
+      `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    const targetDateStr = dateKey(selectedDate);
 
     return game.achievements.filter((achievement: any) => {
       if (!achievement.unlocked || !achievement.unlock_time) {
@@ -77,8 +80,7 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
       if (unlockDate.getTime() === new Date(1970, 0, 1).getTime()) {
         return false;
       }
-      const unlockDateStr = unlockDate.toISOString().split("T")[0];
-      return unlockDateStr === targetDateStr;
+      return dateKey(unlockDate) === targetDateStr;
     });
   }, [selectedDate, game]);
 
@@ -285,7 +287,7 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
               dataKey="dateLabel"
               tick={{
                 fill: zincColors.muted,
-                fontSize: 9,
+                fontSize: 11,
                 fontFamily: "Inter, sans-serif",
               }}
               tickLine={{ stroke: zincColors.muted }}
@@ -294,14 +296,18 @@ const ActivitySparkline: React.FC<ActivitySparklineProps> = ({
               hide={true}
             />
             <YAxis
+              // Keep a readable count scale instead of an unlabelled curve.
+              width={24}
+              allowDecimals={false}
+              domain={[0, "auto"]}
+              tickCount={3}
               tick={{
                 fill: zincColors.muted,
-                fontSize: 9,
+                fontSize: 11,
                 fontFamily: "Inter, sans-serif",
               }}
-              tickLine={{ stroke: zincColors.muted }}
-              axisLine={{ stroke: "#27272a" }}
-              hide={true}
+              tickLine={false}
+              axisLine={false}
             />
             <RechartsTooltip content={<CustomTooltip />} />
             <Area

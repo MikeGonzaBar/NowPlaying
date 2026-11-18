@@ -44,6 +44,10 @@ function ArtistDetail() {
       <Box
         sx={{
           flexGrow: 1,
+          // Without minWidth: 0 the flex item refuses to shrink below its
+          // content's min-content width, letting long artist/track names
+          // stretch the whole page past the mobile viewport.
+          minWidth: 0,
           maxWidth: "1280px",
           mx: "auto",
           px: { xs: 2, md: 6 },
@@ -76,29 +80,44 @@ function ArtistDetail() {
           <Skeleton variant="rectangular" height={200} sx={{ bgcolor: "#18181b", borderRadius: 2 }} />
         ) : artist ? (
           <Box sx={{ mb: 6 }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 4, mb: 4 }}>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: { xs: "column", sm: "row" },
+                alignItems: { xs: "flex-start", sm: "center" },
+                gap: { xs: 2, sm: 4 },
+                mb: 4,
+                minWidth: 0,
+              }}
+            >
               {artist.thumbnail && (
                 <Box
                   component="img"
                   src={artist.thumbnail}
                   alt={artist.name}
                   sx={{
-                    width: 150,
-                    height: 150,
+                    width: { xs: 112, sm: 150 },
+                    height: { xs: 112, sm: 150 },
+                    flexShrink: 0,
                     borderRadius: "50%",
                     objectFit: "cover",
                     border: "3px solid #e11d48",
                   }}
                 />
               )}
-              <Box>
+              <Box sx={{ minWidth: 0 }}>
                 <Typography
                   variant="h2"
-                  sx={{ fontSize: { xs: "28px", md: "42px" }, fontWeight: 700, mb: 1 }}
+                  sx={{
+                    fontSize: { xs: "28px", md: "42px" },
+                    fontWeight: 700,
+                    mb: 1,
+                    overflowWrap: "anywhere",
+                  }}
                 >
                   {artist.name}
                 </Typography>
-                <Typography sx={{ color: zincColors.muted, fontSize: "14px" }}>
+                <Typography sx={{ color: zincColors.muted, fontSize: "14px", overflowWrap: "anywhere" }}>
                   {artist.count.toLocaleString()} {artist.count === 1 ? "play" : "plays"} ({artist.scope.label}) &middot;{" "}
                   {artist.top_tracks.length} tracks &middot; {artist.albums_count} albums
                 </Typography>
@@ -157,14 +176,15 @@ function ArtistDetail() {
                     border: "1px solid rgba(255, 255, 255, 0.05)",
                     textDecoration: "none",
                     color: "inherit",
+                    minWidth: 0,
                     "&:focus-visible": { outline: "2px solid #f43f5e", outlineOffset: 3 },
                   }}
                 >
-                  <Typography sx={{ color: zincColors.muted, fontSize: "14px", fontWeight: 600, minWidth: 24 }}>
+                  <Typography sx={{ color: zincColors.muted, fontSize: "14px", fontWeight: 600, minWidth: 24, flexShrink: 0 }}>
                     #{idx + 1}
                   </Typography>
-                  <Typography sx={{ flex: 1, fontSize: "14px" }}>{track.title}</Typography>
-                  <Typography sx={{ color: zincColors.muted, fontSize: "12px" }}>
+                  <Typography sx={{ flex: 1, minWidth: 0, fontSize: "14px", overflowWrap: "anywhere" }}>{track.title}</Typography>
+                  <Typography sx={{ color: zincColors.muted, fontSize: "12px", whiteSpace: "nowrap", flexShrink: 0 }}>
                     {track.count} {track.count === 1 ? "play" : "plays"}
                   </Typography>
                 </Box>

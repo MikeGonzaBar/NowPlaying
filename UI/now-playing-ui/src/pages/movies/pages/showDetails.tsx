@@ -10,6 +10,7 @@ import {
   IconButton,
   CircularProgress,
   Button,
+  Alert,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ScheduleIcon from "@mui/icons-material/Schedule";
@@ -79,6 +80,9 @@ interface SeasonsEpisodesData {
   seasons: Season[];
   episodes: Episode[];
   show_metadata?: ShowMetadata;
+  /** Set by the backend when it had to fall back to cached DB-only data. */
+  stats_unavailable?: boolean;
+  warning?: string;
 }
 
 function ShowDetails() {
@@ -105,6 +109,8 @@ function ShowDetails() {
     null,
   );
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [expandedSeasons, setExpandedSeasons] = useState<Set<number>>(
     selectedSeason !== null ? new Set([selectedSeason]) : new Set(),
   );
@@ -122,6 +128,7 @@ function ShowDetails() {
     const fetchShowDetails = async () => {
       try {
         setLoading(true);
+        setError(null);
 
         const traktId = show?.ids?.trakt || show?.show?.ids?.trakt || id;
         if (!traktId) {
@@ -136,9 +143,30 @@ function ShowDetails() {
           ),
         );
 
-        if (seasonsRes.ok) {
+        if (!seasonsRes.ok) {
+          const errorData = await seasonsRes.json().catch(() => ({}));
+          throw new Error(
+            errorData.error ||
+            errorData.detail ||
+            `Failed to load show statistics (status ${seasonsRes.status})`,
+          );
+        }
+
+        {
           const data = await seasonsRes.json();
+
+          // A 200 response can still be degraded: the backend falls back to
+          // database-only episodes when Trakt is unreachable. Treat that as
+          // unavailable rather than rendering incomplete zeros.
+          if (data?.stats_unavailable) {
+            throw new Error(
+              data.warning ||
+                "Live Trakt data is unavailable, so progress statistics were withheld.",
+            );
+          }
+
           setSeasonsData(data);
+          setError(null);
 
           if (
             !show?.title &&
@@ -205,15 +233,24 @@ function ShowDetails() {
             episodesBySeason,
           });
         }
-      } catch (error) {
-        console.error("Error fetching show details:", error);
+      } catch (err) {
+        console.error("Error fetching show details:", err);
+        // Leave stats empty rather than reporting zeros: a failed request is
+        // "unavailable", not "no episodes watched".
+        setSeasonsData(null);
+        setShowDetails(null);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load show statistics",
+        );
       } finally {
         setLoading(false);
       }
     };
 
     fetchShowDetails();
-  }, [show, id, navigate]);
+  }, [show, id, navigate, reloadToken]);
 
   useEffect(() => {
     if (selectedSeason !== null) {
@@ -272,7 +309,7 @@ function ShowDetails() {
     }
   };
 
-  if (!showData || loading) {
+  if (!showData || (loading && !seasonsData && !error)) {
     return (
       <Box
         sx={{ display: "flex", minHeight: "100vh", backgroundColor: "#0f1115" }}
@@ -310,8 +347,15 @@ function ShowDetails() {
   const avgRating = showDetails?.avgRating || "N/A";
   const episodesBySeason = showDetails?.episodesBySeason || {};
 
-  const showStatusLabel =
-    totalEpisodes === 0 || watchedCount === 0
+  // A failed request is not "no episodes watched". Distinguish unavailable
+  // statistics from genuine zero activity so the page never reports
+  // trustworthy-looking zeros when Trakt (or the backend) failed.
+  const statsUnavailable = Boolean(error) || (!loading && !seasonsData);
+  const unavailableLabel = "—";
+
+  const showStatusLabel = statsUnavailable
+    ? "Unavailable"
+    : totalEpisodes === 0 || watchedCount === 0
       ? "Not started"
       : remainingEpisodes === 0
         ? "Up to date"
@@ -370,6 +414,37 @@ function ShowDetails() {
               <ArrowBackIcon />
             </IconButton>
           </Box>
+
+          {/* Requests failed: say so explicitly and offer recovery instead of
+              rendering zeroed statistics. */}
+          {statsUnavailable && (
+            <Alert
+              severity="warning"
+              sx={{
+                mb: 3,
+                backgroundColor: "rgba(237, 28, 36, 0.08)",
+                border: "1px solid rgba(237, 28, 36, 0.3)",
+                color: "#f4d3d4",
+                "& .MuiAlert-icon": { color: "#ed1c24" },
+                "& .MuiAlert-message": { fontSize: "14px" },
+              }}
+              action={
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={() => setReloadToken((token) => token + 1)}
+                  disabled={loading}
+                  sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+                >
+                  {loading ? "Retrying…" : "Retry"}
+                </Button>
+              }
+            >
+              {error
+                ? `Show statistics unavailable — ${error}`
+                : "Show statistics could not be loaded. Progress and episode counts are unavailable, not zero."}
+            </Alert>
+          )}
 
           {/* Hero Section */}
           <Box sx={{ mb: 4, position: "relative" }}>
@@ -530,44 +605,60 @@ function ShowDetails() {
                         color: "#fff",
                       }}
                     >
-                      {masteryPercentage}%
+                      {statsUnavailable ? unavailableLabel : `${masteryPercentage}%`}
                     </Typography>
                   </Box>
                 </Box>
 
                 {/* Progress Bar */}
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                  <LinearProgress
-                    variant="determinate"
-                    value={masteryPercentage}
-                    sx={{
-                      height: 12,
-                      borderRadius: "9999px",
-                      backgroundColor: "rgba(255, 255, 255, 0.1)",
-                      "& .MuiLinearProgress-bar": {
-                        backgroundColor: "#ed1c24",
-                        boxShadow: "0 0 15px rgba(237, 28, 36, 0.5)",
-                      },
-                    }}
-                  />
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      color: "#b99d9d",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                    }}
-                  >
-                    <span>
-                      {watchedCount} of {totalEpisodes} Episodes Watched
-                    </span>
-                    <span>
-                      {remainingEpisodes} Episodes to Diamond Completion
-                    </span>
-                  </Box>
+                  {statsUnavailable ? (
+                    <Typography
+                      sx={{
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        color: "#b99d9d",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                      }}
+                    >
+                      Episode progress unavailable
+                    </Typography>
+                  ) : (
+                    <>
+                      <LinearProgress
+                        variant="determinate"
+                        value={masteryPercentage}
+                        sx={{
+                          height: 12,
+                          borderRadius: "9999px",
+                          backgroundColor: "rgba(255, 255, 255, 0.1)",
+                          "& .MuiLinearProgress-bar": {
+                            backgroundColor: "#ed1c24",
+                            boxShadow: "0 0 15px rgba(237, 28, 36, 0.5)",
+                          },
+                        }}
+                      />
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          color: "#b99d9d",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                        }}
+                      >
+                        <span>
+                          {watchedCount} of {totalEpisodes} Episodes Watched
+                        </span>
+                        <span>
+                          {remainingEpisodes} Episodes to Diamond Completion
+                        </span>
+                      </Box>
+                    </>
+                  )}
                 </Box>
               </Box>
             </Box>
@@ -618,8 +709,14 @@ function ShowDetails() {
                           letterSpacing: "-0.02em",
                         }}
                       >
-                        {totalRuntime.days > 0 && `${totalRuntime.days}d `}
-                        {totalRuntime.hours}h {totalRuntime.minutes}m
+                        {statsUnavailable ? (
+                          unavailableLabel
+                        ) : (
+                          <>
+                            {totalRuntime.days > 0 && `${totalRuntime.days}d `}
+                            {totalRuntime.hours}h {totalRuntime.minutes}m
+                          </>
+                        )}
                       </Typography>
                     </Card>
                   </Grid>
@@ -664,7 +761,9 @@ function ShowDetails() {
                           letterSpacing: "-0.02em",
                         }}
                       >
-                        {remainingEpisodes} Episodes
+                        {statsUnavailable
+                          ? unavailableLabel
+                          : `${remainingEpisodes} Episodes`}
                       </Typography>
                     </Card>
                   </Grid>
@@ -708,7 +807,7 @@ function ShowDetails() {
                             letterSpacing: "-0.02em",
                           }}
                         >
-                          {avgRating}
+                          {statsUnavailable ? unavailableLabel : avgRating}
                         </Typography>
                       </Box>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 2 }}>
@@ -733,11 +832,15 @@ function ShowDetails() {
                             letterSpacing: "-0.02em",
                           }}
                         >
-                          {showMetadata?.rating?.toFixed(1) || "N/A"}
-                          <span style={{ color: "rgba(255, 255, 255, 0.5)", fontSize: "0.85rem", fontWeight: 400 }}>
-                            {" "}
-                            / 10
-                          </span>
+                          {statsUnavailable
+                            ? unavailableLabel
+                            : showMetadata?.rating?.toFixed(1) || "N/A"}
+                          {!statsUnavailable && (
+                            <span style={{ color: "rgba(255, 255, 255, 0.5)", fontSize: "0.85rem", fontWeight: 400 }}>
+                              {" "}
+                              / 10
+                            </span>
+                          )}
                         </Typography>
                       </Box>
                     </Card>
@@ -818,26 +921,30 @@ function ShowDetails() {
                 )}
 
                 {/* Seasons List */}
-                <SeasonProgress
-                  seasons={sortedSeasons}
-                  episodesBySeason={episodesBySeason}
-                  expandedSeasons={expandedSeasons}
-                  onToggleSeason={toggleSeason}
-                  selectedSeason={selectedSeason}
-                  selectedEpisode={selectedEpisode}
-                />
+                {!statsUnavailable && (
+                  <SeasonProgress
+                    seasons={sortedSeasons}
+                    episodesBySeason={episodesBySeason}
+                    expandedSeasons={expandedSeasons}
+                    onToggleSeason={toggleSeason}
+                    selectedSeason={selectedSeason}
+                    selectedEpisode={selectedEpisode}
+                  />
+                )}
               </Box>
             </Grid>
 
             {/* Right Column: Milestones */}
-            <Grid size={{ xs: 12, lg: 4 }}>
-              <MilestonesSidebar
-                masteryPercentage={masteryPercentage}
-                watchedCount={watchedCount}
-                totalEpisodes={totalEpisodes}
-                onSync={handleSync}
-              />
-            </Grid>
+            {!statsUnavailable && (
+              <Grid size={{ xs: 12, lg: 4 }}>
+                <MilestonesSidebar
+                  masteryPercentage={masteryPercentage}
+                  watchedCount={watchedCount}
+                  totalEpisodes={totalEpisodes}
+                  onSync={handleSync}
+                />
+              </Grid>
+            )}
           </Grid>
         </Container >
       </Box >

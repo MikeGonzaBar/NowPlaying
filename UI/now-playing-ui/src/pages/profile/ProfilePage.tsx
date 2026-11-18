@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Box, Typography, Paper, CircularProgress, Alert } from "@mui/material";
+import { Box, Typography, Paper, CircularProgress, Alert, Button } from "@mui/material";
 
 import AppShell from "../../components/AppShell";
 import {
@@ -14,10 +14,16 @@ import { getApiUrl, API_CONFIG } from "../../config/api";
 import { ServiceSection, TraktOAuthDialog } from "./components";
 
 function ProfilePage() {
-  const { userProfile, loading: profileLoading, error } = useProfile();
+  const {
+    userProfile,
+    loading: profileLoading,
+    error,
+    refetchProfile,
+  } = useProfile();
   const {
     apiKeys,
     loading: apiKeysLoading,
+    error: apiKeysError,
     newApiKeys,
     handleNewApiKeyChange,
     saveApiKey,
@@ -174,110 +180,146 @@ function ProfilePage() {
           Connections & account
         </Typography>
 
-        {profileLoading && (
-          <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-            <CircularProgress sx={{ color: "#00a8cc" }} />
+        {/* Profile and services load independently: a failed profile request
+            must not hide the provider list, and each failure offers a retry. */}
+        {profileLoading && !userProfile && (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2 }}>
+            <CircularProgress size={18} sx={{ color: "#00a8cc" }} />
+            <Typography sx={{ color: "text.secondary", fontSize: "14px" }}>
+              Loading account details…
+            </Typography>
           </Box>
         )}
 
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert
+            severity="error"
+            sx={{ mb: 2 }}
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => void refetchProfile()}
+              >
+                Retry
+              </Button>
+            }
+          >
             {error}
           </Alert>
         )}
 
-        {userProfile && !profileLoading && (
-          <>
-            {/* User Profile Section */}
-            <Typography
-              variant="h5"
-              sx={{
-                mb: 2,
-                fontFamily: "Montserrat, sans-serif",
-                fontWeight: "bold",
-              }}
-            >
-              Welcome, {userProfile.username}!
-            </Typography>
+        {userProfile && (
+          <Typography
+            variant="h5"
+            sx={{
+              mb: 2,
+              fontFamily: "Montserrat, sans-serif",
+              fontWeight: "bold",
+            }}
+          >
+            Welcome, {userProfile.username}!
+          </Typography>
+        )}
 
-            {/* Services Section */}
-            <Paper
-              sx={{
-                p: { xs: 2, md: 3 },
-                backgroundColor: "rgba(255, 255, 255, 0.07)",
-                backdropFilter: "blur(10px)",
-                borderRadius: 2,
-                border: "1px solid rgba(255, 255, 255, 0.14)",
-              }}
-            >
-              <Typography
-                variant="h5"
-                sx={{
-                  mb: 2,
-                  fontFamily: "Montserrat, sans-serif",
-                  fontWeight: "bold",
-                }}
+        {apiKeysError && (
+          <Alert
+            severity="warning"
+            sx={{ mb: 2 }}
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => void refetchApiKeys()}
               >
-                Services
-              </Typography>
+                Retry
+              </Button>
+            }
+          >
+            {apiKeysError}
+          </Alert>
+        )}
 
-              {/* Gaming Section */}
-              <ServiceSection
-                category="Gaming"
-                title="Gaming"
-                loading={apiKeysLoading}
-                apiKeys={apiKeys}
-                newApiKeys={newApiKeys}
-                isPSNEditing={isEditingPSN}
-                psnNPSSO={editingNPSSO}
-                psnUpdating={updatingPSN}
-                onNewKeyChange={handleNewApiKeyChange}
-                onSaveApiKey={handleSaveApiKey}
-                onDeleteApiKey={handleDeleteApiKey}
-                onScheduleSave={updateSyncSchedule}
-                onPSNEdit={startPSNEditing}
-                onPSNCancel={cancelPSNEditing}
-                onPSNSave={handlePSNSave}
-                onPSNChange={setNPSSO}
-                epicStatus={epicStatus}
-                epicLoginUrl={epicLoginUrl}
-                epicConnecting={epicConnecting}
-                epicCode={epicCode}
-                onEpicCodeChange={setEpicCode}
-                onEpicLogin={handleEpicLogin}
-                onEpicConnect={handleEpicConnect}
-              />
+        {/* Services Section. Hide it when the request failed and there is no
+            cached data, so a failed fetch is not rendered as every service
+            being disconnected. */}
+        {(!apiKeysError || apiKeys.length > 0) && (
+          <Paper
+            sx={{
+              p: { xs: 2, md: 3 },
+              backgroundColor: "rgba(255, 255, 255, 0.07)",
+              backdropFilter: "blur(10px)",
+              borderRadius: 2,
+              border: "1px solid rgba(255, 255, 255, 0.14)",
+            }}
+          >
+          <Typography
+            variant="h5"
+            sx={{
+              mb: 2,
+              fontFamily: "Montserrat, sans-serif",
+              fontWeight: "bold",
+            }}
+          >
+            Services
+          </Typography>
 
-              {/* Movies Section */}
-              <ServiceSection
-                category="Movies"
-                title="Movies"
-                loading={apiKeysLoading}
-                apiKeys={apiKeys}
-                newApiKeys={newApiKeys}
-                traktAuthStatus={traktAuthStatus}
-                traktLoading={traktLoading}
-                onNewKeyChange={handleNewApiKeyChange}
-                onSaveApiKey={handleSaveApiKey}
-                onDeleteApiKey={handleDeleteApiKey}
-                onScheduleSave={updateSyncSchedule}
-                onTraktOAuth={handleTraktOAuth}
-              />
+          {/* Gaming Section */}
+          <ServiceSection
+            category="Gaming"
+            title="Gaming"
+            loading={apiKeysLoading}
+            apiKeys={apiKeys}
+            newApiKeys={newApiKeys}
+            isPSNEditing={isEditingPSN}
+            psnNPSSO={editingNPSSO}
+            psnUpdating={updatingPSN}
+            onNewKeyChange={handleNewApiKeyChange}
+            onSaveApiKey={handleSaveApiKey}
+            onDeleteApiKey={handleDeleteApiKey}
+            onScheduleSave={updateSyncSchedule}
+            onPSNEdit={startPSNEditing}
+            onPSNCancel={cancelPSNEditing}
+            onPSNSave={handlePSNSave}
+            onPSNChange={setNPSSO}
+            epicStatus={epicStatus}
+            epicLoginUrl={epicLoginUrl}
+            epicConnecting={epicConnecting}
+            epicCode={epicCode}
+            onEpicCodeChange={setEpicCode}
+            onEpicLogin={handleEpicLogin}
+            onEpicConnect={handleEpicConnect}
+          />
 
-              {/* Music Section */}
-              <ServiceSection
-                category="Music"
-                title="Music"
-                loading={apiKeysLoading}
-                apiKeys={apiKeys}
-                newApiKeys={newApiKeys}
-                onNewKeyChange={handleNewApiKeyChange}
-                onSaveApiKey={handleSaveApiKey}
-                onDeleteApiKey={handleDeleteApiKey}
-                onScheduleSave={updateSyncSchedule}
-              />
-            </Paper>
-          </>
+          {/* Movies Section */}
+          <ServiceSection
+            category="Movies"
+            title="Movies"
+            loading={apiKeysLoading}
+            apiKeys={apiKeys}
+            newApiKeys={newApiKeys}
+            traktAuthStatus={traktAuthStatus}
+            traktLoading={traktLoading}
+            onNewKeyChange={handleNewApiKeyChange}
+            onSaveApiKey={handleSaveApiKey}
+            onDeleteApiKey={handleDeleteApiKey}
+            onScheduleSave={updateSyncSchedule}
+            onTraktOAuth={handleTraktOAuth}
+          />
+
+          {/* Music Section */}
+          <ServiceSection
+            category="Music"
+            title="Music"
+            loading={apiKeysLoading}
+            apiKeys={apiKeys}
+            newApiKeys={newApiKeys}
+            onNewKeyChange={handleNewApiKeyChange}
+            onSaveApiKey={handleSaveApiKey}
+            onDeleteApiKey={handleDeleteApiKey}
+            onScheduleSave={updateSyncSchedule}
+          />
+        </Paper>
         )}
       </AppShell>
 

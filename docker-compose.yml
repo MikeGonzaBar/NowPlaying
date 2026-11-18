@@ -21,6 +21,19 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    # The container command runs migrations before gunicorn. Dependents must
+    # wait for the HTTP server, not just for the container process to start,
+    # otherwise sync-worker can query tables that migrations haven't created.
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api-auth/login/', timeout=5)\"",
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
 
   api-admin:
     build:
@@ -50,7 +63,7 @@ services:
       redis:
         condition: service_healthy
       api:
-        condition: service_started
+        condition: service_healthy
 
   sync-worker:
     build:
@@ -71,7 +84,7 @@ services:
       redis:
         condition: service_healthy
       api:
-        condition: service_started
+        condition: service_healthy
 
   ui:
     build:
@@ -84,13 +97,31 @@ services:
     environment:
       - NODE_ENV=production
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
-  # The local Postgres service (db) was retired as part of the Supabase
-  # migration (plan Phase 7). Supabase Postgres is now the ONLY database:
-  # the API reads SUPABASE_DB_* from API/.env and fails fast without them.
-  # Restore the db service from git history (tag pre-supabase-2026-09-21)
-  # only for a rollback; the postgres_data volume was kept on the host.
+  # Optional local Postgres for self-contained testing. By default the API
+  # connects to the Supabase Postgres configured in API/.env; start this
+  # service explicitly with `docker compose --profile local-db up -d` and
+  # point SUPABASE_DB_* at `db` if you need an offline database.
+  db:
+    profiles: ["local-db"]
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
   redis:
     image: redis:7-alpine
     restart: always
@@ -107,4 +138,5 @@ services:
 
 volumes:
   api_static:
+  postgres_data:
   redis_data:

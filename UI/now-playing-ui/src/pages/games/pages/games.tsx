@@ -88,7 +88,9 @@ function Games() {
     latestPlayedGames,
     loading,
     error,
+    providerErrors,
     clearError,
+    refetchGames,
     refreshSteam,
     refreshEpic,
     refreshPSN,
@@ -98,6 +100,18 @@ function Games() {
     updatingPlatforms,
     getGamePlatform,
   } = useGameData(beBaseUrl);
+
+  const providerLabels: Record<string, string> = {
+    steam: "Steam",
+    epic: "Epic Games",
+    psn: "PlayStation",
+    xbox: "Xbox",
+    retroachievements: "RetroAchievements",
+  };
+  const providerErrorMessage = Object.entries(providerErrors)
+    .map(([provider, message]) => `${providerLabels[provider] ?? provider}: ${message}`)
+    .join(" · ");
+  const displayError = error || providerErrorMessage || null;
 
   const consolidatedGames = useMemo(
     () => consolidateRawGames(latestPlayedGames),
@@ -375,7 +389,15 @@ function Games() {
   }, [latestPlayedGames, getGamePlatform]);
 
   const topPlayedGames = useMemo(
-    () => consolidatedGames.slice(0, 5).map((game) => game.sources[0].raw),
+    () =>
+      consolidatedGames
+        .map((game) => game.sources[0].raw)
+        // Rank only games with a real playtime figure. Unknown playtime is
+        // not the same as zero and must not be sorted into the leaderboard,
+        // and "top played" should not list never-played titles.
+        .filter((game) => hasKnownPlaytime(game) && getPlaytime(game) > 0)
+        .sort((a, b) => getPlaytime(b) - getPlaytime(a))
+        .slice(0, 5),
     [consolidatedGames],
   );
 
@@ -392,10 +414,10 @@ function Games() {
   };
 
   const isPsnError = useMemo(() => {
-    if (!error) return false;
-    const msg = error.toLowerCase();
+    if (!displayError) return false;
+    const msg = displayError.toLowerCase();
     return msg.includes("npsso") || msg.includes("playstation");
-  }, [error]);
+  }, [displayError]);
 
   useEffect(() => {
     if (isPsnError) {
@@ -672,7 +694,7 @@ function Games() {
           minWidth: 0,
         }}
       >
-        {error && (
+        {displayError && (
           <Alert
             severity="error"
             sx={{
@@ -682,8 +704,20 @@ function Games() {
               color: zincColors.white,
             }}
             onClose={clearError}
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => void refetchGames()}
+                disabled={loading}
+                startIcon={<RefreshCw size={14} />}
+                sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+              >
+                {loading ? "Retrying…" : "Retry"}
+              </Button>
+            }
           >
-            {error}
+            {displayError}
           </Alert>
         )}
 
@@ -1028,7 +1062,7 @@ function Games() {
                 <Box
                   sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}
                 >
-                  {loading ? (
+                  {loading && latestPlayedGames.length === 0 ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <Box
                         key={i}
@@ -1240,7 +1274,7 @@ function Games() {
                       );
                     }}
                   >
-                    {loading ? (
+                    {loading && latestPlayedGames.length === 0 ? (
                       Array.from({ length: 10 }).map((_, i) => (
                         <Card
                           key={i}
@@ -1663,7 +1697,7 @@ function Games() {
                     Top Played Games
                   </Typography>
                 </Box>
-                {loading ? (
+                {loading && latestPlayedGames.length === 0 ? (
                   <Box
                     sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}
                   >
@@ -1678,6 +1712,14 @@ function Games() {
                       />
                     ))}
                   </Box>
+                ) : topPlayedGames.length === 0 ? (
+                  <Typography
+                    sx={{ color: zincColors.muted, fontSize: "13px", py: 2 }}
+                  >
+                    No playtime data is available for the connected providers
+                    yet. Playtime is not counted as zero when a provider does
+                    not report it.
+                  </Typography>
                 ) : (
                   <Box sx={{ overflowX: "auto", width: "100%" }}>
                     <Table

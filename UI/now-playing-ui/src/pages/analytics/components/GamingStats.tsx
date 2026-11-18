@@ -135,7 +135,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
         {/* Games Played */}
         <Card
           sx={{
-            bgcolor: "#1a1d23",
+            bgcolor: "#18181b",
             border: "1px solid #27272a",
             borderRadius: "1rem",
             p: 3,
@@ -161,9 +161,9 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
             <Box>
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   fontWeight: 700,
-                  color: "#64748b",
+                  color: "#94a3b8",
                   textTransform: "uppercase",
                   letterSpacing: "0.1em",
                 }}
@@ -177,7 +177,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
               </Typography>
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   color: "#94a3b8",
                   mt: 0.5,
                 }}
@@ -206,7 +206,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
         {/* Achievements Earned */}
         <Card
           sx={{
-            bgcolor: "#1a1d23",
+            bgcolor: "#18181b",
             border: "1px solid #27272a",
             borderRadius: "1rem",
             p: 3,
@@ -232,9 +232,9 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
             <Box>
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   fontWeight: 700,
-                  color: "#64748b",
+                  color: "#94a3b8",
                   textTransform: "uppercase",
                   letterSpacing: "0.1em",
                 }}
@@ -248,7 +248,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
               </Typography>
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   color: "#94a3b8",
                   mt: 0.5,
                 }}
@@ -277,7 +277,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
         {/* Total Gaming Time */}
         <Card
           sx={{
-            bgcolor: "#1a1d23",
+            bgcolor: "#18181b",
             border: "1px solid #27272a",
             borderRadius: "1rem",
             p: 3,
@@ -303,9 +303,9 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   fontWeight: 700,
-                  color: "#64748b",
+                  color: "#94a3b8",
                   textTransform: "uppercase",
                   letterSpacing: "0.1em",
                 }}
@@ -326,7 +326,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
               </Typography>
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   color: "#94a3b8",
                   mt: 0.5,
                 }}
@@ -342,7 +342,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
         {/* Completion Rate */}
         <Card
           sx={{
-            bgcolor: "#1a1d23",
+            bgcolor: "#18181b",
             border: "1px solid #27272a",
             borderRadius: "1rem",
             p: 3,
@@ -368,9 +368,9 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
             <Box sx={{ flex: 1 }}>
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   fontWeight: 700,
-                  color: "#64748b",
+                  color: "#94a3b8",
                   textTransform: "uppercase",
                   letterSpacing: "0.1em",
                 }}
@@ -404,8 +404,8 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
               </Box>
               <Typography
                 sx={{
-                  fontSize: "10px",
-                  color: "#64748b",
+                  fontSize: "12px",
+                  color: "#94a3b8",
                   mt: 1,
                   lineHeight: 1.4,
                 }}
@@ -423,7 +423,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
           sx={{
             fontSize: "12px",
             fontWeight: 700,
-            color: "#64748b",
+            color: "#94a3b8",
             textTransform: "uppercase",
             letterSpacing: "0.1em",
             mb: 2,
@@ -433,8 +433,8 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
         </Typography>
         <Typography
           sx={{
-            fontSize: "10px",
-            color: "#64748b",
+            fontSize: "12px",
+            color: "#94a3b8",
             mb: 2,
             lineHeight: 1.4,
           }}
@@ -459,7 +459,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
               <Card
                 key={platform.name}
                 sx={{
-                  bgcolor: "#1a1d23",
+                  bgcolor: "#18181b",
                   border: "1px solid #27272a",
                   borderLeft: `4px solid ${platform.borderColor}`,
                   borderRadius: "0.75rem",
@@ -522,9 +522,9 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
                   <Typography
                     sx={{
                       mt: 1,
-                      fontSize: "10px",
+                      fontSize: "12px",
                       lineHeight: 1.4,
-                      color: "#64748b",
+                      color: "#94a3b8",
                     }}
                   >
                     Playtime
@@ -550,7 +550,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
         {/* Achievement Efficiency */}
         <Card
           sx={{
-            bgcolor: "#1a1d23",
+            bgcolor: "#18181b",
             border: "1px solid #27272a",
             borderRadius: "1rem",
             p: 3,
@@ -560,7 +560,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
             sx={{
               fontSize: "12px",
               fontWeight: 700,
-              color: "#64748b",
+              color: "#94a3b8",
               textTransform: "uppercase",
               letterSpacing: "0.1em",
               mb: 3,
@@ -586,9 +586,9 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
             <Box>
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   fontWeight: 700,
-                  color: "#64748b",
+                  color: "#94a3b8",
                   textTransform: "uppercase",
                   letterSpacing: "0.1em",
                 }}
@@ -627,9 +627,9 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
             >
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   fontWeight: 700,
-                  color: "#64748b",
+                  color: "#94a3b8",
                   textTransform: "uppercase",
                   letterSpacing: "0.1em",
                 }}
@@ -656,9 +656,9 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
             >
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   fontWeight: 700,
-                  color: "#64748b",
+                  color: "#94a3b8",
                   textTransform: "uppercase",
                   letterSpacing: "0.1em",
                 }}
@@ -683,7 +683,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
         {/* Gaming Streaks */}
         <Card
           sx={{
-            bgcolor: "#1a1d23",
+            bgcolor: "#18181b",
             border: "1px solid #27272a",
             borderRadius: "1rem",
             p: 3,
@@ -698,7 +698,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
             sx={{
               fontSize: "12px",
               fontWeight: 700,
-              color: "#64748b",
+              color: "#94a3b8",
               textTransform: "uppercase",
               letterSpacing: "0.1em",
               alignSelf: "flex-start",
@@ -754,7 +754,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
       {/* Daily Gaming Activity */}
       <Card
         sx={{
-          bgcolor: "#1a1d23",
+          bgcolor: "#18181b",
           border: "1px solid #27272a",
           borderRadius: "1rem",
           p: 4,
@@ -782,7 +782,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
             sx={{
               display: "flex",
               gap: 4,
-              fontSize: "10px",
+              fontSize: "12px",
               fontWeight: 700,
               textTransform: "uppercase",
               letterSpacing: "0.1em",
@@ -797,7 +797,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
                   bgcolor: "#f97316",
                 }}
               />
-              <Typography component="span" sx={{ color: "#64748b" }}>
+              <Typography component="span" sx={{ color: "#94a3b8" }}>
                 Hours / Day
               </Typography>
             </Box>
@@ -810,7 +810,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
                   bgcolor: "rgba(251, 191, 36, 0.5)",
                 }}
               />
-              <Typography component="span" sx={{ color: "#64748b" }}>
+              <Typography component="span" sx={{ color: "#94a3b8" }}>
                 Avg. Session
               </Typography>
             </Box>
@@ -871,8 +871,8 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
                 />
                 <Typography
                   sx={{
-                    fontSize: "10px",
-                    color: "#64748b",
+                    fontSize: "12px",
+                    color: "#94a3b8",
                     fontWeight: 700,
                     textAlign: "center",
                     mt: 1,
@@ -908,7 +908,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
           {/* Most Played Game */}
           <Card
             sx={{
-              bgcolor: "#1a1d23",
+              bgcolor: "#18181b",
               border: "1px solid #27272a",
               borderRadius: "1rem",
               p: 2.5,
@@ -963,9 +963,9 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
             <Box>
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   fontWeight: 700,
-                  color: "#64748b",
+                  color: "#94a3b8",
                   textTransform: "uppercase",
                   letterSpacing: "0.1em",
                 }}
@@ -987,7 +987,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
           {/* Hardest Achievement */}
           <Card
             sx={{
-              bgcolor: "#1a1d23",
+              bgcolor: "#18181b",
               border: "1px solid #27272a",
               borderRadius: "1rem",
               p: 2.5,
@@ -1019,9 +1019,9 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
             <Box sx={{ flex: 1 }}>
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   fontWeight: 700,
-                  color: "#64748b",
+                  color: "#94a3b8",
                   textTransform: "uppercase",
                   letterSpacing: "0.1em",
                 }}
@@ -1044,7 +1044,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
                 {hardestAchievementData.rarity_percentage && (
                   <Box
                     sx={{
-                      fontSize: "10px",
+                      fontSize: "12px",
                       px: 1,
                       py: 0.5,
                       bgcolor: "rgba(239, 68, 68, 0.1)",
@@ -1064,7 +1064,7 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
           {/* Gaming Consistency */}
           <Card
             sx={{
-              bgcolor: "#1a1d23",
+              bgcolor: "#18181b",
               border: "1px solid #27272a",
               borderRadius: "1rem",
               p: 2.5,
@@ -1096,9 +1096,9 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
             <Box>
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   fontWeight: 700,
-                  color: "#64748b",
+                  color: "#94a3b8",
                   textTransform: "uppercase",
                   letterSpacing: "0.1em",
                 }}

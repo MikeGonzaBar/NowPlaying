@@ -7,6 +7,7 @@ interface ShowMoreButtonProps {
   onShowMore: () => void;
   itemType: string;
   syncLabel?: string;
+  lastUpdatedLabel?: string;
 }
 
 export function ShowMoreButton({
@@ -15,8 +16,13 @@ export function ShowMoreButton({
   onShowMore,
   itemType,
   syncLabel = "Last.fm",
+  lastUpdatedLabel,
 }: ShowMoreButtonProps) {
-  const sourceText = `Synced from ${syncLabel} • Last updated just now`;
+  // Never claim a freshness we cannot verify. Callers that know a real sync
+  // timestamp can pass it explicitly via `lastUpdatedLabel`.
+  const sourceText = lastUpdatedLabel
+    ? `Synced from ${syncLabel} • ${lastUpdatedLabel}`
+    : `Synced from ${syncLabel}`;
   if (showAll || totalItems <= 10) {
     return (
       <Box

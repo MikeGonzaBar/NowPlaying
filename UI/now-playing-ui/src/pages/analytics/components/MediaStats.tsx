@@ -10,7 +10,7 @@ import CastIcon from "@mui/icons-material/Cast";
 
 const TRAKT_RED = "#ed1c24";
 const SILVER_LIGHT = "#f1f5f9";
-const CARD_BG = "#1a1d23";
+const CARD_BG = "#18181b";
 const BORDER_SLATE = "#27272a";
 
 interface MediaStatsProps {
@@ -101,7 +101,7 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
               bottom: -16,
               fontSize: "4rem",
               opacity: 0.1,
-              color: "#64748b",
+              color: "#94a3b8",
             }}
           />
           <Box
@@ -141,7 +141,7 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
             period
           </Typography>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-            <Typography sx={{ fontSize: "0.75rem", color: "#64748b" }}>
+            <Typography sx={{ fontSize: "0.75rem", color: "#94a3b8" }}>
               Re-watched / Premieres not tracked yet
             </Typography>
           </Box>
@@ -269,10 +269,10 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
             Total screen time
           </Typography>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-            <Typography sx={{ fontSize: "0.75rem", color: "#64748b" }}>
+            <Typography sx={{ fontSize: "0.75rem", color: "#94a3b8" }}>
               {breakdown.tv_percentage}% TV Series
             </Typography>
-            <Typography sx={{ fontSize: "0.75rem", color: "#64748b" }}>
+            <Typography sx={{ fontSize: "0.75rem", color: "#94a3b8" }}>
               {breakdown.movies_percentage}% Feature Films
             </Typography>
           </Box>
@@ -393,7 +393,7 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
               >
                 Daily Watch Time
               </Typography>
-              <Typography sx={{ fontSize: "0.75rem", color: "#64748b" }}>
+              <Typography sx={{ fontSize: "0.75rem", color: "#94a3b8" }}>
                 {hasViewingData ? "Peak viewing on Weekends" : "No viewing pattern yet"}
               </Typography>
             </Box>
@@ -466,7 +466,7 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
                   <Typography
                     sx={{
                       mt: 1,
-                      fontSize: "10px",
+                      fontSize: "12px",
                       color: isWeekend ? TRAKT_RED : "#64748b",
                       fontWeight: isWeekend ? 700 : 500,
                     }}
@@ -569,8 +569,8 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
               </Typography>
               <Typography
                 sx={{
-                  fontSize: "10px",
-                  color: "#64748b",
+                  fontSize: "12px",
+                  color: "#94a3b8",
                   fontWeight: 600,
                   textTransform: "uppercase",
                   letterSpacing: "0.1em",
@@ -674,9 +674,9 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
             <Box>
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   fontWeight: 700,
-                  color: "#64748b",
+                  color: "#94a3b8",
                   textTransform: "uppercase",
                   letterSpacing: "0.1em",
                 }}
@@ -718,9 +718,9 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
             <Box>
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   fontWeight: 700,
-                  color: "#64748b",
+                  color: "#94a3b8",
                   textTransform: "uppercase",
                   letterSpacing: "0.1em",
                 }}
@@ -762,9 +762,9 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
             <Box>
               <Typography
                 sx={{
-                  fontSize: "10px",
+                  fontSize: "12px",
                   fontWeight: 700,
-                  color: "#64748b",
+                  color: "#94a3b8",
                   textTransform: "uppercase",
                   letterSpacing: "0.1em",
                 }}
@@ -805,12 +805,12 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
           </Typography>
           <Typography
             component="span"
-            sx={{ color: "#64748b", fontSize: "0.875rem" }}
+            sx={{ color: "#94a3b8", fontSize: "0.875rem" }}
           >
             Data Integrated
           </Typography>
         </Box>
-        <Typography sx={{ fontSize: "0.875rem", color: "#64748b" }}>
+        <Typography sx={{ fontSize: "0.875rem", color: "#94a3b8" }}>
           Master Entertainment Analytics • 2026
         </Typography>
       </Box>

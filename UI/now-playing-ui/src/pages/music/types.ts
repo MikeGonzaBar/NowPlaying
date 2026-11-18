@@ -1,6 +1,7 @@
 export interface TopTrack {
   title: string;
   count: number;
+  recording_id?: string;
 }
 
 export interface Artist {

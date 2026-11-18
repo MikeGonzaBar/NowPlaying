@@ -217,7 +217,10 @@ function SideBar({ activeItem }: SideBarProps) {
         left: 0,
         right: 0,
         bottom: 0,
-        zIndex: 1300,
+        // Keep the bar below MUI's drawer/modal layer so a bottom sheet and
+        // its scrim cover it instead of painting under (and intercepting taps
+        // on) the sheet's actions.
+        zIndex: (theme) => theme.zIndex.drawer - 1,
         height: 60,
         minHeight: 60,
         backgroundColor: "#0c0c0f",

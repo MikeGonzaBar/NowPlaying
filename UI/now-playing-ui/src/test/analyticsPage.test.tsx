@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
@@ -88,6 +89,46 @@ describe("AnalyticsPage (audit #2)", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText("Date unavailable")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /export/i })).toBeEnabled();
+  });
+
+  it("downloads the analytics payload as JSON when Export is clicked", async () => {
+    mockAuthenticatedFetch({ "/analytics/": healthyPayload });
+
+    const createObjectURL = vi.fn((_blob: Blob) => "blob:analytics");
+    const revokeObjectURL = vi.fn();
+    const urlWithBlob = URL as typeof URL & {
+      createObjectURL?: (blob: Blob) => string;
+      revokeObjectURL?: (url: string) => void;
+    };
+    const originalCreate = urlWithBlob.createObjectURL;
+    const originalRevoke = urlWithBlob.revokeObjectURL;
+    urlWithBlob.createObjectURL = createObjectURL;
+    urlWithBlob.revokeObjectURL = revokeObjectURL;
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
+
+    try {
+      renderPage();
+      const exportButton = await screen.findByRole("button", {
+        name: /export/i,
+      });
+      await waitFor(() => expect(exportButton).toBeEnabled());
+      await userEvent.click(exportButton);
+
+      expect(createObjectURL).toHaveBeenCalledTimes(1);
+      const blob = createObjectURL.mock.calls[0][0] as Blob;
+      expect(blob.type).toContain("application/json");
+      expect(blob.size).toBeGreaterThan(0);
+
+      const link = click.mock.instances[0] as unknown as HTMLAnchorElement;
+      expect(link.download).toMatch(/^analytics-\d{4}-\d{2}-\d{2}\.json$/);
+      expect(revokeObjectURL).toHaveBeenCalledWith("blob:analytics");
+    } finally {
+      click.mockRestore();
+      urlWithBlob.createObjectURL = originalCreate;
+      urlWithBlob.revokeObjectURL = originalRevoke;
+    }
   });
 
   it("renders the Gaming tab from the real API shape (sections at top level)", async () => {

@@ -158,42 +158,55 @@ export const getAchievementUnlockDates = (
 };
 
 /**
- * Groups achievement unlock dates by day and counts unlocks per day
- * Returns array of { date: Date, count: number } for last 30 days
+ * Local-date key (YYYY-MM-DD). Avoids `toISOString`, which shifts the day for
+ * users east/west of UTC and would put unlocks on the wrong day.
+ */
+const localDateKey = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * Groups achievement unlock dates by day and counts unlocks per day.
+ * Returns exactly one entry per day for the window ending today (inclusive),
+ * and ignores unlocks outside that window instead of extending the chart into
+ * historical dates.
  */
 export const groupAchievementsByDate = (
   unlockDates: Date[],
   days: number = 30,
 ): Array<{ date: Date; count: number }> => {
+  const windowSize = Math.max(1, Math.floor(days));
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const startDate = new Date(today);
-  startDate.setDate(startDate.getDate() - days);
+  startDate.setDate(startDate.getDate() - (windowSize - 1));
 
   const dailyCounts: Map<string, number> = new Map();
-  for (let i = 0; i < days; i++) {
+  for (let i = 0; i < windowSize; i++) {
     const date = new Date(startDate);
     date.setDate(date.getDate() + i);
-    const dateKey = date.toISOString().split("T")[0];
-    dailyCounts.set(dateKey, 0);
+    dailyCounts.set(localDateKey(date), 0);
   }
 
   unlockDates.forEach((date) => {
-    const dateKey = date.toISOString().split("T")[0];
-    const currentCount = dailyCounts.get(dateKey) || 0;
-    dailyCounts.set(dateKey, currentCount + 1);
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return;
+    const key = localDateKey(date);
+    // Only count unlocks inside the window; anything older (or in the future)
+    // must not create extra buckets.
+    if (!dailyCounts.has(key)) return;
+    dailyCounts.set(key, (dailyCounts.get(key) ?? 0) + 1);
   });
 
-  const result: Array<{ date: Date; count: number }> = [];
-  dailyCounts.forEach((count, dateKey) => {
-    result.push({
-      date: new Date(dateKey),
-      count,
-    });
-  });
-
-  return result.sort((a, b) => a.date.getTime() - b.date.getTime());
+  return Array.from(dailyCounts.entries())
+    .map(([dateKey, count]) => {
+      const [year, month, day] = dateKey.split("-").map(Number);
+      return { date: new Date(year, month - 1, day), count };
+    })
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
 };
 
 /**
