@@ -12,6 +12,7 @@ import {
 import { authenticatedFetch } from "../../utils/auth";
 import { getApiUrl, API_CONFIG } from "../../config/api";
 import { ServiceSection, TraktOAuthDialog } from "./components";
+import PreferencesSection from "./components/PreferencesSection";
 
 function ProfilePage() {
   const {
@@ -239,6 +240,12 @@ function ProfilePage() {
             {apiKeysError}
           </Alert>
         )}
+
+        {/* Home & navigation preferences. Stored per account so the choice
+            follows the user across devices. */}
+        <Box sx={{ mb: 3 }}>
+          <PreferencesSection />
+        </Box>
 
         {/* Services Section. Hide it when the request failed and there is no
             cached data, so a failed fetch is not rendered as every service

@@ -3,7 +3,12 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from .models import UserApiKey
+from .models import UserApiKey, UserPreference
+
+VALID_SECTIONS = {"games", "movies", "music"}
+PREFERENCE_KEYS = {"version", "hidden_sections"}
+DEFAULT_PREFERENCES = {"version": 1, "hidden_sections": []}
+
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     """Validate and create local application users."""
@@ -163,3 +168,58 @@ class ApiKeyCheckSerializer(serializers.Serializer):
             
         except UserApiKey.DoesNotExist:
             raise serializers.ValidationError(f"No API key found for service: {service_name}")
+
+
+class UserPreferenceSerializer(serializers.ModelSerializer):
+    """Validate the per-user UI preference document.
+
+    Only known keys are accepted. ``hidden_sections`` must be a subset of the
+    real sections, and at least one section has to stay visible so the app can
+    never be configured into an empty shell.
+    """
+
+    class Meta:
+        model = UserPreference
+        fields = ('data',)
+
+    def to_representation(self, instance: UserPreference) -> dict[str, object]:
+        """Always return a complete document, even for rows created before defaults existed."""
+        data = instance.data if isinstance(instance.data, dict) else {}
+        return {
+            'data': {
+                'version': data.get('version', 1),
+                'hidden_sections': data.get('hidden_sections', []),
+            }
+        }
+
+    def validate_data(self, value: object) -> dict[str, object]:
+        if not isinstance(value, dict):
+            raise serializers.ValidationError('Preferences must be an object.')
+
+        unknown = set(value) - PREFERENCE_KEYS
+        if unknown:
+            raise serializers.ValidationError(
+                f"Unknown preference keys: {', '.join(sorted(unknown))}."
+            )
+
+        hidden = value.get('hidden_sections', [])
+        if not isinstance(hidden, list):
+            raise serializers.ValidationError(
+                {'hidden_sections': 'Must be a list of section names.'}
+            )
+
+        invalid = sorted({str(item) for item in hidden} - VALID_SECTIONS)
+        if invalid:
+            raise serializers.ValidationError(
+                {'hidden_sections': f"Unknown sections: {', '.join(invalid)}."}
+            )
+
+        if len({str(item) for item in hidden}) >= len(VALID_SECTIONS):
+            raise serializers.ValidationError(
+                {'hidden_sections': 'At least one section must stay visible.'}
+            )
+
+        return {
+            'version': 1,
+            'hidden_sections': sorted({str(item) for item in hidden}),
+        }

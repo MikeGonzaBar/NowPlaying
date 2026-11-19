@@ -115,3 +115,15 @@ class SyncJob(models.Model):
                 name="one_active_sync_per_user_provider",
             )
         ]
+
+
+class UserPreference(models.Model):
+    """Per-user UI preferences such as hidden sections and future display options."""
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='preferences')
+    data = models.JSONField(default=dict, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return f'Preferences for {self.user.username}'
+

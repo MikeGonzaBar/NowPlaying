@@ -24,6 +24,9 @@ import {
 } from "lucide-react";
 import { logoutBrowserSession } from "../utils/auth";
 import { zincColors } from "../theme";
+import { useSections } from "../preferences/SectionsContext";
+import { filterBySections } from "../preferences/filterSections";
+import type { SectionKey } from "../preferences/types";
 
 interface SideBarProps {
   activeItem: string;
@@ -31,7 +34,13 @@ interface SideBarProps {
 
 export const DRAWER_WIDTH = 220;
 
-const NAV_ITEMS = [
+const NAV_ITEMS: {
+  text: string;
+  short: string;
+  icon: React.ReactNode;
+  route: string;
+  section?: SectionKey;
+}[] = [
   {
     text: "Home",
     short: "Home",
@@ -43,18 +52,21 @@ const NAV_ITEMS = [
     short: "Games",
     icon: <Gamepad2 size={20} strokeWidth={1.75} />,
     route: "/games",
+    section: "games",
   },
   {
     text: "Movies & TV",
     short: "Movies",
     icon: <Film size={20} strokeWidth={1.75} />,
     route: "/movies",
+    section: "movies",
   },
   {
     text: "Music",
     short: "Music",
     icon: <Music size={20} strokeWidth={1.75} />,
     route: "/music",
+    section: "music",
   },
   {
     text: "Analytics",
@@ -66,6 +78,8 @@ const NAV_ITEMS = [
 
 function SideBar({ activeItem }: SideBarProps) {
   const navigate = useNavigate();
+  const { isVisible } = useSections();
+  const navItems = filterBySections(NAV_ITEMS, isVisible);
   const [accountMenuAnchor, setAccountMenuAnchor] =
     useState<HTMLElement | null>(null);
 
@@ -111,7 +125,7 @@ function SideBar({ activeItem }: SideBarProps) {
       </Box>
 
       <List sx={{ px: 1, py: 1, flexGrow: 1 }}>
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const isActive = activeItem === item.text;
           return (
             <ListItem key={item.text} disablePadding>
@@ -239,7 +253,7 @@ function SideBar({ activeItem }: SideBarProps) {
           minWidth: 0,
         }}
       >
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const isActive = activeItem === item.text;
           return (
             <Box

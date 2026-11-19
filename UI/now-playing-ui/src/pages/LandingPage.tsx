@@ -20,7 +20,11 @@ import {
   RECENT_ACTIVITY_LIMIT,
   buildRecentActivity,
   formatActivityWhen,
+  type ActivityType,
 } from "../utils/activity";
+import { useSections } from "../preferences/SectionsContext";
+import { filterBySections } from "../preferences/filterSections";
+import type { SectionKey } from "../preferences/types";
 
 interface ServiceKey {
   id: number;
@@ -39,28 +43,46 @@ interface TraktStatus {
  * Per-category quick looks under the activity feed: one glanceable entry point
  * per pillar, so the dashboard is not only a recent-activity list.
  */
-const CATEGORIES = [
+const CATEGORIES: {
+  title: string;
+  desc: string;
+  icon: React.ReactNode;
+  route: string;
+  section: SectionKey;
+}[] = [
   {
     title: "Games",
     desc: "Playtime, achievements and trophies",
     icon: <Gamepad2 size={22} strokeWidth={1.6} />,
     route: "/games",
+    section: "games",
   },
   {
     title: "Movies & TV",
     desc: "Watch history and progress",
     icon: <Film size={22} strokeWidth={1.6} />,
     route: "/movies",
+    section: "movies",
   },
   {
     title: "Music",
     desc: "Scrobbles, artists and albums",
     icon: <Music size={22} strokeWidth={1.6} />,
     route: "/music",
+    section: "music",
   },
 ];
 
+/** Which section an activity feed row belongs to. */
+const ACTIVITY_SECTION: Record<ActivityType, SectionKey> = {
+  game: "games",
+  music: "music",
+  movie: "movies",
+  show: "movies",
+};
+
 function LandingPage() {
+  const { isVisible } = useSections();
   const [apiKeys, setApiKeys] = useState<ServiceKey[]>([]);
   const [traktStatus, setTraktStatus] = useState<TraktStatus | null>(null);
   const [activityPayload, setActivityPayload] = useState<unknown>(null);
@@ -121,9 +143,14 @@ function LandingPage() {
   const connectedCount = apiKeys.length;
 
   const recentItems = useMemo(
-    () => buildRecentActivity(activityPayload, RECENT_ACTIVITY_LIMIT),
-    [activityPayload],
+    () =>
+      buildRecentActivity(activityPayload, RECENT_ACTIVITY_LIMIT).filter(
+        (item) => isVisible(ACTIVITY_SECTION[item.type]),
+      ),
+    [activityPayload, isVisible],
   );
+
+  const categories = filterBySections(CATEGORIES, isVisible);
 
   return (
     <AppShell activeItem="Home" mainSx={{ p: { xs: 2, md: 4 } }}>
@@ -350,12 +377,12 @@ function LandingPage() {
               display: "grid",
               gridTemplateColumns: {
                 xs: "1fr",
-                sm: "repeat(3, minmax(0, 1fr))",
+                sm: "repeat(auto-fit, minmax(220px, 1fr))",
               },
               gap: 2,
             }}
           >
-            {CATEGORIES.map((category) => (
+            {categories.map((category) => (
               <Card
                 key={category.route}
                 component={Link}

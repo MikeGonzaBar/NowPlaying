@@ -18,8 +18,9 @@ from .serializers import (
     ApiKeySerializer,
     ApiKeyCheckSerializer,
     ApiKeyScheduleSerializer,
+    UserPreferenceSerializer,
 )
-from .models import UserApiKey
+from .models import UserApiKey, UserPreference
 from rest_framework.decorators import action, api_view, permission_classes
 from .authentication import enforce_csrf
 
@@ -209,6 +210,24 @@ class UserProfileView(generics.RetrieveAPIView):
     def get_object(self) -> User:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return the user attached to the current request."""
         return cast(User, self.request.user)
+
+
+class UserPreferenceView(generics.RetrieveUpdateAPIView):
+    """Read and update the authenticated user's UI preferences.
+
+    A missing row is created on first read so clients always receive a complete
+    document instead of having to special-case "no preferences yet".
+    """
+
+    serializer_class = UserPreferenceSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self) -> UserPreference:  # pyright: ignore[reportIncompatibleMethodOverride]
+        preference, _ = UserPreference.objects.get_or_create(
+            user=self.request.user,
+            defaults={'data': {'version': 1, 'hidden_sections': []}},
+        )
+        return preference
 
 
 @extend_schema_view(

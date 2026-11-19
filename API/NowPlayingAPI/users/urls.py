@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ApiKeyViewSet, BrowserLoginView, BrowserLogoutView, BrowserRefreshView,
     BrowserRegistrationView, UserLoginView, UserProfileView,
-    UserRegistrationView, browser_csrf,
+    UserRegistrationView, browser_csrf, UserPreferenceView,
 )
 
 router = DefaultRouter()
@@ -20,5 +20,6 @@ urlpatterns = [
     path('browser/refresh/', BrowserRefreshView.as_view(), name='browser_refresh'),
     path('browser/logout/', BrowserLogoutView.as_view(), name='browser_logout'),
     path('profile/', UserProfileView.as_view(), name='profile'),
+    path('preferences/', UserPreferenceView.as_view(), name='preferences'),
     path('', include(router.urls)),
 ]

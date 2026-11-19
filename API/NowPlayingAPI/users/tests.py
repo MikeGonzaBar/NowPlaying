@@ -10,7 +10,7 @@ from django.test import override_settings
 from datetime import datetime, time, timezone as datetime_timezone
 
 from .credentials import get_service_credentials
-from .models import SyncJob, UserApiKey
+from .models import SyncJob, UserApiKey, UserPreference
 from .sync_service import enqueue_due_jobs
 
 
@@ -239,3 +239,62 @@ class SyncScheduleTests(TestCase):
         self.assertEqual(enqueue_due_jobs(before), 0)
         self.assertEqual(enqueue_due_jobs(after), 1)
         self.assertEqual(SyncJob.objects.get().provider, 'steam')
+
+
+class UserPreferenceTests(TestCase):
+    """Contract tests for /api/users/preferences/."""
+
+    def setUp(self):
+        self.user = User.objects.create_user('pref-user', 'pref@example.com', 'Test1234!')
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.url = reverse('preferences')
+
+    def test_read_creates_default_preferences(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['data'], {'version': 1, 'hidden_sections': []})
+        self.assertTrue(UserPreference.objects.filter(user=self.user).exists())
+
+    def test_update_persists_hidden_sections(self):
+        response = self.client.patch(
+            self.url, {'data': {'hidden_sections': ['games']}}, format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['data']['hidden_sections'], ['games'])
+        self.assertEqual(
+            UserPreference.objects.get(user=self.user).data['hidden_sections'], ['games']
+        )
+
+    def test_duplicate_sections_are_normalised(self):
+        response = self.client.patch(
+            self.url,
+            {'data': {'hidden_sections': ['games', 'games']}},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['data']['hidden_sections'], ['games'])
+
+    def test_unknown_section_is_rejected(self):
+        response = self.client.patch(
+            self.url, {'data': {'hidden_sections': ['podcasts']}}, format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_hiding_every_section_is_rejected(self):
+        response = self.client.patch(
+            self.url,
+            {'data': {'hidden_sections': ['games', 'movies', 'music']}},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_unknown_preference_key_is_rejected(self):
+        response = self.client.patch(
+            self.url, {'data': {'theme': 'dark'}}, format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_requires_authentication(self):
+        self.client.force_authenticate(None)
+        self.assertEqual(self.client.get(self.url).status_code, status.HTTP_401_UNAUTHORIZED)

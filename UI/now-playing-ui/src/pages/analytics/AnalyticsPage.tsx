@@ -35,6 +35,8 @@ import MuiTooltip from '@mui/material/Tooltip';
 import { useApi } from '../../hooks/useApi';
 import { getApiUrl } from '../../config/api';
 import SideBar from '../../components/sideBar';
+import { useSections } from '../../preferences/SectionsContext';
+import type { SectionKey } from '../../preferences/types';
 import { formatDateRange } from '../../utils/dates';
 import GamingStats from './components/GamingStats';
 import MusicStats from './components/MusicStats';
@@ -207,11 +209,29 @@ const normalizeAnalyticsData = (raw: AnalyticsData | null): AnalyticsData => {
 };
 
 const AnalyticsPage: React.FC = () => {
+    type TabKey = 'overview' | 'games' | 'music' | 'movies';
+    const TABS: { key: TabKey; label: string; section?: SectionKey }[] = [
+        { key: 'overview', label: 'Overview' },
+        { key: 'games', label: 'Gaming', section: 'games' },
+        { key: 'music', label: 'Music', section: 'music' },
+        { key: 'movies', label: 'Movies & TV', section: 'movies' },
+    ];
+
+    const { isVisible, visibleCount } = useSections();
+    const visibleTabs = TABS.filter((tab) => !tab.section || isVisible(tab.section));
+
     const { request } = useApi<AnalyticsData>();
     const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState(0);
+    const [activeTab, setActiveTab] = useState<TabKey>('overview');
+
+    // Keep the selected tab valid when a section is hidden while viewing it.
+    useEffect(() => {
+        if (!visibleTabs.some((tab) => tab.key === activeTab)) {
+            setActiveTab('overview');
+        }
+    }, [visibleTabs, activeTab]);
 
     useEffect(() => {
         fetchAnalyticsData();
@@ -233,7 +253,7 @@ const AnalyticsPage: React.FC = () => {
         }
     };
 
-    const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+    const handleTabChange = (_: React.SyntheticEvent, newValue: TabKey) => {
         setActiveTab(newValue);
     };
 
@@ -482,24 +502,27 @@ const AnalyticsPage: React.FC = () => {
                             }
                         }}
                     >
-                        <Tab label="Overview" />
-                        <Tab label="Gaming" />
-                        <Tab label="Music" />
-                        <Tab label="Movies & TV" />
+                        <Tab label="Overview" value="overview" />
+                        {visibleTabs
+                            .filter((tab) => tab.key !== 'overview')
+                            .map((tab) => (
+                                <Tab key={tab.key} label={tab.label} value={tab.key} />
+                            ))}
                     </Tabs>
                 </Box>
 
-                {activeTab === 0 && (
+                {activeTab === 'overview' && (
                     <>
                         <Box>
                             {/* Overview Cards */}
                             <Box sx={{
                                 display: 'grid',
-                                gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+                                gridTemplateColumns: { xs: '1fr', md: 'repeat(auto-fit, minmax(240px, 1fr))' },
                                 gap: 3,
                                 mb: 4
                             }}>
                                 {/* Gaming Card */}
+                                {isVisible('games') && (
                                 <Card sx={{
                                     bgcolor: '#ff5f40',
                                     color: '#fff',
@@ -540,8 +563,10 @@ const AnalyticsPage: React.FC = () => {
                                         </Typography>
                                     </Box>
                                 </Card>
+                                )}
 
                                 {/* Music Card */}
+                                {isVisible('music') && (
                                 <Card sx={{
                                     bgcolor: '#40b3a2',
                                     color: '#fff',
@@ -584,8 +609,10 @@ const AnalyticsPage: React.FC = () => {
                                         </Typography>
                                     </Box>
                                 </Card>
+                                )}
 
                                 {/* Movies & TV Card */}
+                                {isVisible('movies') && (
                                 <Card sx={{
                                     bgcolor: '#e5e7eb',
                                     color: '#1f2937',
@@ -632,6 +659,7 @@ const AnalyticsPage: React.FC = () => {
                                         </Typography>
                                     </Box>
                                 </Card>
+                                )}
 
                                 {/* Total Engagement Card */}
                                 <Card sx={{
@@ -657,14 +685,14 @@ const AnalyticsPage: React.FC = () => {
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
                                         <BoltIcon sx={{ fontSize: '1.25rem', color: '#fbbf24' }} />
                                         <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#fff' }}>
-                                            Total Engagement
+                                            Connected sections
                                         </Typography>
                                     </Box>
                                     <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, mb: 1, lineHeight: 1.25, color: '#fff' }}>
                                         {renderUnavailable(analyticsData.comprehensive_stats.totals.total_engagement_time, '—')}
                                     </Typography>
                                     <Typography sx={{ fontSize: '0.875rem', mb: 4, opacity: 0.8, fontWeight: 500, color: '#fff' }}>
-                                        Time Spent
+                                        Time across the {visibleCount} sections you show
                                     </Typography>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                         <Typography sx={{ fontSize: '0.75rem', opacity: 0.7, color: '#fff' }}>
@@ -957,9 +985,9 @@ const AnalyticsPage: React.FC = () => {
                     </>
                 )}
 
-                {activeTab === 1 && <GamingStats data={analyticsData} />}
-                {activeTab === 2 && <MusicStats data={analyticsData} />}
-                {activeTab === 3 && <MediaStats data={analyticsData} />}
+                {activeTab === 'games' && <GamingStats data={analyticsData} />}
+                {activeTab === 'music' && <MusicStats data={analyticsData} />}
+                {activeTab === 'movies' && <MediaStats data={analyticsData} />}
             </Box>
         </Box>
     );

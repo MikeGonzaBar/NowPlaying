@@ -8,6 +8,9 @@ import {
   useLocation,
 } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
+import { SectionsProvider } from "./preferences/SectionsContext";
+import { RequireSection } from "./components/RequireSection";
+import type { SectionKey } from "./preferences/types";
 import "./App.css";
 
 const LandingPage = React.lazy(() => import("./pages/LandingPage"));
@@ -82,9 +85,18 @@ const AppRoutes = () => {
     return <LoadingSpinner />;
   }
 
+  // Attach the auth gate and the section gate to one route element.
+  const guard = (section: SectionKey, node: React.ReactNode) =>
+    authenticated ? (
+      <RequireSection section={section}>{node}</RequireSection>
+    ) : (
+      <Navigate to="/auth" replace />
+    );
+
   return (
-    <Suspense fallback={<LoadingSpinner />}>
-      <Routes>
+    <SectionsProvider>
+      <Suspense fallback={<LoadingSpinner />}>
+        <Routes>
         <Route
           path="/"
           element={
@@ -109,27 +121,19 @@ const AppRoutes = () => {
         />
         <Route
           path="/games"
-          element={
-            authenticated ? <GamesPage /> : <Navigate to="/auth" replace />
-          }
+          element={guard("games", <GamesPage />)}
         />
         <Route
           path="/games/all"
-          element={
-            authenticated ? <AllGames /> : <Navigate to="/auth" replace />
-          }
+          element={guard("games", <AllGames />)}
         />
         <Route
           path="/games/:platform/:id"
-          element={
-            authenticated ? <GameDetails /> : <Navigate to="/auth" replace />
-          }
+          element={guard("games", <GameDetails />)}
         />
         <Route
           path="/games/title/:title"
-          element={
-            authenticated ? <GameDetails /> : <Navigate to="/auth" replace />
-          }
+          element={guard("games", <GameDetails />)}
         />
         <Route path="/game" element={<Navigate to="/games" replace />} />
         <Route
@@ -138,33 +142,23 @@ const AppRoutes = () => {
         />
         <Route
           path="/game/:id"
-          element={
-            authenticated ? <LegacyGameIdRedirect /> : <Navigate to="/auth" replace />
-          }
+          element={guard("games", <LegacyGameIdRedirect />)}
         />
         <Route
           path="/movies"
-          element={
-            authenticated ? <MoviesPage /> : <Navigate to="/auth" replace />
-          }
+          element={guard("movies", <MoviesPage />)}
         />
         <Route
           path="/history"
-          element={
-            authenticated ? <WatchHistory /> : <Navigate to="/auth" replace />
-          }
+          element={guard("movies", <WatchHistory />)}
         />
         <Route
           path="/completed"
-          element={
-            authenticated ? <CompletedMedia /> : <Navigate to="/auth" replace />
-          }
+          element={guard("movies", <CompletedMedia />)}
         />
         <Route
           path="/movies/:id"
-          element={
-            authenticated ? <MovieDetails /> : <Navigate to="/auth" replace />
-          }
+          element={guard("movies", <MovieDetails />)}
         />
         <Route
           path="/movieDetails"
@@ -176,63 +170,43 @@ const AppRoutes = () => {
         />
         <Route
           path="/shows/:id/seasons/:season/episodes/:episode"
-          element={
-            authenticated ? <ShowDetails /> : <Navigate to="/auth" replace />
-          }
+          element={guard("movies", <ShowDetails />)}
         />
         <Route
           path="/shows/:id"
-          element={
-            authenticated ? <ShowDetails /> : <Navigate to="/auth" replace />
-          }
+          element={guard("movies", <ShowDetails />)}
         />
         <Route
           path="/music"
-          element={
-            authenticated ? <MusicDashboard /> : <Navigate to="/auth" replace />
-          }
+          element={guard("music", <MusicDashboard />)}
         />
         <Route
           path="/music/tracks"
-          element={
-            authenticated ? <TopTracks /> : <Navigate to="/auth" replace />
-          }
+          element={guard("music", <TopTracks />)}
         />
         <Route
           path="/music/artists"
-          element={
-            authenticated ? <TopArtists /> : <Navigate to="/auth" replace />
-          }
+          element={guard("music", <TopArtists />)}
         />
         <Route
           path="/music/albums"
-          element={
-            authenticated ? <TopAlbums /> : <Navigate to="/auth" replace />
-          }
+          element={guard("music", <TopAlbums />)}
         />
         <Route
           path="/music/history"
-          element={
-            authenticated ? <SongHistory /> : <Navigate to="/auth" replace />
-          }
+          element={guard("music", <SongHistory />)}
         />
         <Route
           path="/music/artists/:name"
-          element={
-            authenticated ? <ArtistDetail /> : <Navigate to="/auth" replace />
-          }
+          element={guard("music", <ArtistDetail />)}
         />
         <Route
           path="/music/albums/:name"
-          element={
-            authenticated ? <AlbumDetail /> : <Navigate to="/auth" replace />
-          }
+          element={guard("music", <AlbumDetail />)}
         />
         <Route
           path="/music/tracks/:name"
-          element={
-            authenticated ? <TrackDetail /> : <Navigate to="/auth" replace />
-          }
+          element={guard("music", <TrackDetail />)}
         />
         <Route
           path="/profile"
@@ -247,7 +221,8 @@ const AppRoutes = () => {
           }
         />
       </Routes>
-    </Suspense>
+      </Suspense>
+    </SectionsProvider>
   );
 };
 
