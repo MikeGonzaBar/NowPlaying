@@ -265,7 +265,7 @@ const AuthPage: React.FC = () => {
           sx={{ display: "flex", flexDirection: "column", gap: 2 }}
         >
           <TextField
-            label="Username"
+            label="Username or email"
             name="username"
             autoComplete="username"
             value={formData.username}

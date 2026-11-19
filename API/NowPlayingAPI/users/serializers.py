@@ -41,11 +41,33 @@ class UserLoginSerializer(serializers.Serializer):
 
     username = serializers.CharField(required=True)
     password = serializers.CharField(required=True, write_only=True)
-    
+
+    @staticmethod
+    def _resolve_login(identifier: str) -> User | None:
+        """Map a typed identifier to one account, or ``None`` when ambiguous.
+
+        Logins are case-insensitive and accept the email address, because
+        ``authenticate()`` alone matches the stored username exactly and users
+        routinely type a different casing of their own name.
+        """
+        candidates = list(User.objects.filter(username__iexact=identifier)[:2])
+        if not candidates and '@' in identifier:
+            candidates = list(User.objects.filter(email__iexact=identifier)[:2])
+
+        # Never guess between two accounts that share a name or email.
+        return candidates[0] if len(candidates) == 1 else None
+
     def validate(self, attrs: dict[str, str]) -> dict[str, User]:
         """Authenticate credentials and return the matching active user."""
-        user = authenticate(username=attrs['username'], password=attrs['password'])
-        
+        typed = attrs['username'].strip()
+        account = self._resolve_login(typed)
+        # Fall back to the raw value so an already-canonical username keeps the
+        # previous behaviour (and Django's timing mitigation still runs).
+        user = authenticate(
+            username=account.username if account else typed,
+            password=attrs['password'],
+        )
+
         if not user:
             raise serializers.ValidationError('Invalid credentials')
         

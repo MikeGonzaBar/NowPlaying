@@ -241,6 +241,46 @@ class SyncScheduleTests(TestCase):
         self.assertEqual(SyncJob.objects.get().provider, 'steam')
 
 
+class LoginIdentifierTests(TestCase):
+    """The login form accepts a username in any casing, or the email address."""
+
+    def setUp(self):
+        self.user = User.objects.create_user('MaikOck', 'mike@example.com', 'Test1234!')
+        self.client = APIClient()
+        self.url = reverse('login')
+
+    def login(self, identifier, password='Test1234!'):
+        return self.client.post(
+            self.url, {'username': identifier, 'password': password}, format='json'
+        )
+
+    def test_exact_username_is_unchanged(self):
+        self.assertEqual(self.login('MaikOck').status_code, status.HTTP_200_OK)
+
+    def test_username_is_case_insensitive(self):
+        response = self.login('maikock')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['user']['username'], 'MaikOck')
+
+    def test_email_can_be_used_instead_of_username(self):
+        response = self.login('MIKE@example.com')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['user']['username'], 'MaikOck')
+
+    def test_surrounding_whitespace_is_ignored(self):
+        self.assertEqual(self.login('  MaikOck  ').status_code, status.HTTP_200_OK)
+
+    def test_wrong_password_still_fails(self):
+        self.assertEqual(
+            self.login('maikock', 'wrong-password').status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+
+    def test_shared_email_is_not_guessed(self):
+        User.objects.create_user('other-user', 'mike@example.com', 'Test1234!')
+        self.assertEqual(self.login('mike@example.com').status_code, status.HTTP_400_BAD_REQUEST)
+
+
 class UserPreferenceTests(TestCase):
     """Contract tests for /api/users/preferences/."""
 
