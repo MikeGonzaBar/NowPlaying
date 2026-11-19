@@ -60,6 +60,13 @@ export function SectionsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!authenticated) {
       setHidden(DEFAULT_PREFERENCES.hidden_sections);
+      // The cache is only a paint hint for the signed-in account; dropping it
+      // on sign-out keeps a second account on this browser from flashing it.
+      try {
+        window.localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // Storage can be unavailable in private mode; nothing to clear.
+      }
       setReady(true);
       return;
     }
