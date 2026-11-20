@@ -727,7 +727,7 @@ const AnalyticsPage: React.FC = () => {
                                     const rawGaming = day?.gaming_time_hours ?? 0;
                                     const gaming = Math.min(rawGaming, MAX_GAMING_HOURS_PER_DAY);
                                     const musicHours = (musicByDate[date ?? ''] ?? 0) * MIN_PER_SCROBBLE / 60;
-                                    const tvHours = mediaByDate[date ?? ''] ?? 0;
+                                    const tvHours = isVisible('movies') ? (mediaByDate[date ?? ''] ?? 0) : 0;
                                     return { name, Gaming: gaming, Music: musicHours, TV: tvHours };
                                 });
                                 const contentGenres = analyticsData.genre_distribution?.genres ?? [];
@@ -737,6 +737,7 @@ const AnalyticsPage: React.FC = () => {
                                 const totalPct = mergedGenres.reduce((s: number, g: { percentage: number }) => s + (g.percentage || 0), 0);
                                 const overviewGenres = totalPct > 0 ? mergedGenres.map((g: { name: string; percentage: number; type?: string }) => ({ ...g, percentage: Math.round((g.percentage / totalPct) * 1000) / 10 })) : mergedGenres;
                                 const getGenreColor = (type: string) => (type === 'gaming' ? '#ff5f40' : type === 'music' ? '#40b3a2' : '#60a5fa');
+                                const showTV = isVisible('movies');
                                 return (
                                     <Box sx={{
                                         display: 'grid',
@@ -760,10 +761,12 @@ const AnalyticsPage: React.FC = () => {
                                                             <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#40b3b2' }} />
                                                             <Typography sx={{ color: '#e2e8f0' }}>Music</Typography>
                                                         </Box>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#60a5fa' }} />
-                                                            <Typography sx={{ color: '#e2e8f0' }}>TV</Typography>
-                                                        </Box>
+                                                        {showTV && (
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#60a5fa' }} />
+                                                                <Typography sx={{ color: '#e2e8f0' }}>TV</Typography>
+                                                            </Box>
+                                                        )}
                                                     </Box>
                                                 </Box>
                                                 <ResponsiveContainer width="100%" height={256}>
@@ -798,9 +801,12 @@ const AnalyticsPage: React.FC = () => {
                                                         />
                                                         <Bar dataKey="Gaming" stackId="a" fill="#ff5f40" />
                                                         <Bar dataKey="Music" stackId="a" fill="#40b3a2" />
-                                                        <Bar dataKey="TV" stackId="a" fill="#60a5fa" />
+                                                        {showTV && <Bar dataKey="TV" stackId="a" fill="#60a5fa" />}
                                                     </BarChart>
                                                 </ResponsiveContainer>
+                                                <Typography sx={{ mt: 2, fontSize: '0.7rem', color: '#a1a1aa' }}>
+                                                    Music hours are estimated at 3.5 minutes per scrobble.{showTV ? ' TV and gaming use reported watch/play time.' : ' Gaming uses reported play time.'}
+                                                </Typography>
                                             </Card>
                                         )}
 

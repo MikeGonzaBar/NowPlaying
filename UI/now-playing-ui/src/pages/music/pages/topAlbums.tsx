@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Box, Button, Typography } from "@mui/material";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { PageHeader } from "../components/PageHeader";
@@ -15,8 +16,9 @@ import { useMusicFetch } from "../hooks/useMusicFetch";
 import { Album } from "../types";
 
 function TopAlbums() {
-  const [period, setPeriod] = useState("all");
-  const [source, setSource] = useState("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const period = searchParams.get("period") || searchParams.get("days") || "all";
+  const source = searchParams.get("source") || "all";
   const [showAll, setShowAll] = useState(false);
 
   const endpoint = useMemo(() => {
@@ -34,6 +36,8 @@ function TopAlbums() {
   const displayedAlbums = showAll ? albums : albums.slice(0, 10);
   const periodLabel = getRankingPeriodLabel(period);
   const sourceLabel = getRankingSourceLabel(source);
+  const periodParam =
+    period !== "all" ? `?period=${encodeURIComponent(period)}` : "";
 
   if (loading) {
     return <LoadingSpinner />;
@@ -51,11 +55,34 @@ function TopAlbums() {
             source={source}
             entityLabel="album"
             onPeriodChange={(value) => {
-              setPeriod(value);
+              setSearchParams(
+                (prev) => {
+                  const next = new URLSearchParams(prev);
+                  if (value === "all") {
+                    next.delete("period");
+                    next.delete("days");
+                  } else {
+                    next.set("period", value);
+                  }
+                  return next;
+                },
+                { replace: true },
+              );
               setShowAll(false);
             }}
             onSourceChange={(value) => {
-              setSource(value);
+              setSearchParams(
+                (prev) => {
+                  const next = new URLSearchParams(prev);
+                  if (value === "all") {
+                    next.delete("source");
+                  } else {
+                    next.set("source", value);
+                  }
+                  return next;
+                },
+                { replace: true },
+              );
               setShowAll(false);
             }}
           />
@@ -75,7 +102,7 @@ function TopAlbums() {
               count={album.count}
               countLabel="Total Plays"
               topTracks={album.top_tracks}
-              to={`/music/albums/${encodeURIComponent(album.name)}`}
+              to={`/music/albums/${encodeURIComponent(album.name)}${periodParam}`}
               imageShape="square"
             />
           ))}
@@ -98,11 +125,20 @@ function TopAlbums() {
           </Typography>
           <Typography sx={{ color: "#71717a", fontSize: "12px" }}>
             Connect Spotify to compare listening sources, or try another
-            period..
+            period.
           </Typography>
           <Button
             size="small"
-            onClick={() => setSource("all")}
+            onClick={() =>
+              setSearchParams(
+                (prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.delete("source");
+                  return next;
+                },
+                { replace: true },
+              )
+            }
             sx={{ color: "#ef4444", textTransform: "none" }}
           >
             Show all sources

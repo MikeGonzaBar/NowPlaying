@@ -314,12 +314,12 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
               </Typography>
               <Typography
                 sx={{
-                  fontSize: "1.25rem",
+                  fontSize: { xs: "1.1rem", md: "1.25rem" },
                   fontWeight: 700,
                   color: "#fff",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
+                  lineHeight: 1.25,
+                  overflowWrap: "break-word",
+                  wordBreak: "break-word",
                 }}
               >
                 {formatTimeString(comprehensive_stats.totals.total_gaming_time)}
@@ -670,8 +670,8 @@ const GamingStats: React.FC<GamingStatsProps> = ({ data }) => {
                   fontSize: "0.875rem",
                   fontWeight: 700,
                   color: "#e2e8f0",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
+                  overflowWrap: "break-word",
+                  wordBreak: "break-word",
                 }}
               >
                 {achievement_efficiency.total_gaming_time}

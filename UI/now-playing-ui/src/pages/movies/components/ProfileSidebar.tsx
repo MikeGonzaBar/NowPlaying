@@ -10,7 +10,8 @@ import {
 import SettingsIcon from "@mui/icons-material/Settings";
 import MovieIcon from "@mui/icons-material/Movie";
 import TvIcon from "@mui/icons-material/Tv";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { authenticatedFetch } from "../../../utils/auth";
 import { getApiUrl, API_CONFIG } from "../../../config/api";
 
@@ -29,11 +30,42 @@ interface ProfileSidebarProps {
 function ProfileSidebar({ stats, onSyncComplete }: ProfileSidebarProps) {
   const [syncingMovies, setSyncingMovies] = useState(false);
   const [syncingShows, setSyncingShows] = useState(false);
+  const [traktAuthStatus, setTraktAuthStatus] = useState<
+    { authenticated: boolean; token_expired?: boolean } | null
+  >(null);
   // The dashboard passes `null` until its request succeeds (and keeps it null
   // if the request fails). Missing stats are unavailable, not zero activity.
   const safeStats: ProfileStats = stats ?? {};
+
+  // Fetch Trakt auth status from the authoritative endpoint once per mount.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const response = await authenticatedFetch(
+          getApiUrl(`${API_CONFIG.TRAKT_ENDPOINT}/auth-status/`),
+        );
+        if (!active) return;
+        if (response.ok) {
+          const data = await response.json();
+          setTraktAuthStatus(data);
+        }
+      } catch (err) {
+        console.error("Error fetching Trakt auth status:", err);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const statValue = (value: number | null | undefined): string | number =>
     value === null || value === undefined ? "—" : value;
+
+  const connected =
+    !!traktAuthStatus?.authenticated && !traktAuthStatus?.token_expired;
+  const expired =
+    !!traktAuthStatus?.authenticated && !!traktAuthStatus?.token_expired;
 
   const handleSyncMovies = async () => {
     try {
@@ -93,8 +125,6 @@ function ProfileSidebar({ stats, onSyncComplete }: ProfileSidebarProps) {
     }
   };
 
-  if (!stats) return null;
-
   return (
     <Card
       sx={{
@@ -124,7 +154,13 @@ function ProfileSidebar({ stats, onSyncComplete }: ProfileSidebarProps) {
           >
             Trakt Profile
           </Typography>
-          <IconButton size="small" sx={{ color: "#ed1c24" }}>
+          <IconButton
+            size="small"
+            component={Link}
+            to="/profile"
+            aria-label="Trakt connection settings"
+            sx={{ color: "#ed1c24" }}
+          >
             <SettingsIcon sx={{ fontSize: 16 }} />
           </IconButton>
         </Box>
@@ -148,12 +184,52 @@ function ProfileSidebar({ stats, onSyncComplete }: ProfileSidebarProps) {
             </Typography>
           </Box>
           <Box>
-            <Typography sx={{ fontWeight: 700, color: "#fff", fontSize: 14 }}>
+            <Typography
+              sx={{ fontWeight: 700, color: "#fff", fontSize: 14 }}
+            >
               {safeStats.username || "User"}
             </Typography>
-            <Typography sx={{ fontSize: "12px", color: "#9ca3af" }}>
-              Connected Trakt account
-            </Typography>
+            {traktAuthStatus !== null && (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.25 }}>
+                <Typography
+                  sx={{
+                    fontSize: "12px",
+                    color: connected ? "#9ca3af" : expired ? "#ef4444" : "#a1a1aa",
+                  }}
+                >
+                  {connected
+                    ? "Connected Trakt account"
+                    : expired
+                    ? "Needs attention — session expired"
+                    : "Not connected"}
+                </Typography>
+                {!connected && (
+                  <Button
+                    size="small"
+                    component={Link}
+                    to="/profile"
+                    sx={{
+                      fontSize: "10px",
+                      fontWeight: 700,
+                      py: 0.2,
+                      px: 0.75,
+                      minWidth: "auto",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      color: "#ef4444",
+                      border: "1px solid rgba(239, 68, 68, 0.4)",
+                      borderRadius: "6px",
+                      "&:hover": {
+                        backgroundColor: "rgba(239, 68, 68, 0.1)",
+                        borderColor: "#ef4444",
+                      },
+                    }}
+                  >
+                    {expired ? "Reconnect" : "Connect"}
+                  </Button>
+                )}
+              </Box>
+            )}
           </Box>
         </Box>
 

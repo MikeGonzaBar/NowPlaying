@@ -7,6 +7,8 @@ interface UseMusicDetailOptions {
   name: string;
   artist?: string;
   recordingId?: string;
+  /** Ranking window in days; omitted or "all" means all time. */
+  days?: string | null;
 }
 
 export function useMusicDetail<T>({
@@ -14,6 +16,7 @@ export function useMusicDetail<T>({
   name,
   artist,
   recordingId,
+  days,
 }: UseMusicDetailOptions) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,6 +28,9 @@ export function useMusicDetail<T>({
       return;
     }
 
+    const controller = new AbortController();
+    let active = true;
+
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -34,15 +40,20 @@ export function useMusicDetail<T>({
         params.set("name", name);
         if (artist) params.set("artist", artist);
         if (recordingId) params.set("recording_id", recordingId);
+        if (days && days !== "all") params.set("days", days);
 
         const response = await authenticatedFetch(
           getApiUrl(
             `${API_CONFIG.MUSIC_ENDPOINT}/${type}-detail/?${params.toString()}`,
           ),
+          { signal: controller.signal },
         );
+
+        if (!active) return;
 
         if (response.ok) {
           const result = await response.json();
+          if (!active) return;
           setData(result as T);
         } else if (response.status === 404) {
           setError(`${type} not found`);
@@ -50,15 +61,22 @@ export function useMusicDetail<T>({
           setError("Failed to fetch data");
         }
       } catch (err) {
+        // Aborting is expected when the route or filter changes.
+        if (!active || controller.signal.aborted) return;
         setError("Error fetching data");
         console.error(`Error fetching ${type} detail:`, err);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
     fetchData();
-  }, [type, name, artist, recordingId]);
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [type, name, artist, recordingId, days]);
 
   return { data, loading, error };
 }
@@ -72,12 +90,14 @@ export function useMusicPlayHistory({
   artist,
   recordingId,
   pageSize = 50,
+  days,
 }: {
   type: "artist" | "album" | "track";
   name: string;
   artist?: string;
   recordingId?: string;
   pageSize?: number;
+  days?: string | null;
 }) {
   const [plays, setPlays] = useState<
     Array<{
@@ -102,7 +122,7 @@ export function useMusicPlayHistory({
     setPlays([]);
     setHasMore(false);
     setTotalItems(0);
-  }, [type, name, artist, recordingId, pageSize]);
+  }, [type, name, artist, recordingId, pageSize, days]);
 
   useEffect(() => {
     if (!name) {
@@ -119,6 +139,7 @@ export function useMusicPlayHistory({
         params.set("name", name);
         if (artist) params.set("artist", artist);
         if (recordingId) params.set("recording_id", recordingId);
+        if (days && days !== "all") params.set("days", days);
         params.set("page", String(pageNum));
         params.set("page_size", String(pageSize));
 
@@ -150,7 +171,7 @@ export function useMusicPlayHistory({
     return () => {
       cancelled = true;
     };
-  }, [type, name, artist, recordingId, pageSize, page]);
+  }, [type, name, artist, recordingId, pageSize, page, days]);
 
   const loadMore = () => {
     if (!hasMore || loading) return;

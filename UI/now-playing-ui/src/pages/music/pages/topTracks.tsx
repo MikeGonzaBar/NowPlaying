@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Box, Button, Typography } from "@mui/material";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useSearchParams, useLocation } from "react-router-dom";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ScheduleIcon from "@mui/icons-material/Schedule";
 import { LoadingSpinner } from "../components/LoadingSpinner";
@@ -17,8 +17,10 @@ import { formatLastPlayed } from "../utils/dateUtils";
 import { avatarUrl } from "../../../utils/avatars";
 
 function TopTracks() {
-  const [period, setPeriod] = useState("all");
-  const [source, setSource] = useState("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const period = searchParams.get("period") || searchParams.get("days") || "all";
+  const source = searchParams.get("source") || "all";
   const [showAll, setShowAll] = useState(false);
 
   const endpoint = useMemo(() => {
@@ -40,7 +42,11 @@ function TopTracks() {
     const recordingId = track.recording_id
       ? `?recording_id=${encodeURIComponent(track.recording_id)}`
       : "";
-    return `/music/tracks/${encodeURIComponent(track.title)}${recordingId}`;
+    const periodParam =
+      period !== "all"
+        ? `${recordingId ? "&" : "?"}period=${encodeURIComponent(period)}`
+        : "";
+    return `/music/tracks/${encodeURIComponent(track.title)}${recordingId}${periodParam}`;
   };
 
   const formatRank = (idx: number) => {
@@ -64,11 +70,34 @@ function TopTracks() {
             source={source}
             entityLabel="track"
             onPeriodChange={(value) => {
-              setPeriod(value);
+              setSearchParams(
+                (prev) => {
+                  const next = new URLSearchParams(prev);
+                  if (value === "all") {
+                    next.delete("period");
+                    next.delete("days");
+                  } else {
+                    next.set("period", value);
+                  }
+                  return next;
+                },
+                { replace: true },
+              );
               setShowAll(false);
             }}
             onSourceChange={(value) => {
-              setSource(value);
+              setSearchParams(
+                (prev) => {
+                  const next = new URLSearchParams(prev);
+                  if (value === "all") {
+                    next.delete("source");
+                  } else {
+                    next.set("source", value);
+                  }
+                  return next;
+                },
+                { replace: true },
+              );
               setShowAll(false);
             }}
           />
@@ -97,6 +126,7 @@ function TopTracks() {
               key={idx}
               component={RouterLink}
               to={trackHref(track)}
+              state={{ from: `${location.pathname}${location.search}` }}
               aria-label={`${track.title} by ${track.artist} - view track details`}
               sx={{
                 bgcolor: "rgba(18, 18, 20, 0.7)",

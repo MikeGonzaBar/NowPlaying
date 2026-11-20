@@ -12,9 +12,11 @@ export interface TraktAuthStatusPayload {
 export interface TraktConnectionState {
   status: TraktAuthStatusPayload | null;
   loading: boolean;
+  /** True when a Trakt token row exists at all (even if stale). */
+  authenticated: boolean;
   /** True only when Trakt is authenticated AND the token is not expired. */
   connected: boolean;
-  /** True when we know Trakt is NOT usable (expired or unauthenticated). */
+  /** True only when an existing Trakt token has expired. */
   expired: boolean;
   refetch: () => Promise<void>;
 }
@@ -48,8 +50,9 @@ export function useTraktConnection(): TraktConnectionState {
     refetch();
   }, [refetch]);
 
-  const connected = !!status?.authenticated && !status?.token_expired;
-  const expired = !!status && (!status.authenticated || !!status.token_expired);
+  const authenticated = !!status?.authenticated;
+  const expired = authenticated && !!status?.token_expired;
+  const connected = authenticated && !expired;
 
-  return { status, loading, connected, expired, refetch };
+  return { status, loading, authenticated, connected, expired, refetch };
 }

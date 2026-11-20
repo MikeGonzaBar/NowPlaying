@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -12,7 +12,7 @@ import { avatarUrl } from "../../../utils/avatars";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { format, parseISO } from "date-fns";
-import { LoadingSpinner } from "../components/LoadingSpinner";
+
 import { PageHeader } from "../components/PageHeader";
 import { MusicPageLayout } from "../components/MusicPageLayout";
 import {
@@ -58,11 +58,17 @@ function SongHistory() {
   >("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
+
+  // Request ID guard to prevent stale responses from overwriting newer data
+  const requestIdRef = React.useRef(0);
 
   const fetchSongs = async (pageNum: number, isInitial: boolean = false) => {
+    const thisRequestId = ++requestIdRef.current;
     try {
       if (isInitial) {
         setLoading(true);
+        setError(null);
       } else {
         setLoadingMore(true);
       }
@@ -80,6 +86,9 @@ function SongHistory() {
         ),
       );
 
+      // Ignore stale responses from superseded requests
+      if (thisRequestId !== requestIdRef.current) return;
+
       if (response.ok) {
         const data: SongHistoryResponse = await response.json();
 
@@ -92,13 +101,18 @@ function SongHistory() {
         setHasMore(data.has_next);
         setTotalItems(data.total_items);
       } else {
-        console.error("Failed to fetch song history");
+        setError("Failed to fetch song history. Please try again.");
       }
     } catch (error) {
+      // Ignore abort/cancellation from superseded requests
+      if (thisRequestId !== requestIdRef.current) return;
       console.error("Error fetching song history:", error);
+      setError("Error loading history. Please try again.");
     } finally {
-      setLoading(false);
-      setLoadingMore(false);
+      if (thisRequestId === requestIdRef.current) {
+        setLoading(false);
+        setLoadingMore(false);
+      }
     }
   };
 
@@ -107,7 +121,6 @@ function SongHistory() {
     const timer = setTimeout(
       () => {
         setPage(1);
-        setSongs([]);
         fetchSongs(1, true);
       },
       searchQuery ? 400 : 0,
@@ -165,66 +178,119 @@ function SongHistory() {
     return b.localeCompare(a);
   });
 
-  if (loading && songs.length === 0) {
-    return <LoadingSpinner />;
-  }
+  const filterBtnSx = (active: boolean) => ({
+    mr: 1,
+    fontSize: "12px",
+    fontWeight: active ? 700 : 500,
+    bgcolor: active ? "rgba(239, 68, 68, 0.15)" : "#161618",
+    borderColor: active ? "rgba(239, 68, 68, 0.55)" : "#262626",
+    color: active ? "#ef4444" : "#a1a1aa",
+    transition: "all 0.15s ease",
+    "&:hover": {
+      bgcolor: active ? "rgba(239, 68, 68, 0.25)" : "#1f1f23",
+      borderColor: active ? "#ef4444" : "#3f3f46",
+      color: active ? "#ef4444" : "#f4f4f5",
+    },
+  });
+
+  const dateSubtitle =
+    dateFilter === "last7d"
+      ? "Last 7 days"
+      : dateFilter === "last30d"
+      ? "Last 30 days"
+      : "All time";
+
+  const sourceSubtitle =
+    sourceFilter === "spotify"
+      ? "Spotify"
+      : sourceFilter === "lastfm"
+      ? "Last.fm"
+      : null;
+
+  const headerDescription = `${totalItems.toLocaleString()} scrobbles | ${dateSubtitle}${
+    sourceSubtitle ? ` | ${sourceSubtitle}` : ""
+  }`;
 
   return (
     <MusicPageLayout>
       {/* Header */}
       <PageHeader
         title="Song History"
-        description={`${totalItems.toLocaleString()} scrobbles | All time`}
+        description={headerDescription}
       />
 
       {/* Filters */}
       <Box sx={{ mb: 4, px: 2 }}>
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 2 }}>
-          <Button
-            variant="outlined"
-            sx={{ mr: 1, fontSize: "12px" }}
-            onClick={() => setSourceFilter("all")}
-          >
-            All
-          </Button>
-          <Button
-            variant="outlined"
-            sx={{ mr: 1, fontSize: "12px" }}
-            onClick={() => setSourceFilter("spotify")}
-          >
-            Spotify
-          </Button>
-          <Button
-            variant="outlined"
-            sx={{ mr: 1, fontSize: "12px" }}
-            onClick={() => setSourceFilter("lastfm")}
-          >
-            Last.fm
-          </Button>
-          <Button
-            variant="outlined"
-            sx={{ mr: 1, fontSize: "12px" }}
-            onClick={() => setDateFilter("all")}
-          >
-            All Time
-          </Button>
-          <Button
-            variant="outlined"
-            sx={{ mr: 1, fontSize: "12px" }}
-            onClick={() => setDateFilter("last7d")}
-          >
-            Last 7 Days
-          </Button>
-          <Button
-            variant="outlined"
-            sx={{ mr: 1, fontSize: "12px" }}
-            onClick={() => setDateFilter("last30d")}
-          >
-            Last 30 Days
-          </Button>
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, alignItems: "center", mb: 2 }}>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+            <Button
+              variant="outlined"
+              sx={filterBtnSx(sourceFilter === "all")}
+              onClick={() => setSourceFilter("all")}
+              aria-pressed={sourceFilter === "all"}
+            >
+              All Sources
+            </Button>
+            <Button
+              variant="outlined"
+              sx={filterBtnSx(sourceFilter === "spotify")}
+              onClick={() => setSourceFilter("spotify")}
+              aria-pressed={sourceFilter === "spotify"}
+            >
+              Spotify
+            </Button>
+            <Button
+              variant="outlined"
+              sx={filterBtnSx(sourceFilter === "lastfm")}
+              onClick={() => setSourceFilter("lastfm")}
+              aria-pressed={sourceFilter === "lastfm"}
+            >
+              Last.fm
+            </Button>
+          </Box>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+            <Button
+              variant="outlined"
+              sx={filterBtnSx(dateFilter === "all")}
+              onClick={() => setDateFilter("all")}
+              aria-pressed={dateFilter === "all"}
+            >
+              All Time
+            </Button>
+            <Button
+              variant="outlined"
+              sx={filterBtnSx(dateFilter === "last7d")}
+              onClick={() => setDateFilter("last7d")}
+              aria-pressed={dateFilter === "last7d"}
+            >
+              Last 7 Days
+            </Button>
+            <Button
+              variant="outlined"
+              sx={filterBtnSx(dateFilter === "last30d")}
+              onClick={() => setDateFilter("last30d")}
+              aria-pressed={dateFilter === "last30d"}
+            >
+              Last 30 Days
+            </Button>
+          </Box>
           <TextField
-            sx={{ flex: 1, fontSize: "12px", minWidth: 120 }}
-            label="Search"
+            sx={{
+              flex: 1,
+              minWidth: 160,
+              "& .MuiOutlinedInput-root": {
+                fontSize: "12px",
+                bgcolor: "#161618",
+                "& fieldset": { borderColor: "#262626" },
+                "&:hover fieldset": { borderColor: "#3f3f46" },
+                "&.Mui-focused fieldset": { borderColor: "#ef4444" },
+              },
+              "& .MuiInputLabel-root": { fontSize: "12px", color: "#71717a" },
+              "& .MuiInputLabel-root.Mui-focused": { color: "#ef4444" },
+              "& .MuiInputBase-input": { color: "#f4f4f5" },
+            }}
+            size="small"
+            label="Search songs or artists"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             variant="outlined"
@@ -233,7 +299,29 @@ function SongHistory() {
       </Box>
 
       {/* Songs List */}
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      {error && loading && songs.length === 0 ? (
+        <Box role="alert" sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, py: 10 }}>
+          <Typography sx={{ color: "#fca5a5" }}>{error}</Typography>
+          <Button
+            variant="outlined"
+            onClick={() => fetchSongs(1, true)}
+            sx={{ textTransform: "none" }}
+          >
+            Retry
+          </Button>
+        </Box>
+      ) : loading && songs.length === 0 ? (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
+          <CircularProgress sx={{ color: "#EF4444" }} />
+        </Box>
+      ) : songs.length === 0 ? (
+        <Box sx={{ textAlign: "center", py: 10 }}>
+          <Typography sx={{ color: "#71717a", fontSize: "14px" }}>
+            No listening history found for the selected filters.
+          </Typography>
+        </Box>
+      ) : (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {sortedDates.map((dateKey) => {
           const dateSongs = groupedSongs[dateKey];
           const dateLabel = formatDateLabel(dateKey);
@@ -254,15 +342,6 @@ function SongHistory() {
               </Typography>
               <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
                 {dateSongs.map((song) => {
-                  const displayTitle =
-                    song.title.length > 30
-                      ? `${song.title.slice(0, 27)}...`
-                      : song.title;
-                  const displayArtist =
-                    song.artist.length > 25
-                      ? `${song.artist.slice(0, 22)}...`
-                      : song.artist;
-
                   return (
                     <Box
                       key={song.id}
@@ -278,90 +357,109 @@ function SongHistory() {
                       }}
                       sx={{
                         display: "flex",
-        alignItems: "center",
-        gap: 2,
-        p: 2,
-        bgcolor: "#161618",
-        border: "1px solid #262626",
-        borderRadius: "12px",
-        cursor: song.track_url ? "pointer" : "default",
-        transition: "all 0.2s",
-        "&:hover": {
-          bgcolor: "#1a1a1c",
-          borderColor: song.track_url ? "#EF4444" : "#262626",
-        },
-        "&:focus-visible": {
-          outline: "2px solid #f43f5e",
-          outlineOffset: 3,
-        },
-      }}
+                        flexDirection: { xs: "column", sm: "row" },
+                        alignItems: { xs: "stretch", sm: "center" },
+                        gap: { xs: 1.5, sm: 2 },
+                        p: 2,
+                        bgcolor: "#161618",
+                        border: "1px solid #262626",
+                        borderRadius: "12px",
+                        cursor: song.track_url ? "pointer" : "default",
+                        transition: "all 0.2s",
+                        "&:hover": {
+                          bgcolor: "#1a1a1c",
+                          borderColor: song.track_url ? "#EF4444" : "#262626",
+                        },
+                        "&:focus-visible": {
+                          outline: "2px solid #f43f5e",
+                          outlineOffset: 3,
+                        },
+                      }}
                     >
                       <Box
-                        component="img"
-                        src={
-                          song.album_thumbnail || avatarUrl(song.title, 64)
-                        }
-                        alt={song.title}
                         sx={{
-                          width: 48,
-                          height: 48,
-                          borderRadius: "8px",
-                          objectFit: "cover",
-                          flexShrink: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 2,
+                          flex: 1,
+                          minWidth: 0,
                         }}
-                      />
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography
+                      >
+                        <Box
+                          component="img"
+                          src={
+                            song.album_thumbnail || avatarUrl(song.title, 64)
+                          }
+                          alt={song.title}
                           sx={{
-                            fontSize: "14px",
-                            fontWeight: 600,
-                            color: "#f4f4f5",
-                            mb: 0.5,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
+                            width: 48,
+                            height: 48,
+                            borderRadius: "8px",
+                            objectFit: "cover",
+                            flexShrink: 0,
                           }}
-                        >
-                          {displayTitle}
-                        </Typography>
-                        <Typography
-                          onClick={(e) => handleArtistClick(song, e)}
-                          sx={{
-                            fontSize: "12px",
-                            color: song.artist_lastfm_url
-                              ? "#EF4444"
-                              : "#71717a",
-                            cursor: song.artist_lastfm_url
-                              ? "pointer"
-                              : "default",
-                            mb: 0.5,
-                            "&:hover": {
-                              textDecoration: song.artist_lastfm_url
-                                ? "underline"
-                                : "none",
-                            },
-                          }}
-                        >
-                          {displayArtist}
-                        </Typography>
-                        {song.album && (
+                        />
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
                           <Typography
                             sx={{
-                              fontSize: "10px",
-                              color: "#71717a",
+                              fontSize: "14px",
+                              fontWeight: 600,
+                              color: "#f4f4f5",
+                              mb: 0.5,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
                             }}
                           >
-                            {song.album}
+                            {song.title}
                           </Typography>
-                        )}
+                          <Typography
+                            onClick={(e) => handleArtistClick(song, e)}
+                            sx={{
+                              fontSize: "12px",
+                              color: song.artist_lastfm_url
+                                ? "#EF4444"
+                                : "#71717a",
+                              cursor: song.artist_lastfm_url
+                                ? "pointer"
+                                : "default",
+                              mb: 0.5,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              "&:hover": {
+                                textDecoration: song.artist_lastfm_url
+                                  ? "underline"
+                                  : "none",
+                              },
+                            }}
+                          >
+                            {song.artist}
+                          </Typography>
+                          {song.album && (
+                            <Typography
+                              sx={{
+                                fontSize: "10px",
+                                color: "#71717a",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {song.album}
+                            </Typography>
+                          )}
+                        </Box>
                       </Box>
                       <Box
                         sx={{
                           display: "flex",
-                          flexDirection: "column",
-                          alignItems: "flex-end",
-                          gap: 0.5,
-                          ml: 2,
+                          flexDirection: { xs: "row", sm: "column" },
+                          alignItems: { xs: "center", sm: "flex-end" },
+                          flexWrap: "wrap",
+                          gap: { xs: 1.5, sm: 0.5 },
+                          ml: { xs: 0, sm: 2 },
+                          pl: { xs: 7, sm: 0 },
                         }}
                       >
                         <Typography
@@ -372,7 +470,7 @@ function SongHistory() {
                         >
                           {formatPlayedAt(song.played_at)}
                         </Typography>
-                        {song.duration_ms && (
+                        {Boolean(song.duration_ms) && (
                           <Typography
                             sx={{
                               fontSize: "10px",
@@ -382,8 +480,14 @@ function SongHistory() {
                             {formatDuration(song.duration_ms)}
                           </Typography>
                         )}
-                        <Box sx={{ display: "flex", gap: 0.5, mt: 0.5 }}>
-                          {song.loved && (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            gap: 0.5,
+                            mt: { xs: 0, sm: 0.5 },
+                          }}
+                        >
+                          {Boolean(song.loved) && (
                             <FavoriteIcon
                               sx={{ fontSize: 14, color: "#EF4444" }}
                             />
@@ -411,6 +515,7 @@ function SongHistory() {
           );
         })}
       </Box>
+      )}
 
       {/* Load More Button */}
       {hasMore && (

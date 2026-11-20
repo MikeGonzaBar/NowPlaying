@@ -172,6 +172,7 @@ function ProfilePage() {
       <AppShell activeItem="Profile" mainSx={{ p: { xs: 2, md: 3 } }}>
         <Typography
           variant="h4"
+          component="h1"
           sx={{
             mb: 2.5,
             fontFamily: "Montserrat, sans-serif",
@@ -247,10 +248,9 @@ function ProfilePage() {
           <PreferencesSection />
         </Box>
 
-        {/* Services Section. Hide it when the request failed and there is no
-            cached data, so a failed fetch is not rendered as every service
-            being disconnected. */}
-        {(!apiKeysError || apiKeys.length > 0) && (
+        {/* Services stay visible even when the key list fails, so the user can
+            retry from here instead of losing the whole panel. */}
+        {(
           <Paper
             sx={{
               p: { xs: 2, md: 3 },
@@ -271,6 +271,35 @@ function ProfilePage() {
             Services
           </Typography>
 
+          {apiKeysError && apiKeys.length === 0 ? (
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: { xs: "column", sm: "row" },
+                gap: 2,
+                alignItems: { xs: "flex-start", sm: "center" },
+                justifyContent: "space-between",
+                p: 2,
+                borderRadius: 2,
+                border: "1px solid rgba(255, 255, 255, 0.14)",
+                backgroundColor: "rgba(255, 255, 255, 0.04)",
+              }}
+            >
+              <Typography sx={{ fontSize: "14px", color: "text.secondary" }}>
+                Service connections could not be loaded. Retry before connecting
+                a provider.
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => void refetchApiKeys()}
+                sx={{ textTransform: "none", flexShrink: 0 }}
+              >
+                Retry
+              </Button>
+            </Box>
+          ) : (
+            <>
           {/* Gaming Section */}
           <ServiceSection
             category="Gaming"
@@ -326,6 +355,8 @@ function ProfilePage() {
             onDeleteApiKey={handleDeleteApiKey}
             onScheduleSave={updateSyncSchedule}
           />
+            </>
+          )}
         </Paper>
         )}
       </AppShell>

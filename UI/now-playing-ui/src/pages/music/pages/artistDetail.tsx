@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation, useSearchParams, Link as RouterLink } from "react-router-dom";
 import { Box, Typography, Button, Skeleton } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SideBar from "../../../components/sideBar";
@@ -6,6 +6,7 @@ import { useMusicDetail } from "../hooks/useMusicDetail";
 import PlayHistorySection from "../components/PlayHistorySection";
 import { formatLastPlayed } from "../utils/dateUtils";
 import { zincColors } from "../../../theme";
+import { getBackLabel, withDaysParam } from "../utils/navigation";
 
 interface ArtistDetailData {
   name: string;
@@ -22,12 +23,22 @@ interface ArtistDetailData {
 
 function ArtistDetail() {
   const { name } = useParams<{ name: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const decodedName = name ? decodeURIComponent(name) : "";
+  const days = searchParams.get("days") || searchParams.get("period");
+  const fromState = (location.state as { from?: unknown } | null)?.from;
+  const backTo =
+    typeof fromState === "string" && fromState.startsWith("/")
+      ? fromState
+      : "/music/artists";
+  const backLabel = getBackLabel(backTo);
 
   const { data: artist, loading } = useMusicDetail<ArtistDetailData>({
     type: "artist",
     name: decodedName,
+    days,
   });
 
   return (
@@ -56,7 +67,7 @@ function ArtistDetail() {
         }}
       >
         <Button
-          onClick={() => navigate("/music/artists")}
+          onClick={() => navigate(backTo)}
           startIcon={<ArrowBackIcon />}
           sx={{
             mb: 4,
@@ -73,7 +84,7 @@ function ArtistDetail() {
             "&:hover": { bgcolor: "rgba(225, 29, 72, 0.2)" },
           }}
         >
-          Back to Artists
+          {backLabel}
         </Button>
 
         {loading ? (
@@ -107,7 +118,8 @@ function ArtistDetail() {
               )}
               <Box sx={{ minWidth: 0 }}>
                 <Typography
-                  variant="h2"
+                  variant="h1"
+                  component="h1"
                   sx={{
                     fontSize: { xs: "28px", md: "42px" },
                     fontWeight: 700,
@@ -119,7 +131,7 @@ function ArtistDetail() {
                 </Typography>
                 <Typography sx={{ color: zincColors.muted, fontSize: "14px", overflowWrap: "anywhere" }}>
                   {artist.count.toLocaleString()} {artist.count === 1 ? "play" : "plays"} ({artist.scope.label}) &middot;{" "}
-                  {artist.top_tracks.length} tracks &middot; {artist.albums_count} albums
+                  top {artist.top_tracks.length} tracks &middot; {artist.albums_count} albums
                 </Typography>
               </Box>
             </Box>
@@ -156,16 +168,25 @@ function ArtistDetail() {
           <Box sx={{ mb: 6 }}>
             <Typography
               variant="h5"
+              component="h2"
               sx={{ fontSize: "18px", fontWeight: 700, mb: 3, textTransform: "uppercase", letterSpacing: "0.05em" }}
             >
-              Top Tracks
+              Top {artist.top_tracks.length} Tracks
             </Typography>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {artist.top_tracks.map((track, idx) => (
                 <Box
                   key={idx}
-                  component="a"
-                  href={`/music/tracks/${encodeURIComponent(track.title)}${track.recording_id ? `?recording_id=${encodeURIComponent(track.recording_id)}` : ""}`}
+                  component={RouterLink}
+                  to={withDaysParam(
+                    `/music/tracks/${encodeURIComponent(track.title)}${
+                      track.recording_id
+                        ? `?recording_id=${encodeURIComponent(track.recording_id)}`
+                        : ""
+                    }`,
+                    days,
+                  )}
+                  state={{ from: `${location.pathname}${location.search}` }}
                   sx={{
                     display: "flex",
                     alignItems: "center",
@@ -198,6 +219,7 @@ function ArtistDetail() {
           type="artist"
           name={decodedName}
           detailCount={artist?.count ?? 0}
+          days={days}
         />
       </Box>
     </Box>

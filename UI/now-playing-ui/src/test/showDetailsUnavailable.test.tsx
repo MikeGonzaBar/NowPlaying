@@ -62,7 +62,7 @@ describe("ShowDetails unavailable statistics", () => {
     renderPage();
 
     expect(
-      await screen.findByText(/show statistics unavailable/i),
+      await screen.findByText(/episode progress is temporarily unavailable/i),
     ).toBeInTheDocument();
     expect(screen.getByText("Unavailable")).toBeInTheDocument();
     expect(screen.getByText("Episode progress unavailable")).toBeInTheDocument();

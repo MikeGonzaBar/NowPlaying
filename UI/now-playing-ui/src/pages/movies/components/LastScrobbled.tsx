@@ -1,5 +1,6 @@
 import {
   Box,
+  Button,
   Card,
   CardContent,
   Typography,
@@ -175,10 +176,11 @@ function LastScrobbled({ movies, shows }: LastScrobbledProps) {
               Recently watched
             </Typography>
           </Box>
-          <Typography
-            variant="caption"
+          <Button
             onClick={() => navigate("/history")}
+            aria-label="View full watch history"
             sx={{
+              minWidth: "auto",
               fontSize: "10px",
               fontWeight: 600,
               color: "#9ca3af",
@@ -188,13 +190,13 @@ function LastScrobbled({ movies, shows }: LastScrobbledProps) {
               py: 0.5,
               backgroundColor: "#27272a",
               borderRadius: 1,
-              cursor: "pointer",
+              lineHeight: 1.2,
               transition: "color 0.2s",
-              "&:hover": { color: "#ed1c24" },
+              "&:hover": { color: "#ed1c24", backgroundColor: "#27272a" },
             }}
           >
             Full History
-          </Typography>
+          </Button>
         </Box>
 
         <Box sx={{ display: "flex", gap: 2, overflowX: "auto", pb: 2 }}>
@@ -373,6 +375,8 @@ function LastScrobbled({ movies, shows }: LastScrobbledProps) {
             }}
           >
             <IconButton
+              onClick={() => navigate("/history")}
+              aria-label="View full watch history"
               sx={{
                 width: 40,
                 height: 40,

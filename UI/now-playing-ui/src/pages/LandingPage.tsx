@@ -324,7 +324,7 @@ function LandingPage() {
                           >
                             {item.title}
                           </Typography>
-                          {item.detail && (
+                          {Boolean(item.detail) && (
                             <Typography
                               sx={{
                                 fontSize: 12,

@@ -12,10 +12,25 @@ const getCookie = (name: string): string | null => {
   return value ? decodeURIComponent(value.slice(prefix.length)) : null;
 };
 
+const AUTH_TIMEOUT_MS = 20_000;
+
+const fetchWithTimeout = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 export const ensureCsrfToken = async (): Promise<string | null> => {
   const existing = getCookie(CSRF_COOKIE_NAME);
   if (existing) return existing;
-  const response = await fetch(getApiUrl("/auth/browser/csrf/"), {
+  const response = await fetchWithTimeout(getApiUrl("/auth/browser/csrf/"), {
     credentials: "same-origin",
   });
   return response.ok ? getCookie(CSRF_COOKIE_NAME) : null;
@@ -28,7 +43,7 @@ const csrfHeaders = async (method: string): Promise<Record<string, string>> => {
 };
 
 export const refreshAuthSession = async (): Promise<boolean> => {
-  const response = await fetch(getApiUrl("/auth/browser/refresh/"), {
+  const response = await fetchWithTimeout(getApiUrl("/auth/browser/refresh/"), {
     method: "POST",
     credentials: "same-origin",
     headers: await csrfHeaders("POST"),
@@ -43,7 +58,7 @@ export const refreshAuthSession = async (): Promise<boolean> => {
 
 export const logoutBrowserSession = async (): Promise<void> => {
   try {
-    await fetch(getApiUrl("/auth/browser/logout/"), {
+    await fetchWithTimeout(getApiUrl("/auth/browser/logout/"), {
       method: "POST",
       credentials: "same-origin",
       headers: await csrfHeaders("POST"),
@@ -74,6 +89,8 @@ const trackDuplicateGet = (url: string, method: string) => {
   }
 };
 
+const REQUEST_TIMEOUT_MS = 20_000;
+
 export const authenticatedFetch = async (
   url: string,
   options: RequestInit = {},
@@ -81,16 +98,34 @@ export const authenticatedFetch = async (
   const method = (options.method || "GET").toUpperCase();
   trackDuplicateGet(url, method);
 
-  const request = async (): Promise<Response> =>
-    fetch(url, {
-      ...options,
-      credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/json",
-        ...(await csrfHeaders(method)),
-        ...options.headers,
-      },
-    });
+  const request = async (): Promise<Response> => {
+    const controller = new AbortController();
+    const externalSignal = options.signal;
+    const abortFromOutside = () => controller.abort();
+
+    if (externalSignal) {
+      if (externalSignal.aborted) controller.abort();
+      else externalSignal.addEventListener("abort", abortFromOutside, { once: true });
+    }
+
+    // A hung request must not leave the UI spinning forever.
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      return await fetch(url, {
+        ...options,
+        credentials: "same-origin",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          ...(await csrfHeaders(method)),
+          ...options.headers,
+        },
+      });
+    } finally {
+      clearTimeout(timeout);
+      externalSignal?.removeEventListener("abort", abortFromOutside);
+    }
+  };
 
   let response = await request();
   if (response.status !== 401) return response;

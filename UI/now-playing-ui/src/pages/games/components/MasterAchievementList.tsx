@@ -70,7 +70,7 @@ const MasterAchievementList: React.FC<MasterAchievementListProps> = ({
             fontSize: "0.75rem",
           }}
         >
-          All Achievements ({achievements.length})
+          Unique achievements ({achievements.length})
         </Typography>
 
 

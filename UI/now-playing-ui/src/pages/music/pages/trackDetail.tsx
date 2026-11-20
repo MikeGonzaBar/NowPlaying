@@ -1,4 +1,10 @@
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Link as RouterLink,
+  useParams,
+  useNavigate,
+  useSearchParams,
+  useLocation,
+} from "react-router-dom";
 import { Box, Typography, Button, Skeleton } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import FavoriteIcon from "@mui/icons-material/Favorite";
@@ -7,6 +13,7 @@ import { useMusicDetail } from "../hooks/useMusicDetail";
 import PlayHistorySection from "../components/PlayHistorySection";
 import { formatShortDate } from "../../../utils/dates";
 import { zincColors } from "../../../theme";
+import { getBackLabel, withDaysParam } from "../utils/navigation";
 
 interface TrackDetailData {
   title: string;
@@ -29,13 +36,23 @@ function TrackDetail() {
   const { name } = useParams<{ name: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const decodedName = name ? decodeURIComponent(name) : "";
   const recordingId = searchParams.get("recording_id") || undefined;
+  const days = searchParams.get("days") || searchParams.get("period");
+  const fromState = (location.state as { from?: unknown } | null)?.from;
+  const backTo =
+    typeof fromState === "string" && fromState.startsWith("/")
+      ? fromState
+      : "/music/tracks";
+  const backLabel = getBackLabel(backTo);
+  const detailState = { from: `${location.pathname}${location.search}` };
 
   const { data: track, loading } = useMusicDetail<TrackDetailData>({
     type: "track",
     name: decodedName,
     recordingId,
+    days,
   });
 
   return (
@@ -60,7 +77,7 @@ function TrackDetail() {
         }}
       >
         <Button
-          onClick={() => navigate("/music/tracks")}
+          onClick={() => navigate(backTo)}
           startIcon={<ArrowBackIcon />}
           sx={{
             mb: 4,
@@ -77,7 +94,7 @@ function TrackDetail() {
             "&:hover": { bgcolor: "rgba(225, 29, 72, 0.2)" },
           }}
         >
-          Back to Tracks
+          {backLabel}
         </Button>
 
         {loading ? (
@@ -105,7 +122,8 @@ function TrackDetail() {
               )}
               <Box>
                 <Typography
-                  variant="h2"
+                  variant="h1"
+                  component="h1"
                   sx={{
                     fontSize: { xs: "28px", md: "42px" },
                     fontWeight: 700,
@@ -117,13 +135,37 @@ function TrackDetail() {
                 <Typography
                   sx={{ color: zincColors.muted, fontSize: "14px", mb: 1 }}
                 >
-                  by {track.artist}
+                  by{" "}
+                  <Typography
+                    component={RouterLink}
+                    to={withDaysParam(
+                      `/music/artists/${encodeURIComponent(track.artist)}`,
+                      days,
+                    )}
+                    state={detailState}
+                    sx={{ color: "inherit", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}
+                  >
+                    {track.artist}
+                  </Typography>
                 </Typography>
-                <Typography
-                  sx={{ color: zincColors.muted, fontSize: "14px", mb: 1 }}
-                >
-                  from {track.album}
-                </Typography>
+                {track.album && (
+                  <Typography
+                    sx={{ color: zincColors.muted, fontSize: "14px", mb: 1 }}
+                  >
+                    from{" "}
+                    <Typography
+                      component={RouterLink}
+                      to={withDaysParam(
+                        `/music/albums/${encodeURIComponent(track.album)}?artist=${encodeURIComponent(track.artist)}`,
+                        days,
+                      )}
+                      state={detailState}
+                      sx={{ color: "inherit", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}
+                    >
+                      {track.album}
+                    </Typography>
+                  </Typography>
+                )}
                 <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                   <Typography
                     sx={{ color: zincColors.muted, fontSize: "14px" }}
@@ -235,6 +277,7 @@ function TrackDetail() {
           name={decodedName}
           recordingId={recordingId}
           detailCount={track?.count ?? 0}
+          days={days}
         />
       </Box>
     </Box>

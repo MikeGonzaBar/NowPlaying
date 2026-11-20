@@ -350,7 +350,7 @@ function WatchHistory() {
       item.title,
       item.year ?? "",
       item.type === "episode" && item.episode_info
-        ? `S${item.episode_info.season_number}E${item.episode_info.episode_number}`
+        ? `S${item.episode_info?.season_number}E${item.episode_info?.episode_number}`
         : "",
       item.type === "episode"
         ? (item.episode_info?.episode_title ?? "")
@@ -464,6 +464,7 @@ function WatchHistory() {
         <Box sx={{ mb: 2 }}>
           <IconButton
             onClick={() => navigate("/movies")}
+            aria-label="Back to Movies"
             sx={{
               color: "#9ca3af",
               "&:hover": {
@@ -489,6 +490,8 @@ function WatchHistory() {
           >
             <Box>
               <Typography
+                variant="h1"
+                component="h1"
                 sx={{
                   fontSize: "1.875rem",
                   fontWeight: 700,
@@ -950,8 +953,10 @@ function WatchHistory() {
                               <Box
                                 sx={{
                                   display: "flex",
+                                  flexDirection: { xs: "column", sm: "row" },
                                   justifyContent: "space-between",
-                                  alignItems: "flex-start",
+                                  alignItems: { xs: "stretch", sm: "flex-start" },
+                                  gap: { xs: 1, sm: 0 },
                                 }}
                               >
                                 <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -981,7 +986,7 @@ function WatchHistory() {
                                         : ""}
                                     </Typography>
                                   ) : (
-                                    item.episode_info && (
+                                    Boolean(item.episode_info) && (
                                       <Typography
                                         sx={{
                                           fontSize: "10px",
@@ -992,15 +997,15 @@ function WatchHistory() {
                                         }}
                                       >
                                         S
-                                        {item.episode_info.season_number
+                                        {item.episode_info?.season_number
                                           .toString()
                                           .padStart(2, "0")}
                                         E
-                                        {item.episode_info.episode_number
+                                        {item.episode_info?.episode_number
                                           .toString()
                                           .padStart(2, "0")}
-                                        {item.episode_info.episode_title
-                                          ? ` • ${item.episode_info.episode_title}`
+                                        {item.episode_info?.episode_title
+                                          ? ` • ${item.episode_info?.episode_title}`
                                           : ""}
                                       </Typography>
                                     )
@@ -1011,7 +1016,9 @@ function WatchHistory() {
                                     display: "flex",
                                     alignItems: "center",
                                     gap: 1.5,
-                                    ml: 2,
+                                    ml: { xs: 0, sm: 2 },
+                                    pl: { xs: 8, sm: 0 },
+                                    mt: { xs: 0.5, sm: 0 },
                                   }}
                                 >
                                   <Box sx={{ textAlign: "right" }}>
@@ -1033,7 +1040,7 @@ function WatchHistory() {
                                       {formatDuration(item.runtime)} duration
                                     </Typography>
                                   </Box>
-                                  {item.rating && (
+                                  {Boolean(item.rating) && (
                                     <Box
                                       sx={{
                                         width: 40,
@@ -1053,7 +1060,7 @@ function WatchHistory() {
                                           color: "#ed1c24",
                                         }}
                                       >
-                                        {Math.round(item.rating)}
+                                        {Math.round(item.rating ?? 0)}
                                       </Typography>
                                     </Box>
                                   )}
@@ -1422,7 +1429,9 @@ function WatchHistory() {
               >
                 {allHistoryItems.length === 0
                   ? "No history to export"
-                  : `Export History (${allHistoryItems.length})`}
+                  : `Export loaded rows (${allHistoryItems.length} of ${
+                      historyData?.total_items ?? allHistoryItems.length
+                    })`}
               </Button>
             </Box>
           </Grid>

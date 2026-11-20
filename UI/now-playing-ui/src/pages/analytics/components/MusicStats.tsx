@@ -332,6 +332,12 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
           >
             Avg. {avgPerDay} per day
           </Typography>
+          <Typography
+            sx={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.8)", mt: 0.5, lineHeight: 1.4 }}
+          >
+            * Estimated listening time: recorded track durations where available,
+            otherwise ~3.5 minutes per scrobble.
+          </Typography>
         </Card>
       </Box>
 

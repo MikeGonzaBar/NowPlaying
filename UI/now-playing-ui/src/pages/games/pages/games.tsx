@@ -130,6 +130,13 @@ function Games() {
     [consolidatedGames],
   );
 
+  const platformTotalCount = useMemo(() => {
+    if (!selectedPlatform) return consolidatedGames.length;
+    return consolidatedGames.filter((game) =>
+      game.sources.some((source) => source.platform === selectedPlatform),
+    ).length;
+  }, [consolidatedGames, selectedPlatform]);
+
   const filteredGames = useMemo(() => {
     if (!selectedPlatform) return recentlyPlayed;
     return consolidatedGames
@@ -745,6 +752,20 @@ function Games() {
               gap: 3,
             }}
           >
+            <Typography
+              variant="h1"
+              component="h1"
+              sx={{
+                fontFamily: "Inter, sans-serif",
+                fontSize: { xs: "1.5rem", md: "1.75rem" },
+                fontWeight: 700,
+                color: zincColors.white,
+                mb: -1,
+              }}
+            >
+              Games
+            </Typography>
+
             {/* Recently Played */}
             <Card sx={{ width: "100%" }}>
               <CardContent>
@@ -771,7 +792,10 @@ function Games() {
                       }}
                     >
                       Recently Played
-                      {selectedPlatform && ` (${filteredGames.length})`}
+                      {selectedPlatform &&
+                        (platformTotalCount > filteredGames.length
+                          ? ` (Recent ${filteredGames.length} of ${platformTotalCount})`
+                          : ` (${filteredGames.length})`)}
                     </Typography>
                     {selectedPlatform && (
                       <Button
@@ -1233,6 +1257,7 @@ function Games() {
                 <Box sx={{ position: "relative", width: "100%" }}>
                   {canScrollLeftRecent100 && (
                     <IconButton
+                      aria-label="Scroll recent completed games left"
                       onClick={() => scrollRecent100("left")}
                       sx={{
                         position: "absolute",
@@ -1429,6 +1454,7 @@ function Games() {
                   </Box>
                   {canScrollRightRecent100 && (
                     <IconButton
+                      aria-label="Scroll recent completed games right"
                       onClick={() => scrollRecent100("right")}
                       sx={{
                         position: "absolute",
@@ -1546,6 +1572,7 @@ function Games() {
                           {/* Action Button */}
                           {isConfigured ? (
                             <IconButton
+                              aria-label={`Refresh ${config.name} library`}
                               onClick={handleRefresh}
                               disabled={isUpdating}
                               size="small"
@@ -1574,6 +1601,7 @@ function Games() {
                             </IconButton>
                           ) : (
                             <IconButton
+                              aria-label={`Configure ${config.name} connection`}
                               onClick={handleConfigure}
                               size="small"
                               sx={{
@@ -1917,6 +1945,7 @@ function Games() {
                       {config.name}
                     </Typography>
                     <IconButton
+                      aria-label={`Sync ${config.name}`}
                       onClick={() => {
                         if (platform === "steam") refreshSteam();
                         else if (platform === "epic") refreshEpic();

@@ -148,7 +148,11 @@ function TrendingSection({ trending }: TrendingSectionProps) {
                   </Box>
                 </Box>
 
-                <IconButton size="small" sx={{ color: "#9ca3af" }}>
+                <IconButton
+                  size="small"
+                  aria-label={`View ${item.title} details`}
+                  sx={{ color: "#9ca3af" }}
+                >
                   <OpenInNewIcon sx={{ fontSize: 14 }} />
                 </IconButton>
               </Box>

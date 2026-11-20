@@ -1,4 +1,11 @@
-import { Box, Container, Grid, Typography, IconButton } from "@mui/material";
+import {
+  Box,
+  Button,
+  Container,
+  Grid,
+  Typography,
+  IconButton,
+} from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import VerifiedIcon from "@mui/icons-material/Verified";
 import WorkspacePremiumIcon from "@mui/icons-material/WorkspacePremium";
@@ -24,6 +31,7 @@ function CompletedMedia() {
   const navigate = useNavigate();
   const [completedShows, setCompletedShows] = useState<CompletedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCompletedMedia();
@@ -32,31 +40,38 @@ function CompletedMedia() {
   const fetchCompletedMedia = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await authenticatedFetch(
         getApiUrl(`${API_CONFIG.TRAKT_ENDPOINT}/completed-media/`),
       );
 
-      if (response.ok) {
-        const data = await response.json();
-        const shows = (data.completed_shows || []).map((s: any) => ({
-          ...s,
-          type: "show" as const,
-        }));
-
-        shows.sort((a: CompletedItem, b: CompletedItem) => {
-          const aDate = a.last_watched_at
-            ? new Date(a.last_watched_at).getTime()
-            : 0;
-          const bDate = b.last_watched_at
-            ? new Date(b.last_watched_at).getTime()
-            : 0;
-          return bDate - aDate;
-        });
-
-        setCompletedShows(shows);
+      if (!response.ok) {
+        throw new Error(`Completed media request failed (${response.status})`);
       }
-    } catch (error) {
-      console.warn("[COMPLETED_MEDIA] Error fetching completed media:", error);
+
+      const data = await response.json();
+      const shows = (data.completed_shows || []).map((s: any) => ({
+        ...s,
+        type: "show" as const,
+      }));
+
+      shows.sort((a: CompletedItem, b: CompletedItem) => {
+        const aDate = a.last_watched_at
+          ? new Date(a.last_watched_at).getTime()
+          : 0;
+        const bDate = b.last_watched_at
+          ? new Date(b.last_watched_at).getTime()
+          : 0;
+        return bDate - aDate;
+      });
+
+      setCompletedShows(shows);
+    } catch (err) {
+      console.warn("[COMPLETED_MEDIA] Error fetching completed media:", err);
+      setCompletedShows([]);
+      setError(
+        "Completed shows could not be loaded. This is a request failure, not an empty library.",
+      );
     } finally {
       setLoading(false);
     }
@@ -101,6 +116,7 @@ function CompletedMedia() {
           <Box sx={{ mb: 3 }}>
             <IconButton
               onClick={() => navigate("/movies")}
+              aria-label="Back to Movies"
               sx={{
                 color: "#9ca3af",
                 "&:hover": {
@@ -116,7 +132,11 @@ function CompletedMedia() {
           {/* Header */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 4 }}>
             <VerifiedIcon sx={{ color: "#ed1c24", fontSize: 32 }} />
-            <Typography variant="h4" sx={{ fontWeight: 700, color: "#fff" }}>
+            <Typography
+              variant="h1"
+              component="h1"
+              sx={{ fontWeight: 700, color: "#fff", fontSize: "2rem" }}
+            >
               100% Completed Shows
             </Typography>
             <Typography variant="body2" sx={{ color: "#6b7280", ml: 2 }}>
@@ -129,6 +149,26 @@ function CompletedMedia() {
               <Typography sx={{ color: "#6b7280" }}>
                 Loading completed media...
               </Typography>
+            </Box>
+          ) : error ? (
+            <Box
+              role="alert"
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 2,
+                py: 8,
+              }}
+            >
+              <Typography sx={{ color: "#fca5a5" }}>{error}</Typography>
+              <Button
+                variant="outlined"
+                onClick={fetchCompletedMedia}
+                sx={{ textTransform: "none" }}
+              >
+                Retry
+              </Button>
             </Box>
           ) : allItems.length === 0 ? (
             <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>

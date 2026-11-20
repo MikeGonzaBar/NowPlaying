@@ -48,8 +48,8 @@ const GameComparison: React.FC<GameComparisonProps> = ({ game }) => {
 
             <Box sx={{ mt: 3, pt: 2, borderTop: "1px solid rgba(255, 255, 255, 0.08)", display: "flex", flexWrap: "wrap", gap: 3 }}>
                 <AggregatedStat icon={<AccessTimeIcon sx={{ fontSize: 16, color: zincColors.muted }} />} label="Total Playtime" value={playtimeSummary} />
-                <AggregatedStat icon={<EmojiEventsIcon sx={{ fontSize: 16, color: zincColors.muted }} />} label="Achievements" value={`${totalUnlocked}/${totalAchievements}`} />
-                <AggregatedStat icon={<EmojiEventsIcon sx={{ fontSize: 16, color: zincColors.muted }} />} label="Completion" value={`${completionRate}%`} />
+                <AggregatedStat icon={<EmojiEventsIcon sx={{ fontSize: 16, color: zincColors.muted }} />} label="Platform achievement records" value={`${totalUnlocked}/${totalAchievements}`} />
+                <AggregatedStat icon={<EmojiEventsIcon sx={{ fontSize: 16, color: zincColors.muted }} />} label="Platform-record completion" value={`${completionRate}%`} />
             </Box>
             {unavailablePlaytimePlatforms.length > 0 && (
                 <Typography sx={{ mt: 1.5, fontSize: "11px", color: zincColors.muted }}>

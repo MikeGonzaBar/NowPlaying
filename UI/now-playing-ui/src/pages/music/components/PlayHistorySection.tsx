@@ -13,6 +13,8 @@ interface PlayHistorySectionProps {
   pageSize?: number;
   /** Lifetime play count from the detail payload, used to pick an honest empty state. */
   detailCount?: number;
+  /** Ranking window in days; keeps recent plays scoped to the selected period. */
+  days?: string | null;
 }
 
 /**
@@ -30,6 +32,7 @@ export function PlayHistorySection({
   recordingId,
   pageSize = 50,
   detailCount = 0,
+  days,
 }: PlayHistorySectionProps) {
   const { plays, hasMore, totalItems, loadMore } = useMusicPlayHistory({
     type,
@@ -37,6 +40,7 @@ export function PlayHistorySection({
     artist,
     recordingId,
     pageSize,
+    days,
   });
 
   const knownTotal = totalItems > 0 ? totalItems : plays.length;

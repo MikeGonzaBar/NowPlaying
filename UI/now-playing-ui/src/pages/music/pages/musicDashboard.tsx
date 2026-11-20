@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Box, Button, CircularProgress } from "@mui/material";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { Link as RouterLink, useNavigate, useSearchParams } from "react-router-dom";
 import SideBar from "../../../components/sideBar";
 import { authenticatedFetch } from "../../../utils/auth";
 import { getApiUrl, API_CONFIG } from "../../../config/api";
@@ -72,12 +72,33 @@ interface DashboardStats {
 
 function MusicDashboard() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
-  const [timeRange, setTimeRange] = useState<"30D" | "90D" | "1Y" | "ALL">(
-    "30D",
-  );
+
+  // Keep the selected window in the URL so "See all" and detail links carry
+  // the same scope instead of silently resetting to all time.
+  const periodParam = searchParams.get("period") || "30";
+  const timeRange: "30D" | "90D" | "1Y" | "ALL" =
+    periodParam === "90"
+      ? "90D"
+      : periodParam === "365"
+        ? "1Y"
+        : periodParam === "all"
+          ? "ALL"
+          : "30D";
+  const rankingPeriod =
+    timeRange === "90D" ? "90" : timeRange === "1Y" ? "365" : timeRange === "ALL" ? "all" : "30";
+  const setTimeRange = (range: "30D" | "90D" | "1Y" | "ALL") => {
+    const next = new URLSearchParams(searchParams);
+    const value =
+      range === "90D" ? "90" : range === "1Y" ? "365" : range === "ALL" ? "all" : "30";
+    if (value === "30") next.delete("period");
+    else next.set("period", value);
+    setSearchParams(next, { replace: true });
+  };
+  const periodQuery = rankingPeriod === "all" ? "" : `?period=${rankingPeriod}`;
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchDashboardData = async (showLoading: boolean = true) => {
@@ -529,7 +550,7 @@ function MusicDashboard() {
                 <Box sx={{ display: "flex", gap: 1 }}>
                   <Button
                     variant="contained"
-                    onClick={() => navigate("/music/history")}
+                    onClick={() => navigate(`/music/history${periodQuery}`)}
                     sx={{
                       bgcolor: "#161618",
                       color: "white",
@@ -781,7 +802,7 @@ function MusicDashboard() {
                   </Box>
                   <Button
                     aria-label="See all artists"
-                    onClick={() => navigate("/music/artists")}
+                    onClick={() => navigate(`/music/artists${periodQuery}`)}
                     sx={{
                       fontSize: "10px",
                       color: "#e11d48",
@@ -800,7 +821,8 @@ function MusicDashboard() {
                       <Box
                         key={idx}
                         component={RouterLink}
-                        to={`/music/artists/${encodeURIComponent(artist.name)}`}
+                        to={`/music/artists/${encodeURIComponent(artist.name)}${periodQuery}`}
+                        state={{ from: "/music" }}
                         sx={{
                           display: "flex",
                           alignItems: "center",
@@ -909,7 +931,7 @@ function MusicDashboard() {
                   </Box>
                   <Button
                     aria-label="See all albums"
-                    onClick={() => navigate("/music/albums")}
+                    onClick={() => navigate(`/music/albums${periodQuery}`)}
                     sx={{
                       fontSize: "10px",
                       color: "#e11d48",
@@ -934,7 +956,8 @@ function MusicDashboard() {
                       <Box
                         key={idx}
                         component={RouterLink}
-                        to={`/music/albums/${encodeURIComponent(album.name)}`}
+                        to={`/music/albums/${encodeURIComponent(album.name)}${periodQuery}`}
+                        state={{ from: "/music" }}
                         aria-label={`${album.name} by ${album.artist}`}
                         sx={{
                           position: "relative",
@@ -1040,7 +1063,7 @@ function MusicDashboard() {
                   </Box>
                   <Button
                     aria-label="See all tracks"
-                    onClick={() => navigate("/music/tracks")}
+                    onClick={() => navigate(`/music/tracks${periodQuery}`)}
                     sx={{
                       fontSize: "10px",
                       color: "#e11d48",
@@ -1059,7 +1082,8 @@ function MusicDashboard() {
                       <Box
                         key={idx}
                         component={RouterLink}
-                        to={`/music/tracks/${encodeURIComponent(track.title)}`}
+                        to={`/music/tracks/${encodeURIComponent(track.title)}${periodQuery}`}
+                        state={{ from: "/music" }}
                         sx={{
                           display: "flex",
                           alignItems: "center",

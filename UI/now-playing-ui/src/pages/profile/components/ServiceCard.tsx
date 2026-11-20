@@ -110,15 +110,44 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
   const playstationSignInUrl = "https://www.playstation.com/";
   const playstationNpssoUrl = "https://ca.account.sony.com/api/v1/ssocookie";
   const [syncEnabled, setSyncEnabled] = React.useState(true);
-  const [syncTime, setSyncTime] = React.useState("03:00");
+  const [syncTime, setSyncTime] = React.useState("");
   const [scheduleSaving, setScheduleSaving] = React.useState(false);
   const browserTimezone =
     Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
+  // The backend only runs a daily schedule when a sync_time is actually
+  // stored. Never invent a default time, or the UI claims a schedule that
+  // does not exist.
+  const hasStoredDailySchedule =
+    Boolean(existingApiKey?.sync_time) && !isEpic;
+  const intervalDescription =
+    service.name === "spotify" || service.name === "lastfm"
+      ? "every 30 minutes"
+      : service.name === "trakt"
+        ? "every 2 hours"
+        : "every 6 hours";
+  const syncError = existingApiKey?.sync_state.error || "";
+  const errorLooksLikeAuth = /invalid_client_credentials|invalid_grant|unauthor|token|credential|401/i.test(
+    syncError,
+  );
+  const serviceNeedsAttention =
+    Boolean(existingApiKey) &&
+    (isEpic ? Boolean(epicStatus?.needs_reauth) || errorLooksLikeAuth : errorLooksLikeAuth);
+  const friendlySyncError = (() => {
+    if (!syncError) return "";
+    if (/invalid_client_credentials/i.test(syncError)) {
+      return "The saved credentials were rejected by the service. Reconnect to resume sync.";
+    }
+    if (/invalid_grant|unauthor|token|credential|401/i.test(syncError)) {
+      return "Your session expired. Reconnect to resume sync.";
+    }
+    return syncError;
+  })();
+
   React.useEffect(() => {
     if (!existingApiKey) return;
     setSyncEnabled(existingApiKey.sync_enabled);
-    setSyncTime(existingApiKey.sync_time?.slice(0, 5) || "03:00");
+    setSyncTime(existingApiKey.sync_time?.slice(0, 5) || "");
   }, [existingApiKey]);
 
   const handleSave = async () => {
@@ -159,7 +188,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
     try {
       await onScheduleSave({
         sync_enabled: syncEnabled,
-        sync_time: syncTime,
+        sync_time: syncTime || null,
         sync_timezone: browserTimezone,
       });
     } catch (error) {
@@ -200,19 +229,28 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
           }
           label={syncEnabled ? "Enabled" : "Disabled"}
         />
-        <TextField
-          label="Run daily at"
-          type="time"
-          size="small"
-          value={syncTime}
-          disabled={!syncEnabled || isEpic}
-          onChange={(event) => setSyncTime(event.target.value)}
-          slotProps={{ inputLabel: { shrink: true } }}
-        />
+        {hasStoredDailySchedule ? (
+          <TextField
+            label="Run daily at"
+            type="time"
+            size="small"
+            value={syncTime}
+            disabled={!syncEnabled}
+            onChange={(event) => setSyncTime(event.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+        ) : (
+          <Typography variant="body2" sx={{ color: zincColors.muted }}>
+            Runs {intervalDescription}; no daily time is configured.
+          </Typography>
+        )}
         <Button
           variant="outlined"
           onClick={saveSchedule}
-          disabled={scheduleSaving || (syncEnabled && !syncTime)}
+          disabled={
+            scheduleSaving ||
+            (hasStoredDailySchedule && syncEnabled && !syncTime)
+          }
         >
           {scheduleSaving ? "Saving…" : "Save schedule"}
         </Button>
@@ -222,11 +260,17 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
         {formatSyncDate(existingApiKey.sync_state.last_sync_at)}
         {existingApiKey.sync_state.next_sync_at &&
           ` • Next sync: ${formatSyncDate(existingApiKey.sync_state.next_sync_at)}`}
-        {isEpic && " • Epic syncs every 6 hours; a daily time is not used."}
+        {!hasStoredDailySchedule &&
+          ` • Syncs ${intervalDescription}`}
       </Typography>
-      {existingApiKey.sync_state.error && (
+      {friendlySyncError && (
         <Alert severity="error" sx={{ mt: 1 }}>
-          {existingApiKey.sync_state.error}
+          {friendlySyncError}
+        </Alert>
+      )}
+      {!friendlySyncError && serviceNeedsAttention && (
+        <Alert severity="warning" sx={{ mt: 1 }}>
+          This service needs to be reconnected before sync can resume.
         </Alert>
       )}
     </Box>
@@ -299,7 +343,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
                 <HelpOutlineIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            {traktAuthStatus?.token_expired ? (
+            {traktAuthStatus?.token_expired || errorLooksLikeAuth ? (
               <Chip
                 label="Needs attention"
                 size="small"
@@ -502,7 +546,9 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
                 </Button>
               </Box>
             )}
-            {syncControls}
+            {traktAuthStatus?.authenticated &&
+              !traktAuthStatus?.token_expired &&
+              syncControls}
           </>
         )}
       </Paper>
@@ -572,10 +618,13 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
           </Tooltip>
           {existingApiKey && (
             <Chip
-              label="Connected"
-              color="success"
+              label={serviceNeedsAttention ? "Needs attention" : "Connected"}
               size="small"
-              sx={{ backgroundColor: "#4caf50" }}
+              sx={{
+                backgroundColor: serviceNeedsAttention ? "#f59e0b" : "#4caf50",
+                color: serviceNeedsAttention ? "#1a1a1a" : undefined,
+                fontWeight: serviceNeedsAttention ? 700 : undefined,
+              }}
             />
           )}
         </Box>
@@ -601,6 +650,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
             {service.name === "psn" && isPSNEditing && (
               <>
                 <IconButton
+                  aria-label="Save PlayStation connection"
                   onClick={onPSNSave}
                   disabled={psnUpdating || psnNPSSO.trim().length < 10}
                   sx={{
@@ -690,9 +740,10 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
 
       {isEpic && (
         <Box sx={{ mb: 2 }}>
-          {existingApiKey && epicStatus?.needs_reauth && (
+          {existingApiKey && serviceNeedsAttention && (
             <Alert severity="warning" sx={{ mb: 2 }}>
-              Your Epic session expired. Sign in again to resume sync.
+              Your Epic session expired or the saved credentials were rejected.
+              Sign in again to resume sync.
             </Alert>
           )}
           <Typography
@@ -723,13 +774,13 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
               <Chip
                 size="small"
                 label={
-                  epicStatus?.needs_reauth ? "Needs reconnecting" : "Connected"
+                  serviceNeedsAttention ? "Needs reconnecting" : "Connected"
                 }
                 sx={{
-                  backgroundColor: epicStatus?.needs_reauth
+                  backgroundColor: serviceNeedsAttention
                     ? "#f59e0b"
                     : "#22c55e",
-                  color: epicStatus?.needs_reauth ? "#1a1a1a" : "#052e16",
+                  color: serviceNeedsAttention ? "#1a1a1a" : "#052e16",
                   fontWeight: 700,
                 }}
               />

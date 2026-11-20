@@ -137,6 +137,7 @@ const getPlatformIcon = (platformKey: string): string => {
 
     const getPlatformLabel = (platformKey: string): string => {
         if (platformKey === "epic") return "Epic Games";
+        if (platformKey === "psn") return "PlayStation";
         if (platformKey === "retroachievements") return "RetroAchievements";
         return platformKey.charAt(0).toUpperCase() + platformKey.slice(1);
     };
@@ -266,7 +267,7 @@ return (
         <AppShell activeItem="Games" mainSx={{ p: { xs: 2, md: 4 } }}>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: { xs: 'flex-start', md: 'center' }, justifyContent: 'space-between', gap: 2, marginBottom: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
-                    <IconButton onClick={() => navigate('/games')} aria-label="Back to all games" sx={{ color: zincColors.white, backgroundColor: 'rgba(39, 39, 42, 0.5)', border: '1px solid #27272a', '&:hover': { backgroundColor: 'rgba(39, 39, 42, 0.7)', border: '1px solid rgba(255, 255, 255, 0.3)' } }}>
+                    <IconButton onClick={() => navigate('/games')} aria-label="Back to Games" sx={{ color: zincColors.white, backgroundColor: 'rgba(39, 39, 42, 0.5)', border: '1px solid #27272a', '&:hover': { backgroundColor: 'rgba(39, 39, 42, 0.7)', border: '1px solid rgba(255, 255, 255, 0.3)' } }}>
                         <ArrowLeft size={20} />
                     </IconButton>
                     <Typography variant="h1" sx={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, color: zincColors.white, fontSize: { xs: '1.5rem', md: '1.75rem' }, overflowWrap: 'anywhere' }}>

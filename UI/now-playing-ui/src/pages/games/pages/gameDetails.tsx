@@ -570,7 +570,7 @@ const GameDetails: React.FC = () => {
                 fontSize: "0.75rem",
               }}
             >
-              Completion
+              {onCombined ? "Platform-record completion" : "Completion"}
             </Typography>
             <Typography
               sx={{

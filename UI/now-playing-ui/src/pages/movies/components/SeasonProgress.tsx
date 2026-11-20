@@ -207,6 +207,7 @@ function SeasonProgress({
                     <IconButton
                       size="small"
                       disabled
+                      aria-label={`Season ${season.season_number} episode list unavailable`}
                       sx={{
                         width: 32,
                         height: 32,

@@ -396,15 +396,33 @@ class TraktViewSet(viewsets.ViewSet):
 
         trakt_id = cast(str, trakt_id)
 
-        try:
-            show_obj = Show.objects.filter(trakt_id=trakt_id, user=request.user).first()
-            if not show_obj:
-                return Response(
-                    {"error": "Show not found or you don't have access to it."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+        show_obj = Show.objects.filter(trakt_id=trakt_id, user=request.user).first()
+        if not show_obj:
+            return Response(
+                {"error": "Show not found or you don't have access to it."},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-            headers = get_trakt_headers(request.user)
+        # Identity is database-backed and must not depend on a live Trakt
+        # session. Direct episode links need the show title even when the
+        # token is missing, expired, or the live request fails.
+        show_identity = self._show_identity(show_obj)
+
+        try:
+            try:
+                headers = get_trakt_headers(request.user)
+            except Exception as exc:
+                logger.warning(
+                    "Trakt credentials unavailable for show %s: %s",
+                    trakt_id,
+                    exc,
+                )
+                return self._get_database_only_episodes(
+                    trakt_id,
+                    request.user,
+                    show_metadata=None,
+                    show_obj=show_obj,
+                )
             
             show_url = f"https://api.trakt.tv/shows/{trakt_id}?extended=full"
             show_response = http_client.get(show_url, headers=headers, logger_name="trakt")
@@ -432,13 +450,17 @@ class TraktViewSet(viewsets.ViewSet):
             
             if seasons_response.status_code != 200:
                 logger.warning(f"Failed to fetch seasons from Trakt: {seasons_response.status_code}")
-                return self._get_database_only_episodes(trakt_id, request.user, show_metadata)
-
+                return self._get_database_only_episodes(
+                    trakt_id, request.user, show_metadata, show_obj=show_obj
+                )
+            
             trakt_seasons_data = seasons_response.json()
             
             if not isinstance(trakt_seasons_data, list):
                 logger.warning(f"Unexpected seasons response format: {type(trakt_seasons_data)}")
-                return self._get_database_only_episodes(trakt_id, request.user, show_metadata)
+                return self._get_database_only_episodes(
+                    trakt_id, request.user, show_metadata, show_obj=show_obj
+                )
 
             watched_episodes_qs = (
                 Episode.objects.filter(
@@ -557,21 +579,40 @@ class TraktViewSet(viewsets.ViewSet):
             return Response({
                 "seasons": seasons_list,
                 "episodes": episodes_list,
+                "show": show_identity,
                 "show_metadata": show_metadata,
             })
 
         except Exception as e:
             logger.error(f"Error fetching seasons/episodes: {str(e)}", exc_info=True)
-            return Response(
-                {"error": f"Failed to fetch episodes: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            # Keep the show and episode identity available even when progress
+            # data cannot be refreshed. The client must not receive raw
+            # credential or upstream error text.
+            return self._get_database_only_episodes(
+                trakt_id,
+                request.user,
+                show_metadata=None,
+                show_obj=show_obj,
             )
+
+    @staticmethod
+    def _show_identity(show_obj: Show) -> dict[str, object]:
+        """Return stable show identity that does not depend on progress data."""
+        return {
+            "id": show_obj.id,
+            "title": show_obj.title,
+            "year": show_obj.year,
+            "image_url": show_obj.image_url,
+            "trakt_id": show_obj.trakt_id,
+            "tmdb_id": show_obj.tmdb_id,
+        }
 
     def _get_database_only_episodes(
         self,
         trakt_id: str,
         user: User,
         show_metadata: dict[str, object] | None = None,
+        show_obj: Show | None = None,
     ) -> Response:
         """Fallback method to return only database episodes if Trakt API fails."""
         seasons = Season.objects.filter(
@@ -605,9 +646,25 @@ class TraktViewSet(viewsets.ViewSet):
             )
         )
 
+        show = self._show_identity(show_obj) if show_obj else None
+        if show is None:
+            # Older rows may not carry a local Show object; the episode rows
+            # still do, so recover the title from them rather than dropping it.
+            first = episodes.first() if hasattr(episodes, "first") else None
+            if first:
+                show = {
+                    "id": first.get("show__id"),
+                    "title": first.get("show__title"),
+                    "year": None,
+                    "image_url": None,
+                    "trakt_id": trakt_id,
+                    "tmdb_id": None,
+                }
+
         return Response({
             "seasons": list(seasons),
             "episodes": list(episodes),
+            "show": show,
             "show_metadata": show_metadata or {},
             # The live Trakt request failed and this is a database-only
             # fallback. Flag it so clients do not present incomplete progress

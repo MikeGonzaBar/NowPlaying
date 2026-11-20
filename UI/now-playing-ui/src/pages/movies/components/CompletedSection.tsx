@@ -1,4 +1,4 @@
-import { Box, Card, CardContent, Typography } from "@mui/material";
+import { Box, Button, Card, CardContent, Typography } from "@mui/material";
 import VerifiedIcon from "@mui/icons-material/Verified";
 import WorkspacePremiumIcon from "@mui/icons-material/WorkspacePremium";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
@@ -63,10 +63,12 @@ function CompletedSection({ shows }: CompletedSectionProps) {
               100% Completed
             </Typography>
           </Box>
-          <Typography
-            variant="caption"
+          <Button
             onClick={() => navigate("/completed")}
+            aria-label="View all completed shows"
+            endIcon={<ArrowForwardIcon sx={{ fontSize: 14 }} />}
             sx={{
+              minWidth: "auto",
               fontSize: "10px",
               fontWeight: 600,
               color: "#9ca3af",
@@ -76,17 +78,13 @@ function CompletedSection({ shows }: CompletedSectionProps) {
               py: 0.5,
               backgroundColor: "#27272a",
               borderRadius: 1,
-              cursor: "pointer",
+              lineHeight: 1.2,
               transition: "color 0.2s",
-              display: "flex",
-              alignItems: "center",
-              gap: 0.5,
-              "&:hover": { color: "#ed1c24" },
+              "&:hover": { color: "#ed1c24", backgroundColor: "#27272a" },
             }}
           >
             View All
-            <ArrowForwardIcon sx={{ fontSize: 14 }} />
-          </Typography>
+          </Button>
         </Box>
 
         <Box sx={{ display: "flex", gap: 2, overflowX: "auto", pb: 2 }}>

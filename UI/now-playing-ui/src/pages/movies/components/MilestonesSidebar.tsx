@@ -1,4 +1,5 @@
 import { Box, Card, Typography, Button } from "@mui/material";
+import { Link as RouterLink } from "react-router-dom";
 import LockIcon from "@mui/icons-material/Lock";
 import SyncIcon from "@mui/icons-material/Sync";
 import { useTraktConnection } from "../../../hooks/useTraktConnection";
@@ -188,18 +189,45 @@ function MilestonesSidebar({
           />
         </Box>
         {!traktConnected && (
-          <Typography
-            sx={{
-              fontSize: "11px",
-              color: "#b99d9d",
-              mb: 1.5,
-              lineHeight: 1.6,
-            }}
-          >
-            {traktExpired
-              ? "Your Trakt session expired. Reconnect Trakt in Connections & account to resume sync."
-              : "Checking your Trakt connection…"}
-          </Typography>
+          <Box sx={{ mb: 1.5 }}>
+            <Typography
+              sx={{
+                fontSize: "11px",
+                color: "#b99d9d",
+                mb: 1,
+                lineHeight: 1.6,
+              }}
+            >
+              {traktExpired
+                ? "Your Trakt session expired. Reconnect Trakt to resume sync."
+                : traktLoading
+                  ? "Checking your Trakt connection…"
+                  : "Trakt is not connected, so progress cannot be synced."}
+            </Typography>
+            {!traktLoading && (
+              <Button
+                component={RouterLink}
+                to="/profile"
+                size="small"
+                variant="outlined"
+                sx={{
+                  borderColor: "rgba(237, 28, 36, 0.5)",
+                  color: "#f4d3d4",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  py: 0.5,
+                  "&:hover": {
+                    borderColor: "#ed1c24",
+                    backgroundColor: "rgba(237, 28, 36, 0.15)",
+                  },
+                }}
+              >
+                {traktExpired ? "Reconnect Trakt" : "Connect Trakt"}
+              </Button>
+            )}
+          </Box>
         )}
         <Button
           fullWidth

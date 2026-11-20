@@ -1,5 +1,5 @@
 import { Box, Tooltip, Typography, Link } from "@mui/material";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useLocation } from "react-router-dom";
 import { avatarUrl } from "../../../utils/avatars";
 import { RankingBadge } from "./RankingBadge";
 import { TopTracksList } from "./TopTracksList";
@@ -33,12 +33,17 @@ export function MusicItemCard({
   onClick,
   imageShape = "circle",
 }: MusicItemCardProps) {
+  const location = useLocation();
   const borderRadius = imageShape === "circle" ? "50%" : "16px";
   const pulseBorderRadius = imageShape === "circle" ? "50%" : "16px";
   const hasEntityLink = Boolean(to);
 
   const entityLinkProps = to
-    ? { component: RouterLink, to }
+    ? {
+        component: RouterLink,
+        to,
+        state: { from: `${location.pathname}${location.search}` },
+      }
     : {};
 
   return (

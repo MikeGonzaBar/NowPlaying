@@ -76,9 +76,20 @@ interface ShowMetadata {
   air_timezone?: string;
 }
 
+interface ShowIdentity {
+  id?: number;
+  title?: string;
+  year?: number | null;
+  image_url?: string | null;
+  trakt_id?: string;
+  tmdb_id?: string | null;
+}
+
 interface SeasonsEpisodesData {
   seasons: Season[];
   episodes: Episode[];
+  /** Database-backed identity; present even when progress is unavailable. */
+  show?: ShowIdentity | null;
   show_metadata?: ShowMetadata;
   /** Set by the backend when it had to fall back to cached DB-only data. */
   stats_unavailable?: boolean;
@@ -144,46 +155,59 @@ function ShowDetails() {
         );
 
         if (!seasonsRes.ok) {
-          const errorData = await seasonsRes.json().catch(() => ({}));
-          throw new Error(
-            errorData.error ||
-            errorData.detail ||
-            `Failed to load show statistics (status ${seasonsRes.status})`,
-          );
+          // Do not surface upstream/credential error text in the UI. The
+          // alert offers an actionable recovery path instead.
+          throw new Error("Episode progress is unavailable right now.");
         }
 
         {
-          const data = await seasonsRes.json();
+          const data: SeasonsEpisodesData = await seasonsRes.json();
+
+          // Identity comes from the database-backed `show` payload first,
+          // then from season/episode rows. This keeps a direct link (no
+          // router state) named even when progress data is withheld.
+          const payloadTitle =
+            data?.show?.title ||
+            data?.seasons?.[0]?.show__title ||
+            data?.episodes?.[0]?.show__title ||
+            "";
+
+          if (payloadTitle || data?.show?.year || data?.show?.image_url) {
+            setShowData((prev) => ({
+              ...(prev || {
+                id: data?.show?.id ?? 0,
+                title: "",
+                year: 0,
+                image_url: null,
+                ids: {
+                  trakt: data?.show?.trakt_id || String(traktId),
+                  tmdb: data?.show?.tmdb_id || "",
+                },
+              }),
+              title: payloadTitle || prev?.title || "",
+              year: data?.show?.year ?? prev?.year ?? 0,
+              image_url: data?.show?.image_url ?? prev?.image_url ?? null,
+            }));
+          }
 
           // A 200 response can still be degraded: the backend falls back to
-          // database-only episodes when Trakt is unreachable. Treat that as
-          // unavailable rather than rendering incomplete zeros.
+          // database-only episodes when Trakt is unreachable. Keep the
+          // identity and episode rows, but withhold progress statistics.
           if (data?.stats_unavailable) {
-            throw new Error(
+            setSeasonsData(data);
+            setShowDetails(null);
+            if (data.show_metadata) {
+              setShowMetadata(data.show_metadata);
+            }
+            setError(
               data.warning ||
-                "Live Trakt data is unavailable, so progress statistics were withheld.",
+                "Episode progress is temporarily unavailable. Retry or reconnect Trakt to restore watch statistics.",
             );
+            return;
           }
 
           setSeasonsData(data);
           setError(null);
-
-          if (
-            !show?.title &&
-            data?.seasons?.length > 0 &&
-            data.seasons[0].show__title
-          ) {
-            setShowData((prev) => ({
-              ...(prev || {
-                id: 0,
-                title: "",
-                year: 0,
-                image_url: null,
-                ids: { trakt: String(traktId), tmdb: "" },
-              }),
-              title: data.seasons[0].show__title,
-            }));
-          }
 
           if (data.show_metadata) {
             setShowMetadata(data.show_metadata);
@@ -240,9 +264,7 @@ function ShowDetails() {
         setSeasonsData(null);
         setShowDetails(null);
         setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load show statistics",
+          "Episode progress is temporarily unavailable. Retry, or reconnect Trakt if your session expired.",
         );
       } finally {
         setLoading(false);
@@ -309,7 +331,17 @@ function ShowDetails() {
     }
   };
 
-  if (!showData || (loading && !seasonsData && !error)) {
+  // A direct link has no router state, so the title has to come from the
+  // fetched payload. "Show" is the last-resort label for an unreachable API.
+  const showTitle =
+    showData?.title ||
+    seasonsData?.show?.title ||
+    seasonsData?.seasons?.[0]?.show__title ||
+    seasonsData?.episodes?.[0]?.show__title ||
+    "Show";
+
+  // An error with no cached identity is a request failure, not a missing show.
+  if (!showData && !error) {
     return (
       <Box
         sx={{ display: "flex", minHeight: "100vh", backgroundColor: "#0f1115" }}
@@ -429,20 +461,41 @@ function ShowDetails() {
                 "& .MuiAlert-message": { fontSize: "14px" },
               }}
               action={
-                <Button
-                  color="inherit"
-                  size="small"
-                  onClick={() => setReloadToken((token) => token + 1)}
-                  disabled={loading}
-                  sx={{ textTransform: "none", whiteSpace: "nowrap" }}
-                >
-                  {loading ? "Retrying…" : "Retry"}
-                </Button>
+                <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                  <Button
+                    color="inherit"
+                    size="small"
+                    onClick={() => setReloadToken((token) => token + 1)}
+                    disabled={loading}
+                    sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+                  >
+                    {loading ? "Retrying…" : "Retry"}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => navigate("/profile")}
+                    sx={{
+                      textTransform: "none",
+                      whiteSpace: "nowrap",
+                      borderColor: "rgba(237, 28, 36, 0.5)",
+                      color: "#fff",
+                      fontSize: "12px",
+                      py: 0.5,
+                      "&:hover": {
+                        borderColor: "#ed1c24",
+                        backgroundColor: "rgba(237, 28, 36, 0.15)",
+                      },
+                    }}
+                  >
+                    Reconnect Trakt
+                  </Button>
+                </Box>
               }
             >
               {error
-                ? `Show statistics unavailable — ${error}`
-                : "Show statistics could not be loaded. Progress and episode counts are unavailable, not zero."}
+                ? error
+                : "Episode progress could not be loaded. Counts are unavailable, not zero."}
             </Alert>
           )}
 
@@ -457,7 +510,7 @@ function ShowDetails() {
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "flex-end",
-                backgroundImage: showData.image_url
+                backgroundImage: showData?.image_url
                   ? `linear-gradient(0deg, rgba(10, 10, 10, 0.9) 0%, rgba(10, 10, 10, 0.2) 60%), url(${showData.image_url})`
                   : "linear-gradient(0deg, rgba(10, 10, 10, 0.9) 0%, rgba(10, 10, 10, 0.2) 60%)",
                 backgroundSize: "cover",
@@ -504,7 +557,8 @@ function ShowDetails() {
                       }}
                     />
                     <Typography
-                      variant="h3"
+                      variant="h1"
+                      component="h1"
                       sx={{
                         color: "#fff",
                         fontSize: "3rem",
@@ -512,7 +566,7 @@ function ShowDetails() {
                         letterSpacing: "-0.02em",
                       }}
                     >
-                      {showData.title}
+                      {showTitle || "Show"}
                     </Typography>
                     <Box
                       sx={{
@@ -523,7 +577,7 @@ function ShowDetails() {
                         mt: 0.5,
                       }}
                     >
-                      {showData.year > 0 && (
+                      {showData?.year && showData.year > 0 && (
                         <Typography sx={{ color: "#b99d9d", fontWeight: 500 }}>
                           {showData.year}
                         </Typography>
@@ -861,7 +915,7 @@ function ShowDetails() {
                     }}
                   >
                     <Typography sx={{ color: "#b99d9d", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                      {showData?.title || "Show"} › Season {selectedSeason} › Episode {selectedEpisodeData.episode_number}
+                      {showTitle || "Show"} › Season {selectedSeason} › Episode {selectedEpisodeData.episode_number}
                     </Typography>
                     <Typography variant="h2" sx={{ fontSize: "22px", fontWeight: 700, color: "#fff", mt: 0.5 }}>
                       {selectedEpisodeData.title || `Episode ${selectedEpisodeData.episode_number}`}

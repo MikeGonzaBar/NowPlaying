@@ -24,7 +24,7 @@ export interface ApiKey {
 
 export interface SyncSchedule {
   sync_enabled: boolean;
-  sync_time: string;
+  sync_time: string | null;
   sync_timezone: string;
 }
 
