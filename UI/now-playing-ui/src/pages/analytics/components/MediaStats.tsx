@@ -7,15 +7,40 @@ import DonutLargeIcon from "@mui/icons-material/DonutLarge";
 import BoltIcon from "@mui/icons-material/Bolt";
 import PersonIcon from "@mui/icons-material/Person";
 import CastIcon from "@mui/icons-material/Cast";
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+} from "recharts";
 
 const TRAKT_RED = "#ed1c24";
 const SILVER_LIGHT = "#f1f5f9";
 const CARD_BG = "#18181b";
 const BORDER_SLATE = "#27272a";
+const TEXT_WHITE = "#fff";
+const TEXT_DARK = "#212121";
+const TEXT_SECONDARY = "#71717a";
+// Dark text for contrast on colored backgrounds
+const TEXT_ON_RED = "#7f1d1d";
+const TEXT_ON_SILVER = "#1e293b";
 
 interface MediaStatsProps {
   data: any;
 }
+
+const getOptimalChartHeight = (genreCount: number) => {
+  // Base height + 20px per genre, max 300px
+  const baseHeight = 160;
+  const genreHeight = Math.min(20, Math.max(16, Math.floor(genreCount / 2) * 12));
+  return Math.min(baseHeight + genreHeight * genreCount, 300);
+};
+
+const getGenreColor = (index: number) => {
+  const colors = [TRAKT_RED, "#cbd5e1", "#64748b", "#475569"];
+  return colors[index % colors.length];
+};
 
 const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
   const {
@@ -63,7 +88,6 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
     ...dailyWatch.map((d: any) => d.watch_time_hours ?? 0),
     0.1,
   );
-  const genreColors = [TRAKT_RED, "#cbd5e1", "#64748b", "#475569"];
   const hasViewingData = moviesWatched > 0 || episodesWatched > 0 ||
     dailyWatch.some((day: any) => Number(day.watch_time_hours ?? 0) > 0);
 
@@ -86,7 +110,7 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
         <Card
           sx={{
             bgcolor: SILVER_LIGHT,
-            color: "#0f172a",
+            color: TEXT_DARK,
             p: 3,
             borderRadius: "1rem",
             position: "relative",
@@ -131,7 +155,7 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
               fontSize: "2.25rem",
               fontWeight: 700,
               mb: 0.5,
-              color: "#0f172a",
+              color: TEXT_DARK,
             }}
           >
             {moviesWatched}
@@ -147,11 +171,10 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
           </Box>
         </Card>
 
-        {/* Episodes Scrobbled - Trakt red */}
+        {/* Episodes Scrobbled - Trakt red with dark text for contrast */}
         <Card
           sx={{
             bgcolor: TRAKT_RED,
-            color: "#fff",
             p: 3,
             borderRadius: "1rem",
             position: "relative",
@@ -166,10 +189,11 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
               bottom: -16,
               fontSize: "4rem",
               opacity: 0.1,
+              color: TEXT_ON_RED,
             }}
           />
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-            <LiveTvIcon sx={{ fontSize: "1.125rem" }} />
+            <LiveTvIcon sx={{ fontSize: "1.125rem", color: TEXT_ON_RED }} />
             <Typography
               component="span"
               sx={{
@@ -177,7 +201,7 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
                 fontSize: "0.75rem",
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
-                color: "#fff",
+                color: TEXT_ON_RED,
               }}
             >
               Episodes Scrobbled
@@ -188,24 +212,24 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
               fontSize: "2.25rem",
               fontWeight: 700,
               mb: 0.5,
-              color: "#fff",
+              color: TEXT_ON_RED,
             }}
           >
             {episodesWatched}
           </Typography>
           <Typography
-            sx={{ color: "rgba(255,255,255,0.9)", fontSize: "0.875rem", mb: 2 }}
+            sx={{ color: TEXT_ON_RED, fontSize: "0.875rem", mb: 2 }}
           >
             Avg. {(episodesWatched / periodDays).toFixed(1)} per day
           </Typography>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
             <Typography
-              sx={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.8)" }}
+              sx={{ fontSize: "0.75rem", color: TEXT_ON_RED }}
             >
               {seriesCount} series in period
             </Typography>
             <Typography
-              sx={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.8)" }}
+              sx={{ fontSize: "0.75rem", color: TEXT_ON_RED }}
             >
               Trakt data
             </Typography>
@@ -523,27 +547,43 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
               }}
             >
               {genres.length > 0 ? (
-                genres.slice(0, 3).map((_: any, idx: number) => (
-                  <Box
-                    key={idx}
-                    sx={{
-                      position: "absolute",
-                      inset: -12,
-                      borderRadius: "50%",
-                      border: `12px solid ${genreColors[idx] || TRAKT_RED}`,
-                      borderTop: idx === 0 ? "transparent" : undefined,
-                      borderLeft: idx === 0 ? "transparent" : undefined,
-                      borderRight: idx === 1 ? "transparent" : undefined,
-                      borderBottom: idx === 1 ? "transparent" : undefined,
-                      transform:
-                        idx === 0
-                          ? "rotate(-60deg)"
-                          : idx === 1
-                            ? "rotate(15deg)"
-                            : "rotate(140deg)",
-                    }}
-                  />
-                ))
+                <>
+                  <ResponsiveContainer width="100%" height={getOptimalChartHeight(genres.length)}>
+                    <PieChart>
+                      <Pie
+                        data={genres}
+                        dataKey="percentage"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={56}
+                        outerRadius={80}
+                        paddingAngle={1}
+                        label={({ name, percent }) => (
+                          <text
+                            x={0}
+                            y={0}
+                            fill="#e2e8f0"
+                            fontSize="11"
+                            fontWeight={500}
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                          >
+                            {name}
+                          </text>
+                        )}
+                      >
+                        {genres.map((_: any, idx: number) => (
+                          <Cell key={idx} fill={getGenreColor(idx)} stroke="#18181b" strokeWidth={2} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '0.5rem', color: '#e2e8f0' }}
+                        formatter={(value: number | undefined, name?: string) => [`${value ?? 0}%`, name ?? '']}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </>
               ) : (
                 <Box
                   sx={{
@@ -599,7 +639,7 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
                       width: 10,
                       height: 10,
                       borderRadius: "50%",
-                      bgcolor: genreColors[idx] || TRAKT_RED,
+                      bgcolor: getGenreColor(idx),
                     }}
                   />
                   <Typography
@@ -706,11 +746,11 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
                 width: 48,
                 height: 48,
                 borderRadius: "0.5rem",
-                bgcolor: "rgba(241,245,249,0.1)",
+                bgcolor: "rgba(99,102,241,0.1)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: SILVER_LIGHT,
+                color: "#818cf8",
               }}
             >
               <PersonIcon />
@@ -750,11 +790,11 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
                 width: 48,
                 height: 48,
                 borderRadius: "0.5rem",
-                bgcolor: "rgba(239,68,68,0.1)",
+                bgcolor: "rgba(96,165,250,0.1)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "#ef4444",
+                color: "#60a5fa",
               }}
             >
               <CastIcon />
@@ -769,7 +809,7 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
                   letterSpacing: "0.1em",
                 }}
               >
-                Top Studio/Network
+                Top Studio
               </Typography>
               <Typography sx={{ fontWeight: 600, color: SILVER_LIGHT }}>
                 {insights.top_studio ?? "—"}
@@ -777,42 +817,6 @@ const MediaStats: React.FC<MediaStatsProps> = ({ data }) => {
             </Box>
           </Card>
         </Box>
-      </Box>
-
-      {/* Footer */}
-      <Box
-        sx={{
-          mt: 6,
-          pt: 4,
-          borderTop: `1px solid ${BORDER_SLATE}`,
-          textAlign: "center",
-        }}
-      >
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 1,
-            mb: 1,
-          }}
-        >
-          <Typography
-            component="span"
-            sx={{ color: TRAKT_RED, fontWeight: 700, fontSize: "1.125rem" }}
-          >
-            trakt
-          </Typography>
-          <Typography
-            component="span"
-            sx={{ color: "#94a3b8", fontSize: "0.875rem" }}
-          >
-            Data Integrated
-          </Typography>
-        </Box>
-        <Typography sx={{ fontSize: "0.875rem", color: "#94a3b8" }}>
-          Master Entertainment Analytics • 2026
-        </Typography>
       </Box>
     </Box>
   );

@@ -7,15 +7,40 @@ import ScheduleIcon from "@mui/icons-material/Schedule";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import MilitaryTechIcon from "@mui/icons-material/MilitaryTech";
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+} from "recharts";
 
 const MUSIC_TEAL = "#40b3a2";
 const MUSIC_BLUE = "#3b82f6";
 const CARD_DARK = "#18181b";
 const BORDER_SLATE = "#27272a";
+const TEXT_WHITE = "#fff";
+const TEXT_DARK = "#212121";
+const TEXT_SECONDARY = "#71717a";
+// Dark text for contrast on colored backgrounds
+const TEXT_ON_TEAL = "#064e3b";
+const TEXT_ON_BLUE = "#1e3a5f";
 
 interface MusicStatsProps {
   data: any;
 }
+
+const getOptimalChartHeight = (genreCount: number) => {
+  // Base height + 20px per genre, max 300px
+  const baseHeight = 160;
+  const genreHeight = Math.min(20, Math.max(16, Math.floor(genreCount / 2) * 12));
+  return Math.min(baseHeight + genreHeight * genreCount, 300);
+};
+
+const getGenreColor = (index: number) => {
+  const colors = [MUSIC_TEAL, MUSIC_BLUE, "#94a3b8", "#475569"];
+  return colors[index % colors.length];
+};
 
 const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
   const {
@@ -51,7 +76,6 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
 
   const genres = music_genre_distribution?.genres ?? [];
   const genreCount = music_genre_distribution?.total_count ?? genres.length;
-  const genreColors = [MUSIC_TEAL, MUSIC_BLUE, "#94a3b8", "#475569"];
 
   return (
     <Box sx={{ fontFamily: "'Inter', sans-serif", color: "#e2e8f0" }}>
@@ -86,11 +110,11 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
               bottom: -16,
               fontSize: "4rem",
               opacity: 0.15,
-              color: "#fff",
+              color: TEXT_ON_TEAL,
             }}
           />
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-            <PersonIcon sx={{ fontSize: "1.125rem", color: "#fff" }} />
+            <PersonIcon sx={{ fontSize: "1.125rem", color: TEXT_ON_TEAL }} />
             <Typography
               component="span"
               sx={{
@@ -98,7 +122,7 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
                 fontSize: "0.75rem",
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
-                color: "#ffffff",
+                color: TEXT_ON_TEAL,
               }}
             >
               Top Artist
@@ -111,14 +135,14 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
               mb: 0.5,
               overflow: "hidden",
               textOverflow: "ellipsis",
-              color: "#ffffff",
+              color: TEXT_ON_TEAL,
             }}
           >
             {top_artist?.name ?? "—"}
           </Typography>
           <Typography
             sx={{
-              color: "rgba(255,255,255,0.95)",
+              color: TEXT_ON_TEAL,
               fontSize: "0.875rem",
               mb: 2,
             }}
@@ -128,7 +152,7 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
               : "No data"}
           </Typography>
           <Typography
-            sx={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.9)" }}
+            sx={{ fontSize: "0.75rem", color: TEXT_ON_TEAL }}
           >
             {top_artist?.top_album ? `Top album: ${top_artist.top_album}` : "—"}
           </Typography>
@@ -190,12 +214,12 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
             {top_track?.title ?? "—"}
           </Typography>
           <Typography
-            sx={{ color: "rgba(255,255,255,0.8)", fontSize: "0.875rem", mb: 2 }}
+            sx={{ color: TEXT_WHITE, fontSize: "0.875rem", mb: 2 }}
           >
             {top_track ? `${top_track.plays} plays` : "No data"}
           </Typography>
           <Typography
-            sx={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.7)" }}
+            sx={{ fontSize: "0.75rem", color: TEXT_WHITE }}
           >
             {top_track?.recently_played
               ? `Recently played: ${top_track.recently_played}`
@@ -259,12 +283,12 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
             {new_discoveries?.new_artists_count ?? 0}
           </Typography>
           <Typography
-            sx={{ color: "rgba(255,255,255,0.8)", fontSize: "0.875rem", mb: 2 }}
+            sx={{ color: TEXT_WHITE, fontSize: "0.875rem", mb: 2 }}
           >
             New Artists Found
           </Typography>
           <Typography
-            sx={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.7)" }}
+            sx={{ fontSize: "0.75rem", color: TEXT_WHITE }}
           >
             {new_discoveries?.change_percentage != null
               ? `${new_discoveries.change_percentage >= 0 ? "+" : ""}${new_discoveries.change_percentage}% from last period`
@@ -272,7 +296,7 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
           </Typography>
         </Card>
 
-        {/* Total Listening Time - gradient: white text for contrast on teal and blue */}
+        {/* Total Listening Time - gradient: dark text for contrast on teal-to-blue gradient */}
         <Card
           sx={{
             background: `linear-gradient(135deg, ${MUSIC_TEAL}, ${MUSIC_BLUE})`,
@@ -289,11 +313,11 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
               bottom: -16,
               fontSize: "4rem",
               opacity: 0.15,
-              color: "#fff",
+              color: TEXT_ON_TEAL,
             }}
           />
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-            <ScheduleIcon sx={{ fontSize: "1.125rem", color: "#fff" }} />
+            <ScheduleIcon sx={{ fontSize: "1.125rem", color: TEXT_ON_TEAL }} />
             <Typography
               component="span"
               sx={{
@@ -301,7 +325,7 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
                 fontSize: "0.75rem",
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
-                color: "#ffffff",
+                color: TEXT_ON_TEAL,
               }}
             >
               Total Listening Time
@@ -313,14 +337,14 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
               fontWeight: 700,
               mb: 0.5,
               lineHeight: 1.2,
-              color: "#ffffff",
+              color: TEXT_ON_TEAL,
             }}
           >
             {totalListeningTime}
           </Typography>
           <Typography
             sx={{
-              color: "rgba(255,255,255,0.95)",
+              color: TEXT_ON_TEAL,
               fontSize: "0.875rem",
               mb: 2,
             }}
@@ -328,12 +352,12 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
             {totalSongs.toLocaleString()} scrobbles total
           </Typography>
           <Typography
-            sx={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.9)" }}
+            sx={{ fontSize: "0.75rem", color: TEXT_ON_TEAL }}
           >
             Avg. {avgPerDay} per day
           </Typography>
           <Typography
-            sx={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.8)", mt: 0.5, lineHeight: 1.4 }}
+            sx={{ fontSize: "0.7rem", color: TEXT_ON_TEAL, mt: 0.5, lineHeight: 1.4 }}
           >
             * Estimated listening time: recorded track durations where available,
             otherwise ~3.5 minutes per scrobble.
@@ -498,28 +522,43 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
               }}
             >
               {genres.length > 0 ? (
-                genres.slice(0, 3).map((_: any, i: number) => (
-                  <Box
-                    key={i}
-                    sx={{
-                      position: "absolute",
-                      inset: 0,
-                      borderRadius: "50%",
-                      border: `18px solid ${genreColors[i] || genreColors[0]}`,
-                      borderTop: i === 0 ? "transparent" : undefined,
-                      borderLeft: i === 0 ? "transparent" : undefined,
-                      borderRight: i === 1 ? "transparent" : undefined,
-                      borderBottom: i === 1 ? "transparent" : undefined,
-                      transform:
-                        i === 0
-                          ? "rotate(30deg)"
-                          : i === 1
-                            ? "rotate(-45deg)"
-                            : "rotate(140deg)",
-                      opacity: i === 2 ? 0.6 : 1,
-                    }}
-                  />
-                ))
+                <>
+                  <ResponsiveContainer width="100%" height={getOptimalChartHeight(genres.length)}>
+                    <PieChart>
+                      <Pie
+                        data={genres}
+                        dataKey="percentage"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={56}
+                        outerRadius={80}
+                        paddingAngle={1}
+                        label={({ name, percent }) => (
+                          <text
+                            x={0}
+                            y={0}
+                            fill="#e2e8f0"
+                            fontSize="11"
+                            fontWeight={500}
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                          >
+                            {name}
+                          </text>
+                        )}
+                      >
+                        {genres.map((_: any, idx: number) => (
+                          <Cell key={idx} fill={getGenreColor(idx)} stroke="#18181b" strokeWidth={2} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '0.5rem', color: '#e2e8f0' }}
+                        formatter={(value: number | undefined, name?: string) => [`${value ?? 0}%`, name ?? '']}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </>
               ) : (
                 <Box
                   sx={{
@@ -570,7 +609,7 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
                       width: 10,
                       height: 10,
                       borderRadius: "50%",
-                      bgcolor: genreColors[i] || MUSIC_TEAL,
+                      bgcolor: getGenreColor(i),
                     }}
                   />
                   <Typography
@@ -699,7 +738,9 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
                 Genre of the Week
               </Typography>
               <Typography sx={{ fontWeight: 600, color: "#e2e8f0" }}>
-                {genre_of_the_week ?? "Not available"}
+                {genre_of_the_week?.name ?? "—"}
+                {genre_of_the_week?.percentage != null &&
+                  ` (${genre_of_the_week.percentage}%)`}
               </Typography>
             </Box>
           </Card>
@@ -710,71 +751,43 @@ const MusicStats: React.FC<MusicStatsProps> = ({ data }) => {
               border: `1px solid ${BORDER_SLATE}`,
               p: 2.5,
               borderRadius: "0.75rem",
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
               cursor: "pointer",
               "&:hover": { borderColor: `${MUSIC_TEAL}80` },
             }}
           >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1 }}>
-              <Box
-                sx={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: "0.5rem",
-                  bgcolor: "rgba(59,130,246,0.1)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#60a5fa",
-                }}
-              >
-                <MilitaryTechIcon />
-              </Box>
-              <Box>
-                <Typography
-                  sx={{
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    color: "#94a3b8",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.1em",
-                  }}
-                >
-                  Scrobble Milestone
-                </Typography>
-                <Typography
-                  sx={{
-                    fontWeight: 600,
-                    fontSize: "0.875rem",
-                    color: "#e2e8f0",
-                  }}
-                >
-                  {music_listening_insights?.scrobble_milestone
-                    ? `${music_listening_insights.scrobble_milestone.current?.toLocaleString()} / ${music_listening_insights.scrobble_milestone.target?.toLocaleString()} scrobbles`
-                    : `${totalSongs.toLocaleString()} scrobbles (this period)`}
-                </Typography>
-              </Box>
+            <Box
+              sx={{
+                width: 48,
+                height: 48,
+                borderRadius: "0.5rem",
+                bgcolor: "rgba(239,68,68,0.1)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#f43f5e",
+              }}
+            >
+              <MilitaryTechIcon />
             </Box>
-            {music_listening_insights?.scrobble_milestone && (
-              <Box
+            <Box>
+              <Typography
                 sx={{
-                  width: "100%",
-                  bgcolor: BORDER_SLATE,
-                  height: 6,
-                  borderRadius: 999,
-                  overflow: "hidden",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  color: "#94a3b8",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em",
                 }}
               >
-                <Box
-                  sx={{
-                    bgcolor: MUSIC_TEAL,
-                    height: "100%",
-                    width: `${Math.min(music_listening_insights.scrobble_milestone.percentage ?? 0, 100)}%`,
-                    borderRadius: 999,
-                    transition: "width 0.5s",
-                  }}
-                />
-              </Box>
-            )}
+                Top Listening Source
+              </Typography>
+              <Typography sx={{ fontWeight: 600, color: "#e2e8f0" }}>
+                {music_listening_insights?.top_source ?? "—"}
+              </Typography>
+            </Box>
           </Card>
         </Box>
       </Box>

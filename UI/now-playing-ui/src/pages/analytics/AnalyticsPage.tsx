@@ -208,6 +208,13 @@ const normalizeAnalyticsData = (raw: AnalyticsData | null): AnalyticsData => {
     } as AnalyticsData;
 };
 
+const getOptimalChartHeight = (genreCount: number) => {
+  // Base height + ~20px per genre, max 300px
+  const baseHeight = 160;
+  const genreHeight = Math.min(20, Math.max(16, Math.floor(genreCount / 2) * 12));
+  return Math.min(baseHeight + genreHeight * genreCount, 300);
+};
+
 const AnalyticsPage: React.FC = () => {
     type TabKey = 'overview' | 'games' | 'music' | 'movies';
     const TABS: { key: TabKey; label: string; section?: SectionKey }[] = [
@@ -397,326 +404,265 @@ const AnalyticsPage: React.FC = () => {
             <Box component="main" sx={{ flexGrow: 1, maxWidth: "1400px", mx: "auto", px: { xs: 2, md: 4, lg: 8 }, py: 8 }}>
                 {/* Header */}
                 <Box sx={{ mb: 4 }}>
-                    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { md: 'flex-end' }, gap: 3, mb: 4 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, flexWrap: 'wrap', gap: 2 }}>
                         <Box>
-                            <Typography
-                                variant="h1"
-                                component="h1"
-                                sx={{
-                                    fontSize: '1.875rem',
-                                    fontWeight: 700,
-                                    color: '#fff',
-                                    mb: 1
-                                }}
-                            >
-                                Analytics Dashboard
+                            <Typography variant="h4" sx={{ fontWeight: 700, color: '#fff', mb: 0.5 }}>
+                                Analytics
                             </Typography>
-                            <Typography
-                                sx={{
-                                    color: '#94a3b8',
-                                    fontSize: '0.875rem',
-                                    mt: 1
-                                }}
-                            >
-                                {analyticsData.comprehensive_stats.period.start_date
-                                    ? `Your entertainment statistics for the last ${analyticsData.comprehensive_stats.period.days} days`
-                                    : "Summary totals are unavailable. Platform and trend data below may still be used."}
+                            <Typography variant="body1" sx={{ color: '#94a3b8' }}>
+                                {renderPeriodLabel()}
                             </Typography>
                         </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                            <Card sx={{
-                                bgcolor: '#18181b',
-                                border: '1px solid #27272a',
-                                px: 3,
-                                py: 1.5,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 2,
-                                cursor: 'pointer',
-                                '&:hover': { bgcolor: '#27272a' }
-                            }}>
-                                <CalendarTodayIcon sx={{ fontSize: 18, color: '#94a3b8' }} />
-                                <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: '#fff' }}>
-                                    {renderPeriodLabel()}
-                                </Typography>
-                            </Card>
-                            <MuiTooltip
-                                title={
-                                    analyticsData.has_partial_failures
-                                        ? "Export is unavailable while some sections failed to load"
-                                        : "Download your analytics data"
-                                }
+                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                            <Button
+                                variant="outlined"
+                                startIcon={<DownloadIcon />}
+                                onClick={handleExportAnalytics}
+                                disabled={analyticsData.has_partial_failures}
+                                sx={{ textTransform: 'none', borderColor: '#27272a', color: '#e2e8f0', '&:hover': { borderColor: '#40b3a2' } }}
                             >
-                                <span>
-                                    <Button
-                                        startIcon={<DownloadIcon />}
-                                        disabled={Boolean(analyticsData.has_partial_failures)}
-                                        onClick={handleExportAnalytics}
-                                        sx={{
-                                            bgcolor: '#6366f1',
-                                            color: '#fff',
-                                            px: 3,
-                                            py: 1.5,
-                                            fontSize: '0.875rem',
-                                            fontWeight: 500,
-                                            borderRadius: '0.5rem',
-                                            textTransform: 'none',
-                                            '&:hover': { bgcolor: '#5855eb', opacity: 0.9 },
-                                            '&.Mui-disabled': { bgcolor: '#312e81', color: '#a5b4fc' },
-                                        }}
-                                    >
-                                        Export
-                                    </Button>
-                                </span>
-                            </MuiTooltip>
+                                Export JSON
+                            </Button>
+                            <Button
+                                variant="outlined"
+                                startIcon={<RefreshIcon />}
+                                onClick={fetchAnalyticsData}
+                                sx={{ textTransform: 'none', borderColor: '#27272a', color: '#e2e8f0', '&:hover': { borderColor: '#40b3a2' } }}
+                            >
+                                Refresh
+                            </Button>
                         </Box>
                     </Box>
-                </Box>
-
-                {/* Navigation Tabs */}
-                <Box sx={{ borderBottom: '1px solid #27272a', mb: 4 }}>
                     <Tabs
                         value={activeTab}
                         onChange={handleTabChange}
                         variant="scrollable"
                         scrollButtons="auto"
                         sx={{
+                            '& .MuiTabs-indicator': { backgroundColor: '#40b3a2', height: 3, borderRadius: '3px 3px 0 0' },
                             '& .MuiTab-root': {
-                                fontFamily: 'Inter, sans-serif',
                                 textTransform: 'none',
-                                fontWeight: 500,
-                                color: '#94a3b8',
+                                fontWeight: 600,
                                 fontSize: '0.875rem',
+                                color: '#94a3b8',
                                 minHeight: 48,
-                                pb: 3,
-                                '&.Mui-selected': {
-                                    color: '#fff',
-                                    borderBottom: '2px solid #fff',
-                                },
-                                '&:hover': {
-                                    color: '#fff',
-                                }
+                                px: 3,
+                                '&.Mui-selected': { color: '#40b3a2' },
+                                '&:hover': { color: '#e2e8f0', backgroundColor: 'transparent' },
                             },
-                            '& .MuiTabs-indicator': {
-                                display: 'none'
-                            }
                         }}
                     >
-                        <Tab label="Overview" value="overview" />
-                        {visibleTabs
-                            .filter((tab) => tab.key !== 'overview')
-                            .map((tab) => (
-                                <Tab key={tab.key} label={tab.label} value={tab.key} />
-                            ))}
+                        {visibleTabs.map((tab) => (
+                            <Tab key={tab.key} label={tab.label} value={tab.key} />
+                        ))}
                     </Tabs>
                 </Box>
 
                 {activeTab === 'overview' && (
                     <>
-                        <Box>
-                            {/* Overview Cards */}
-                            <Box sx={{
+                        {/* Summary Cards */}
+                        <Box
+                            sx={{
                                 display: 'grid',
-                                gridTemplateColumns: { xs: '1fr', md: 'repeat(auto-fit, minmax(240px, 1fr))' },
+                                gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
                                 gap: 3,
-                                mb: 4
+                                mb: 6,
+                            }}
+                        >
+                            {/* Gaming Card */}
+                            {isVisible('games') && (
+                            <Card sx={{
+                                bgcolor: '#1e1e2e',
+                                border: '1px solid #27272a',
+                                p: 3.5,
+                                borderRadius: '1rem',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                                '&:hover': { transform: 'scale(1.02)', transition: 'transform 0.2s' }
                             }}>
-                                {/* Gaming Card */}
-                                {isVisible('games') && (
-                                <Card sx={{
-                                    bgcolor: '#ff5f40',
-                                    color: '#fff',
-                                    p: 3.5,
-                                    borderRadius: '1rem',
-                                    position: 'relative',
-                                    overflow: 'hidden',
-                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                                    '&:hover': { transform: 'scale(1.02)', transition: 'transform 0.2s' }
-                                }}>
-                                    <SportsEsportsIcon sx={{
-                                        position: 'absolute',
-                                        right: -16,
-                                        bottom: -16,
-                                        fontSize: '6rem',
-                                        opacity: 0.1,
-                                        transform: 'scale(1.1)',
-                                        transition: 'transform 0.2s'
-                                    }} />
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
-                                        <SportsEsportsIcon sx={{ fontSize: '1.25rem' }} />
-                                        <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#fff' }}>
-                                            Gaming
-                                        </Typography>
-                                    </Box>
-                                    <Typography sx={{ fontSize: '2.25rem', fontWeight: 700, mb: 1, color: '#fff' }}>
-                                        {renderUnavailable(analyticsData.comprehensive_stats.totals.total_games_played, '—')}
+                                <SportsEsportsIcon sx={{
+                                    position: 'absolute',
+                                    right: -16,
+                                    bottom: -16,
+                                    fontSize: '6rem',
+                                    opacity: 0.1,
+                                    color: '#ff5f40',
+                                    transform: 'scale(1.1)',
+                                    transition: 'transform 0.2s'
+                                }} />
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+                                    <SportsEsportsIcon sx={{ fontSize: '1.25rem', color: '#ff5f40' }} />
+                                    <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#ff5f40' }}>
+                                        Gaming
                                     </Typography>
-                                    <Typography sx={{ fontSize: '0.875rem', mb: 4, opacity: 0.8, fontWeight: 500, color: '#fff' }}>
-                                        Games Played
+                                </Box>
+                                <Typography sx={{ fontSize: '2.25rem', fontWeight: 700, mb: 1, color: '#fff' }}>
+                                    {renderUnavailable(analyticsData.comprehensive_stats.totals.total_games_played, '—')}
+                                </Typography>
+                                <Typography sx={{ fontSize: '0.875rem', mb: 4, color: '#94a3b8', fontWeight: 500 }}>
+                                    Games Played
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    <Typography sx={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                                        {renderUnavailable(analyticsData.comprehensive_stats.totals.total_achievements_earned, '—')} achievements earned
                                     </Typography>
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                        <Typography sx={{ fontSize: '0.75rem', opacity: 0.7, color: '#fff' }}>
-                                            {renderUnavailable(analyticsData.comprehensive_stats.totals.total_achievements_earned, '—')} achievements
-                                        </Typography>
-                                        <Typography sx={{ fontSize: '0.75rem', opacity: 0.7, color: '#fff' }}>
-                                            {renderUnavailable(analyticsData.comprehensive_stats.totals.total_gaming_time, '—')}
-                                        </Typography>
-                                    </Box>
-                                </Card>
-                                )}
+                                    <Typography sx={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                                        {renderUnavailable(analyticsData.comprehensive_stats.totals.total_gaming_time, '—')} total time
+                                    </Typography>
+                                </Box>
+                            </Card>
+                            )}
 
-                                {/* Music Card */}
-                                {isVisible('music') && (
-                                <Card sx={{
-                                    bgcolor: '#40b3a2',
-                                    color: '#fff',
-                                    p: 3.5,
-                                    borderRadius: '1rem',
-                                    position: 'relative',
-                                    overflow: 'hidden',
-                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                                    '&:hover': { transform: 'scale(1.02)', transition: 'transform 0.2s' }
-                                }}>
-                                    <MusicNoteIcon sx={{
-                                        position: 'absolute',
-                                        right: -16,
-                                        bottom: -16,
-                                        fontSize: '6rem',
-                                        opacity: 0.1,
-                                        transform: 'scale(1.1)',
-                                        transition: 'transform 0.2s'
-                                    }} />
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
-                                        <MusicNoteIcon sx={{ fontSize: '1.25rem' }} />
-                                        <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#fff' }}>
-                                            Music
-                                        </Typography>
-                                    </Box>
-                                    <Typography sx={{ fontSize: '2.25rem', fontWeight: 700, mb: 1, color: '#fff' }}>
-                                        {renderUnavailable(analyticsData.comprehensive_stats.totals.total_songs_listened, '—')}
+                            {/* Music Card - use dark text for 4.5:1 contrast on teal background */}
+                            {isVisible('music') && (
+                            <Card sx={{
+                                bgcolor: '#40b3a2',
+                                p: 3.5,
+                                borderRadius: '1rem',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                                '&:hover': { transform: 'scale(1.02)', transition: 'transform 0.2s' }
+                            }}>
+                                <MusicNoteIcon sx={{
+                                    position: 'absolute',
+                                    right: -16,
+                                    bottom: -16,
+                                    fontSize: '6rem',
+                                    opacity: 0.15,
+                                    color: '#064e3b',
+                                }} />
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+                                    <MusicNoteIcon sx={{ fontSize: '1.25rem', color: '#064e3b' }} />
+                                    <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#064e3b' }}>
+                                        Music
                                     </Typography>
-                                    <Typography sx={{ fontSize: '0.875rem', mb: 4, opacity: 0.8, fontWeight: 500, color: '#fff' }}>
-                                        Songs Listened
+                                </Box>
+                                <Typography sx={{ fontSize: '2.25rem', fontWeight: 700, mb: 1, color: '#064e3b' }}>
+                                    {renderUnavailable(analyticsData.comprehensive_stats.totals.total_songs_listened, '—')}
+                                </Typography>
+                                <Typography sx={{ fontSize: '0.875rem', mb: 4, fontWeight: 500, color: '#064e3b' }}>
+                                    Songs Scrobbled
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    <Typography sx={{ fontSize: '0.75rem', color: '#064e3b' }}>
+                                        {renderUnavailable(analyticsData.comprehensive_stats.totals.total_listening_time, '—')} listening time
                                     </Typography>
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                        <Typography sx={{ fontSize: '0.75rem', opacity: 0.7, color: '#fff' }}>
-                                            {analyticsData.comprehensive_stats.averages?.avg_songs_per_day != null
-                                                ? `${analyticsData.comprehensive_stats.averages.avg_songs_per_day.toFixed(1)} per day`
-                                                : '—'}
-                                        </Typography>
-                                        <Typography sx={{ fontSize: '0.75rem', opacity: 0.7, color: '#fff' }}>
-                                            Last played: {analyticsData.last_played_time || 'Never'}
-                                        </Typography>
-                                    </Box>
-                                </Card>
-                                )}
+                                    <Typography sx={{ fontSize: '0.75rem', color: '#064e3b' }}>
+                                        {analyticsData.comprehensive_stats.averages?.avg_songs_per_day != null
+                                            ? `${analyticsData.comprehensive_stats.averages.avg_songs_per_day.toFixed(1)} per day`
+                                            : '—'}
+                                    </Typography>
+                                </Box>
+                            </Card>
+                            )}
 
-                                {/* Movies & TV Card */}
-                                {isVisible('movies') && (
-                                <Card sx={{
-                                    bgcolor: '#e5e7eb',
-                                    color: '#1f2937',
-                                    p: 3.5,
-                                    borderRadius: '1rem',
-                                    position: 'relative',
-                                    overflow: 'hidden',
-                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                                    '&:hover': { transform: 'scale(1.02)', transition: 'transform 0.2s' }
-                                }}>
-                                    <TvIcon sx={{
-                                        position: 'absolute',
-                                        right: -16,
-                                        bottom: -16,
-                                        fontSize: '6rem',
-                                        opacity: 0.1,
-                                        transform: 'scale(1.1)',
-                                        transition: 'transform 0.2s'
-                                    }} />
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
-                                        <TvIcon sx={{ fontSize: '1.25rem', color: '#4b5563' }} />
-                                        <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#4b5563' }}>
-                                            Movies & TV
-                                        </Typography>
-                                    </Box>
-                                    <Typography sx={{ fontSize: '2.25rem', fontWeight: 700, mb: 1, color: '#1f2937' }}>
-                                        {(() => {
-                                            const movies = analyticsData.comprehensive_stats.totals.total_movies_watched;
-                                            const episodes = analyticsData.comprehensive_stats.totals.total_episodes_watched;
-                                            if (movies === 'unavailable' || episodes === 'unavailable') return '—';
-                                            if (movies != null && episodes != null) return movies + episodes;
-                                            return '—';
-                                        })()}
+                            {/* Movies & TV Card */}
+                            {isVisible('movies') && (
+                            <Card sx={{
+                                bgcolor: '#f1f5f9',
+                                color: '#1e293b',
+                                p: 3.5,
+                                borderRadius: '1rem',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                                '&:hover': { transform: 'scale(1.02)', transition: 'transform 0.2s' }
+                            }}>
+                                <TvIcon sx={{
+                                    position: 'absolute',
+                                    right: -16,
+                                    bottom: -16,
+                                    fontSize: '6rem',
+                                    opacity: 0.1,
+                                    color: '#64748b',
+                                    transform: 'scale(1.1)',
+                                    transition: 'transform 0.2s'
+                                }} />
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+                                    <TvIcon sx={{ fontSize: '1.25rem', color: '#475569' }} />
+                                    <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#475569' }}>
+                                        Movies & TV
                                     </Typography>
-                                    <Typography sx={{ fontSize: '0.875rem', mb: 4, color: '#4b5563', fontWeight: 500 }}>
-                                        Items Watched
+                                </Box>
+                                <Typography sx={{ fontSize: '2.25rem', fontWeight: 700, mb: 1, color: '#1e293b' }}>
+                                    {(() => {
+                                        const movies = analyticsData.comprehensive_stats.totals.total_movies_watched;
+                                        const episodes = analyticsData.comprehensive_stats.totals.total_episodes_watched;
+                                        if (movies === 'unavailable' || episodes === 'unavailable') return '—';
+                                        if (movies != null && episodes != null) return movies + episodes;
+                                        return '—';
+                                    })()}
+                                </Typography>
+                                <Typography sx={{ fontSize: '0.875rem', mb: 4, color: '#475569', fontWeight: 500 }}>
+                                    Items Watched
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    <Typography sx={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                        {renderUnavailable(analyticsData.comprehensive_stats.totals.total_movies_watched, '—')} movies, {renderUnavailable(analyticsData.comprehensive_stats.totals.total_episodes_watched, '—')} episodes
                                     </Typography>
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                        <Typography sx={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                                            {renderUnavailable(analyticsData.comprehensive_stats.totals.total_movies_watched, '—')} movies, {renderUnavailable(analyticsData.comprehensive_stats.totals.total_episodes_watched, '—')} episodes
-                                        </Typography>
-                                        <Typography sx={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                                            {renderUnavailable(analyticsData.comprehensive_stats.totals.total_watch_time, '—')}
-                                        </Typography>
-                                    </Box>
-                                </Card>
-                                )}
+                                    <Typography sx={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                        {renderUnavailable(analyticsData.comprehensive_stats.totals.total_watch_time, '—')}
+                                    </Typography>
+                                </Box>
+                            </Card>
+                            )}
 
-                                {/* Total Engagement Card */}
-                                <Card sx={{
-                                    bgcolor: '#8b5cf6',
-                                    color: '#fff',
-                                    p: 3.5,
-                                    borderRadius: '1rem',
-                                    position: 'relative',
-                                    overflow: 'hidden',
-                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                                    '&:hover': { transform: 'scale(1.02)', transition: 'transform 0.2s' }
-                                }}>
-                                    <BoltIcon sx={{
-                                        position: 'absolute',
-                                        right: -16,
-                                        bottom: -16,
-                                        fontSize: '6rem',
-                                        opacity: 0.1,
-                                        transform: 'scale(1.1)',
-                                        transition: 'transform 0.2s',
-                                        color: '#fbbf24'
-                                    }} />
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
-                                        <BoltIcon sx={{ fontSize: '1.25rem', color: '#fbbf24' }} />
-                                        <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#fff' }}>
-                                            Connected sections
-                                        </Typography>
-                                    </Box>
-                                    <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, mb: 1, lineHeight: 1.25, color: '#fff' }}>
-                                        {renderUnavailable(analyticsData.comprehensive_stats.totals.total_engagement_time, '—')}
+                            {/* Total Engagement Card - use dark text for 4.5:1 contrast on purple background */}
+                            <Card sx={{
+                                bgcolor: '#8b5cf6',
+                                p: 3.5,
+                                borderRadius: '1rem',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                                '&:hover': { transform: 'scale(1.02)', transition: 'transform 0.2s' }
+                            }}>
+                                <BoltIcon sx={{
+                                    position: 'absolute',
+                                    right: -16,
+                                    bottom: -16,
+                                    fontSize: '6rem',
+                                    opacity: 0.1,
+                                    transform: 'scale(1.1)',
+                                    transition: 'transform 0.2s',
+                                    color: '#3c096c',
+                                }} />
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+                                    <BoltIcon sx={{ fontSize: '1.25rem', color: '#fbbf24' }} />
+                                    <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#3c096c' }}>
+                                        Connected sections
                                     </Typography>
-                                    <Typography sx={{ fontSize: '0.875rem', mb: 4, opacity: 0.8, fontWeight: 500, color: '#fff' }}>
-                                        Time across the {visibleCount} sections you show
+                                </Box>
+                                <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, mb: 1, lineHeight: 1.25, color: '#3c096c' }}>
+                                    {renderUnavailable(analyticsData.comprehensive_stats.totals.total_engagement_time, '—')}
+                                </Typography>
+                                <Typography sx={{ fontSize: '0.875rem', mb: 4, fontWeight: 500, color: '#3c096c' }}>
+                                    Time across the {visibleCount} sections you show
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    <Typography sx={{ fontSize: '0.75rem', color: '#3c096c' }}>
+                                        Across {analyticsData.platform_count || 0} platforms
                                     </Typography>
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                        <Typography sx={{ fontSize: '0.75rem', opacity: 0.7, color: '#fff' }}>
-                                            Across {analyticsData.platform_count || 0} platforms
-                                        </Typography>
-                                        {analyticsData.comprehensive_stats.totals.total_engagement_time !== 'unavailable' &&
-                                            analyticsData.monthly_comparison && (
-                                                <Typography sx={{ fontSize: '0.75rem', opacity: 0.7, color: '#fff' }}>
-                                                    {analyticsData.monthly_comparison.change_percentage > 0 ? '+' : ''}{analyticsData.monthly_comparison.change_percentage.toFixed(1)}% vs last month
-                                                </Typography>
-                                            )}
-                                    </Box>
-                                </Card>
-                            </Box>
+                                    <Typography sx={{ fontSize: '0.75rem', color: '#3c096c' }}>
+                                        {analyticsData.has_partial_failures ? 'Partial data (some sources failed)' : 'All sources synced'}
+                                    </Typography>
+                                </Box>
+                            </Card>
+                        </Box>
 
-                            {/* Time Dedicated Trend & Recurring Genres - same APIs as Gaming / Music / Media tabs */}
+                        {/* Charts Row */}
+                        <Box sx={{ mb: 6 }}>
                             {(() => {
-                                const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                                const trend = analyticsData.weekly_trend || [];
-                                const musicScrobbles = analyticsData.music_weekly_scrobbles || [];
-                                const mediaWatch = analyticsData.media_weekly_watch || [];
+                                // Time Dedicated Trend data preparation
+                                const trend = analyticsData.weekly_trend ?? [];
+                                const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+                                const musicScrobbles = analyticsData.music_weekly_scrobbles ?? [];
+                                const mediaWatch = analyticsData.media_weekly_watch ?? [];
                                 const musicByDate: Record<string, number> = {};
-                                musicScrobbles.forEach((d: { date: string; scrobbles: number }) => { musicByDate[d.date] = d.scrobbles; });
                                 const mediaByDate: Record<string, number> = {};
+                                musicScrobbles.forEach((d: { date: string; scrobbles: number }) => { musicByDate[d.date] = d.scrobbles; });
                                 mediaWatch.forEach((d: { date: string; watch_time_hours: number }) => { mediaByDate[d.date] = d.watch_time_hours; });
                                 const MIN_PER_SCROBBLE = 3.5;
                                 const MAX_GAMING_HOURS_PER_DAY = 24;
@@ -733,9 +679,21 @@ const AnalyticsPage: React.FC = () => {
                                 const contentGenres = analyticsData.genre_distribution?.genres ?? [];
                                 const musicGenres = analyticsData.music_genre_distribution?.genres ?? [];
                                 const mediaGenres = analyticsData.media_genre_distribution?.genres ?? [];
-                                const mergedGenres = [...contentGenres, ...musicGenres.map((g: { name: string; percentage: number }) => ({ ...g, type: 'music' })), ...mediaGenres.map((g: { name: string; percentage: number }) => ({ ...g, type: 'tv' }))];
+                                // Filter to only include actual genres (type === 'music') from contentGenres,
+                                // and include music/media genres which are already typed correctly
+                                const filteredContentGenres = contentGenres.filter((g: { type?: string }) => g.type === 'music');
+                                const mergedGenres = [
+                                    ...filteredContentGenres,
+                                    ...musicGenres.map((g: { name: string; percentage: number }) => ({ ...g, type: 'music' })),
+                                    ...mediaGenres.map((g: { name: string; percentage: number }) => ({ ...g, type: 'tv' }))
+                                ];
                                 const totalPct = mergedGenres.reduce((s: number, g: { percentage: number }) => s + (g.percentage || 0), 0);
-                                const overviewGenres = totalPct > 0 ? mergedGenres.map((g: { name: string; percentage: number; type?: string }) => ({ ...g, percentage: Math.round((g.percentage / totalPct) * 1000) / 10 })) : mergedGenres;
+                                const overviewGenres = totalPct > 0
+                                    ? mergedGenres.map((g: { name: string; percentage: number; type?: string }) => ({
+                                        ...g,
+                                        percentage: Math.round((g.percentage / totalPct) * 1000) / 10
+                                    }))
+                                    : mergedGenres;
                                 const getGenreColor = (type: string) => (type === 'gaming' ? '#ff5f40' : type === 'music' ? '#40b3a2' : '#60a5fa');
                                 const showTV = isVisible('movies');
                                 return (
@@ -796,8 +754,12 @@ const AnalyticsPage: React.FC = () => {
                                                         />
                                                         <Legend
                                                             wrapperStyle={{ paddingTop: '20px' }}
-                                                            iconType="circle"
-                                                            formatter={(value) => <span style={{ color: '#e2e8f0', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{value}</span>}
+                                                            iconType="none"
+                                                            formatter={(value) => (
+                                                                <span style={{ color: '#e2e8f0', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                                    {value}
+                                                                </span>
+                                                            )}
                                                         />
                                                         <Bar dataKey="Gaming" stackId="a" fill="#ff5f40" />
                                                         <Bar dataKey="Music" stackId="a" fill="#40b3a2" />
@@ -818,7 +780,7 @@ const AnalyticsPage: React.FC = () => {
                                                 </Typography>
                                                 <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', mb: 6, height: 200 }}>
                                                     {overviewGenres.length > 0 ? (
-                                                        <ResponsiveContainer width="100%" height={200}>
+                                                        <ResponsiveContainer width="100%" height={getOptimalChartHeight(overviewGenres.length)}>
                                                             <PieChart>
                                                                 <Pie
                                                                     data={overviewGenres}
@@ -829,6 +791,19 @@ const AnalyticsPage: React.FC = () => {
                                                                     innerRadius={56}
                                                                     outerRadius={80}
                                                                     paddingAngle={1}
+                                                                    label={({ name, percent }) => (
+                                                                        <text
+                                                                            x={0}
+                                                                            y={0}
+                                                                            fill="#e2e8f0"
+                                                                            fontSize="11"
+                                                                            fontWeight={500}
+                                                                            textAnchor="middle"
+                                                                            dominantBaseline="middle"
+                                                                        >
+                                                                            {name}
+                                                                        </text>
+                                                                    )}
                                                                 >
                                                                     {overviewGenres.map((g: { type?: string }, idx: number) => (
                                                                         <Cell key={idx} fill={getGenreColor(g.type || 'tv')} stroke="#18181b" strokeWidth={2} />
@@ -853,7 +828,7 @@ const AnalyticsPage: React.FC = () => {
                                                             {overviewGenres.length > 0 ? overviewGenres.length : (analyticsData.genre_distribution?.total_tags ?? 0)}
                                                         </Typography>
                                                         <Typography sx={{ fontSize: '0.75rem', color: '#e2e8f0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                            Tags
+                                                            Genres
                                                         </Typography>
                                                     </Box>
                                                 </Box>
@@ -877,115 +852,115 @@ const AnalyticsPage: React.FC = () => {
                                     </Box>
                                 );
                             })()}
+                        </Box>
 
-                            {/* Quick Insights */}
-                            <Box>
-                                <Typography sx={{ fontSize: '1.25rem', fontWeight: 700, color: '#fff', mb: 4 }}>
-                                    Quick Insights
-                                </Typography>
-                                <Box sx={{
-                                    display: 'grid',
-                                    gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-                                    gap: 4
+                        {/* Quick Insights */}
+                        <Box>
+                            <Typography sx={{ fontSize: '1.25rem', fontWeight: 700, color: '#fff', mb: 4 }}>
+                                Quick Insights
+                            </Typography>
+                            <Box sx={{
+                                display: 'grid',
+                                gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+                                gap: 4
+                            }}>
+                                <Card sx={{
+                                    bgcolor: '#18181b',
+                                    border: '1px solid #27272a',
+                                    p: 5,
+                                    borderRadius: '0.75rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 3,
+                                    cursor: 'pointer',
+                                    '&:hover': { borderColor: '#6366f1', transition: 'border-color 0.2s' }
                                 }}>
-                                    <Card sx={{
-                                        bgcolor: '#18181b',
-                                        border: '1px solid #27272a',
-                                        p: 5,
-                                        borderRadius: '0.75rem',
+                                    <Box sx={{
+                                        width: 48,
+                                        height: 48,
+                                        borderRadius: '0.5rem',
+                                        bgcolor: 'rgba(251, 146, 60, 0.3)',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: 3,
-                                        cursor: 'pointer',
-                                        '&:hover': { borderColor: '#6366f1', transition: 'border-color 0.2s' }
+                                        justifyContent: 'center'
                                     }}>
-                                        <Box sx={{
-                                            width: 48,
-                                            height: 48,
-                                            borderRadius: '0.5rem',
-                                            bgcolor: 'rgba(251, 146, 60, 0.3)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center'
-                                        }}>
-                                            <EmojiEventsIcon sx={{ color: '#fb923c', fontSize: '1.5rem' }} />
-                                        </Box>
-                                        <Box>
-                                            <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', mb: 0.5 }}>
-                                                Best Gaming Streak
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: '#fff' }}>
-                                                {analyticsData.gaming_streaks.length > 0
-                                                    ? `${analyticsData.gaming_streaks[0].streak_length} Days Active`
-                                                    : 'No streaks yet'}
-                                            </Typography>
-                                        </Box>
-                                    </Card>
+                                        <EmojiEventsIcon sx={{ color: '#fb923c', fontSize: '1.5rem' }} />
+                                    </Box>
+                                    <Box>
+                                        <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', mb: 0.5 }}>
+                                            Best Gaming Streak
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: '#fff' }}>
+                                            {analyticsData.gaming_streaks.length > 0
+                                                ? `${analyticsData.gaming_streaks[0].streak_length} Days Active`
+                                                : 'No streaks yet'}
+                                        </Typography>
+                                    </Box>
+                                </Card>
 
-                                    <Card sx={{
-                                        bgcolor: '#18181b',
-                                        border: '1px solid #27272a',
-                                        p: 5,
-                                        borderRadius: '0.75rem',
+                                <Card sx={{
+                                    bgcolor: '#18181b',
+                                    border: '1px solid #27272a',
+                                    p: 5,
+                                    borderRadius: '0.75rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 3,
+                                    cursor: 'pointer',
+                                    '&:hover': { borderColor: '#6366f1', transition: 'border-color 0.2s' }
+                                }}>
+                                    <Box sx={{
+                                        width: 48,
+                                        height: 48,
+                                        borderRadius: '0.5rem',
+                                        bgcolor: 'rgba(139, 92, 246, 0.3)',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: 3,
-                                        cursor: 'pointer',
-                                        '&:hover': { borderColor: '#6366f1', transition: 'border-color 0.2s' }
+                                        justifyContent: 'center'
                                     }}>
-                                        <Box sx={{
-                                            width: 48,
-                                            height: 48,
-                                            borderRadius: '0.5rem',
-                                            bgcolor: 'rgba(139, 92, 246, 0.3)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center'
-                                        }}>
-                                            <BoltIcon sx={{ color: '#8b5cf6', fontSize: '1.5rem' }} />
-                                        </Box>
-                                        <Box>
-                                            <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', mb: 0.5 }}>
-                                                Achievement Efficiency
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: '#fff' }}>
-                                                {analyticsData.achievement_efficiency.efficiency_per_hour.toFixed(2)} per hour
-                                            </Typography>
-                                        </Box>
-                                    </Card>
+                                        <BoltIcon sx={{ color: '#8b5cf6', fontSize: '1.5rem' }} />
+                                    </Box>
+                                    <Box>
+                                        <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', mb: 0.5 }}>
+                                            Achievement Efficiency
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: '#fff' }}>
+                                            {analyticsData.achievement_efficiency.efficiency_per_hour.toFixed(2)} per hour
+                                        </Typography>
+                                    </Box>
+                                </Card>
 
-                                    <Card sx={{
-                                        bgcolor: '#18181b',
-                                        border: '1px solid #27272a',
-                                        p: 5,
-                                        borderRadius: '0.75rem',
+                                <Card sx={{
+                                    bgcolor: '#18181b',
+                                    border: '1px solid #27272a',
+                                    p: 5,
+                                    borderRadius: '0.75rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 3,
+                                    cursor: 'pointer',
+                                    '&:hover': { borderColor: '#6366f1', transition: 'border-color 0.2s' }
+                                }}>
+                                    <Box sx={{
+                                        width: 48,
+                                        height: 48,
+                                        borderRadius: '0.5rem',
+                                        bgcolor: 'rgba(236, 72, 153, 0.3)',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: 3,
-                                        cursor: 'pointer',
-                                        '&:hover': { borderColor: '#6366f1', transition: 'border-color 0.2s' }
+                                        justifyContent: 'center'
                                     }}>
-                                        <Box sx={{
-                                            width: 48,
-                                            height: 48,
-                                            borderRadius: '0.5rem',
-                                            bgcolor: 'rgba(236, 72, 153, 0.3)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center'
-                                        }}>
-                                            <TrackChangesIcon sx={{ color: '#ec4899', fontSize: '1.5rem' }} />
-                                        </Box>
-                                        <Box>
-                                            <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', mb: 0.5 }}>
-                                                Most Active Platform
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: '#fff' }}>
-                                                {getMostActivePlatform()}
-                                            </Typography>
-                                        </Box>
-                                    </Card>
-                                </Box>
+                                        <TrackChangesIcon sx={{ color: '#ec4899', fontSize: '1.5rem' }} />
+                                    </Box>
+                                    <Box>
+                                        <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', mb: 0.5 }}>
+                                            Most Active Platform
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: '#fff' }}>
+                                            {getMostActivePlatform()}
+                                        </Typography>
+                                    </Box>
+                                </Card>
                             </Box>
                         </Box>
                     </>
@@ -999,4 +974,4 @@ const AnalyticsPage: React.FC = () => {
     );
 };
 
-export default AnalyticsPage; 
+export default AnalyticsPage;

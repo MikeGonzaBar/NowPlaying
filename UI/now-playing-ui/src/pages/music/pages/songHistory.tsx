@@ -59,6 +59,7 @@ function SongHistory() {
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [initialLoadError, setInitialLoadError] = useState<string | null>(null);
 
   // Request ID guard to prevent stale responses from overwriting newer data
   const requestIdRef = React.useRef(0);
@@ -69,6 +70,7 @@ function SongHistory() {
       if (isInitial) {
         setLoading(true);
         setError(null);
+        setInitialLoadError(null);
       } else {
         setLoadingMore(true);
       }
@@ -101,13 +103,23 @@ function SongHistory() {
         setHasMore(data.has_next);
         setTotalItems(data.total_items);
       } else {
-        setError("Failed to fetch song history. Please try again.");
+        if (isInitial) {
+          setInitialLoadError("Failed to fetch song history. Please try again.");
+          setError(null);
+        } else {
+          setError("Failed to fetch more songs. Please try again.");
+        }
       }
     } catch (error) {
       // Ignore abort/cancellation from superseded requests
       if (thisRequestId !== requestIdRef.current) return;
       console.error("Error fetching song history:", error);
-      setError("Error loading history. Please try again.");
+      if (isInitial) {
+        setInitialLoadError("Error loading history. Please try again.");
+        setError(null);
+      } else {
+        setError("Error loading more songs. Please try again.");
+      }
     } finally {
       if (thisRequestId === requestIdRef.current) {
         setLoading(false);
@@ -197,26 +209,33 @@ function SongHistory() {
     dateFilter === "last7d"
       ? "Last 7 days"
       : dateFilter === "last30d"
-      ? "Last 30 days"
-      : "All time";
+        ? "Last 30 days"
+        : dateFilter === "last90d"
+          ? "Last 90 days"
+          : dateFilter === "last365d"
+            ? "Last 365 days"
+            : "All time";
 
   const sourceSubtitle =
     sourceFilter === "spotify"
       ? "Spotify"
       : sourceFilter === "lastfm"
-      ? "Last.fm"
-      : null;
+        ? "Last.fm"
+        : null;
 
   const headerDescription = `${totalItems.toLocaleString()} scrobbles | ${dateSubtitle}${
     sourceSubtitle ? ` | ${sourceSubtitle}` : ""
   }`;
+
+  // Only show header description after successful initial load
+  const showHeader = page === 1 && !loading && !initialLoadError;
 
   return (
     <MusicPageLayout>
       {/* Header */}
       <PageHeader
         title="Song History"
-        description={headerDescription}
+        description={showHeader ? headerDescription : undefined}
       />
 
       {/* Filters */}
@@ -273,6 +292,22 @@ function SongHistory() {
             >
               Last 30 Days
             </Button>
+            <Button
+              variant="outlined"
+              sx={filterBtnSx(dateFilter === "last90d")}
+              onClick={() => setDateFilter("last90d")}
+              aria-pressed={dateFilter === "last90d"}
+            >
+              Last 90 Days
+            </Button>
+            <Button
+              variant="outlined"
+              sx={filterBtnSx(dateFilter === "last365d")}
+              onClick={() => setDateFilter("last365d")}
+              aria-pressed={dateFilter === "last365d"}
+            >
+              Last 365 Days
+            </Button>
           </Box>
           <TextField
             sx={{
@@ -299,13 +334,26 @@ function SongHistory() {
       </Box>
 
       {/* Songs List */}
-      {error && loading && songs.length === 0 ? (
+      {initialLoadError && songs.length === 0 ? (
         <Box role="alert" sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, py: 10 }}>
-          <Typography sx={{ color: "#fca5a5" }}>{error}</Typography>
+          <Typography sx={{ color: "#fca5a5" }}>{initialLoadError}</Typography>
           <Button
             variant="outlined"
             onClick={() => fetchSongs(1, true)}
             sx={{ textTransform: "none" }}
+          >
+            Retry
+          </Button>
+        </Box>
+      ) : error && loadingMore ? (
+        // Inline error for failed loadMore - keep loaded songs visible
+        <Box role="alert" sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, py: 6 }}>
+          <Typography sx={{ color: "#fca5a5" }}>{error}</Typography>
+          <Button
+            variant="outlined"
+            onClick={loadMore}
+            sx={{ textTransform: "none" }}
+            disabled={loadingMore}
           >
             Retry
           </Button>
@@ -427,11 +475,6 @@ function SongHistory() {
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap",
-                              "&:hover": {
-                                textDecoration: song.artist_lastfm_url
-                                  ? "underline"
-                                  : "none",
-                              },
                             }}
                           >
                             {song.artist}
@@ -515,7 +558,7 @@ function SongHistory() {
           );
         })}
       </Box>
-      )}
+      </Box>
 
       {/* Load More Button */}
       {hasMore && (
@@ -546,6 +589,23 @@ function SongHistory() {
             }}
           >
             {loadingMore ? "Loading..." : "Load more"}
+          </Button>
+        </Box>
+      )}
+
+      {/* Error state after load */}
+      {error && songs.length > 0 && (
+        <Box role="alert" sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, py: 6 }}>
+          <Typography sx={{ color: "#fca5a5" }}>{error}</Typography>
+          <Button
+            variant="outlined"
+            onClick={() => {
+              setError(null);
+              fetchSongs(page, false);
+            }}
+            sx={{ textTransform: "none" }}
+          >
+            Retry
           </Button>
         </Box>
       )}
